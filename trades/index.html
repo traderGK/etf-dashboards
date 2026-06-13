@@ -203,7 +203,7 @@
   .pc-spark{height:28px;display:flex;align-items:flex-end;opacity:.85}.pc-spark svg{display:block}
   .pc-master-badge{position:absolute;bottom:10px;left:12px;font-family:var(--mono);font-size:7px;letter-spacing:1px;padding:2px 6px;border-radius:2px;background:rgba(160,175,175,.08);color:rgba(160,175,175,.45);font-weight:600;text-transform:uppercase;border:1px solid rgba(160,175,175,.15)}
   .pc-theme-badge{position:absolute;bottom:10px;left:12px;font-family:var(--mono);font-size:7px;letter-spacing:1px;padding:2px 6px;border-radius:2px;background:rgba(160,175,175,.08);color:rgba(160,175,175,.45);font-weight:600;text-transform:uppercase;border:1px solid rgba(160,175,175,.15)}
-  .pc-lens{position:absolute;bottom:12px;right:12px;font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;padding:2px 6px;border-radius:2px;text-transform:uppercase;border:1px solid var(--line-bright);color:var(--text-faint)}
+  .pc-lens{margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;padding:2px 6px;border-radius:2px;text-transform:uppercase;border:1px solid var(--line-bright);color:var(--text-faint);flex-shrink:0}
   .pulse-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:11px}
   .ratio-rest-card{display:none}
   #livePulseGrid.show-all-ratios .ratio-rest-card{display:flex}
@@ -1515,9 +1515,8 @@ function buildCard(r,isThemeBig,extraClass){
       <div class="pc-val"><div class="pc-val-h">SMA20</div><div class="pc-val-n">${fmt(r.s20)}</div></div>
       <div class="pc-val"><div class="pc-val-h">vs SMA20</div><div class="pc-val-n" style="color:${col}">${(pct>=0?'+':'')+pct.toFixed(2)}%</div></div>
     </div>
-    <div class="pc-sma-row"><span class="sma-pill ${above20?'above':'below'}">${arr} ${above20?'ABOVE':'BELOW'} SMA20</span><span class="sma50-txt">SMA50: ${fmt(r.s50)} <span style="color:${r.s20>r.s50?'#3fd17e':'#ff5c61'};font-weight:700">${r.s20>r.s50?'▲':'▼'}</span></span></div>
     <div class="pc-spark">${spark(r.vals,bullish)}</div>
-    <div class="pc-lens" style="border-color:${LENS_C[r.lens]};color:${LENS_C[r.lens]}">${r.lens}</div>
+    <div class="pc-sma-row"><span class="sma-pill ${above20?'above':'below'}">${arr} ${above20?'ABOVE':'BELOW'} SMA20</span><span class="sma50-txt">SMA50: ${fmt(r.s50)} <span style="color:${r.s20>r.s50?'#3fd17e':'#ff5c61'};font-weight:700">${r.s20>r.s50?'▲':'▼'}</span></span><span class="pc-lens" style="border-color:${LENS_C[r.lens]};color:${LENS_C[r.lens]}">${r.lens}</span></div>
   </div>`;
 }
 
