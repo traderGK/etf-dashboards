@@ -1499,7 +1499,7 @@ function spark(vals,bull){
 
 function buildCard(r,isThemeBig,extraClass){
   const xc=extraClass?' '+extraClass:'';
-  if(r.error)return `<div class="pulse-card${isThemeBig?' theme-card':''}${xc}"><div class="pc-header"><div class="signal-light dim"></div><div class="pc-pair">${r.key}</div></div><div class="pc-label">${r.label}</div><div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-top:8px">Data unavailable</div></div>`;
+  if(r.error)return `<div class="pulse-card${isThemeBig?' theme-card':''}${xc}"><div class="pc-header"><div class="pc-pair">${r.key}</div></div><div class="pc-label">${r.label}</div><div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-top:8px">Data unavailable</div></div>`;
   const{sig,bullish,above20}=r.cl;
   const col=sig==='strong-bull'?'#3fd17e':sig==='strong-bear'?'#ff5c61':bullish?'#7aaa90':'#9e7070';
   // Fix: invert pct sign for GLD/SPY so displayed % matches the bullish/bearish verdict
@@ -1509,14 +1509,14 @@ function buildCard(r,isThemeBig,extraClass){
   const arr=r.curr>r.prev5?'↗':'↘';
   const tExtra=r.themeDesc?`<div style="font-family:var(--mono);font-size:9.5px;color:${col};margin-top:-4px;line-height:1.5;border-left:2px solid ${col};padding-left:8px">${r.themeDesc}</div>`:'';
   return `<div class="pulse-card ${sig}${isThemeBig?' theme-card':''}${xc}">
-    <div class="pc-header"><div class="signal-light ${slc(sig)}"></div><div class="pc-pair">${r.key}</div><div class="pc-verdict-chip ${sig}">${SIG_LABEL[sig]}</div></div>
+    <div class="pc-header"><div class="pc-pair">${r.key}</div><div class="pc-verdict-chip ${sig}">${SIG_LABEL[sig]}</div></div>
     <div class="pc-label">${r.label}</div>${tExtra}
     <div class="pc-vals">
       <div class="pc-val"><div class="pc-val-h">Ratio</div><div class="pc-val-n" style="color:${col}">${fmt(r.curr)}</div></div>
       <div class="pc-val"><div class="pc-val-h">SMA20</div><div class="pc-val-n">${fmt(r.s20)}</div></div>
       <div class="pc-val"><div class="pc-val-h">vs SMA20</div><div class="pc-val-n" style="color:${col}">${(pct>=0?'+':'')+pct.toFixed(2)}%</div></div>
     </div>
-    <div class="pc-sma-row"><span class="sma-pill ${above20?'above':'below'}">${arr} ${above20?'ABOVE':'BELOW'} SMA20</span><span class="sma50-txt">SMA50: ${fmt(r.s50)} ${r.s20>r.s50?'▲':'▼'}</span></div>
+    <div class="pc-sma-row"><span class="sma-pill ${above20?'above':'below'}">${arr} ${above20?'ABOVE':'BELOW'} SMA20</span><span class="sma50-txt">SMA50: ${fmt(r.s50)} <span style="color:${r.s20>r.s50?'#3fd17e':'#ff5c61'};font-weight:700">${r.s20>r.s50?'▲':'▼'}</span></span></div>
     <div class="pc-spark">${spark(r.vals,bullish)}</div>
     <div class="pc-lens" style="border-color:${LENS_C[r.lens]};color:${LENS_C[r.lens]}">${r.lens}</div>
   </div>`;
