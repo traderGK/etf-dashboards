@@ -804,20 +804,6 @@
       </div>
     </div>
     <div id="livePulseGrid" style="padding-top:12px"><div class="live-spinner-wrap"><div class="spinner"></div>Fetching live ratio data…</div></div>
-
-    <div class="sec-head sec-collapse-hdr" id="bdToggleHdr" onclick="toggleBreakdownSection()" title="Click to expand / collapse" style="margin-top:16px">
-      <div>
-        <div class="num">ALL SIGNALS AT A GLANCE</div>
-        <h3 style="margin:4px 0 2px">Every ratio, ranked</h3>
-        <p style="margin:0">Click to expand the full signal breakdown</p>
-      </div>
-      <span class="sec-arrow">▼</span>
-    </div>
-    <div class="sec-collapsible collapsed" id="bdWrap" style="max-height:0">
-      <div class="breakdown" id="liveBreakdown" style="margin-top:14px">
-        <div class="bd-grid" id="bdGrid"></div>
-      </div>
-    </div>
   </section>
 
   <!-- REGIME -->
@@ -1976,15 +1962,6 @@ function renderBanner(data){
   document.getElementById('rbOpps').innerHTML=oppHtml;
   document.getElementById('rbRisks').innerHTML=riskHtml;
   const b=document.querySelector('.regime-banner');if(b){b.className=`regime-banner ${cls}`;b.style.setProperty('--rb-col',rbCol);}
-  document.getElementById('liveBreakdown').style.display='block';
-  const bdOrder=['strong-bull','bull','bear','strong-bear'];
-  const bdSorted=[...valid].sort((a,b)=>{
-    const td=bdOrder.indexOf(a.cl.sig)-bdOrder.indexOf(b.cl.sig);
-    if(td!==0)return td;
-    const pa=((a.curr-a.s20)/a.s20*100),pb=((b.curr-b.s20)/b.s20*100);
-    return a.cl.bullish?pb-pa:pa-pb; // bull: highest pct first; bear: lowest (most negative) first
-  });
-  document.getElementById('bdGrid').innerHTML=bdSorted.map(r=>{const c=r.cl.bullish?'green':'red';const col=r.cl.bullish?'#3fd17e':'#ff5c61';const pct=((r.curr-r.s20)/r.s20*100);return `<div class="bd-row" data-ratio="${r.key}" data-sig="${r.cl.sig}" style="cursor:pointer" title="Click to understand this signal"><div class="bd-light ${r.theme?'gold':c}"></div><div class="bd-pair" style="color:${col}">${r.key}</div><div class="bd-label">${r.label}</div><div class="bd-pct" style="color:${col}">${(pct>=0?'+':'')+pct.toFixed(2)}%</div></div>`;}).join('');
 }
 
 let loading=false;
@@ -3278,13 +3255,6 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeHolding
 
 // Click delegation for Best Performers cards and ETF universe table rows
 document.addEventListener('click',function(e){
-  // All Signals at a Glance — breakdown rows
-  const bdRow=e.target.closest('.bd-row[data-ratio]');
-  if(bdRow){
-    const labelEl=bdRow.querySelector('.bd-label');
-    openSignalPopup(bdRow.dataset.ratio, labelEl?labelEl.textContent.trim():'', bdRow.dataset.sig||'bull');
-    return;
-  }
   // Section 02 ratio cards
   const rcard=e.target.closest('.rcard[data-ratio]');
   if(rcard){
@@ -3640,7 +3610,6 @@ function toggleCollapse(hdrId, wrapId){
   }
 }
 function toggleThemeSection(){ toggleCollapse('themeToggleHdr','themeSignalsWrap'); }
-function toggleBreakdownSection(){ toggleCollapse('bdToggleHdr','bdWrap'); }
 function toggleSectorsSection(){ toggleCollapse('sectorsToggleHdr','sectorsWrap'); }
 function toggleSetupsSection(){ toggleCollapse('setupsToggleHdr','setupsWrap'); }
 function toggleRatiosSection(){ toggleCollapse('ratiosToggleHdr','ratiosWrap'); }
