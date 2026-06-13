@@ -71,7 +71,7 @@ async function go(path,btn){
   }catch(e){ msg.style.color='#ff5c61'; msg.textContent='Network error — please try again.'; }
   [...document.querySelectorAll('button')].forEach(b=>b.disabled=false);
 }
-document.getElementById('payCard').onclick   =()=>go('/checkout/stripe');
+document.getElementById('payCard').onclick   =()=>go('/checkout/card');
 document.getElementById('payCrypto').onclick =()=>go('/checkout/crypto');
 </script>
 </body>
