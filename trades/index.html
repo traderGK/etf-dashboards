@@ -1803,7 +1803,13 @@ function renderBanner(data){
   });
   if(max===0){max=1;}
 
-  const masters=valid.filter(r=>r.master),mBull=masters.filter(r=>r.cl.bullish).length;
+  // Masters tally is dead-zone aware too (consistent with the score): a master
+  // within ±0.3% of its SMA20 is "on the line" — counted as neither bull nor bear.
+  const _onLine=r=>r.curr!=null&&r.s20&&Math.abs(r.curr-r.s20)/Math.abs(r.s20)<0.003;
+  const masters=valid.filter(r=>r.master);
+  const mNeut=masters.filter(_onLine).length;
+  const mBull=masters.filter(r=>!_onLine(r)&&r.cl.bullish).length;
+  const mBear=masters.length-mBull-mNeut;
   const pctBar=(score+max)/(2*max)*100;
   const scorePct=Math.round(score/max*100);
   window._regimePct=scorePct;
@@ -1829,7 +1835,7 @@ function renderBanner(data){
     advice=`<b>Go long cyclicals + quality growth:</b> XLK, SMH, IWM, XLY${smhBull?' + AIQ, QTUM, BOTZ':''}.${itaBull?' ITA/defense green.':''}${arkkBull?' Speculative sleeve open.':''} <b>${mBull}/4 masters bullish.</b>${carryWarn?' <span style="color:var(--amber)">⚠ Watch EWJ/SPY — yen carry risk remains.</span>':''}`;
   } else if(scorePct<=-30){
     call='RISK-OFF ▼';cls='bear';rbCol='#ff5c61';
-    advice=`<b>Defensives only:</b> XLP, XLU, XLV, TLT, GLD, cash. <b>Cut ALL themes immediately.</b>${itaBull?' Exception: ITA defense may hold on geopolitical bid.':''} <b>${4-mBull}/4 masters bearish.</b>${carryWarn?' <span style="color:var(--red)">🔴 EWJ/SPY bear — yen carry unwind risk is high. Reduce ALL beta now.</span>':''}`;
+    advice=`<b>Defensives only:</b> XLP, XLU, XLV, TLT, GLD, cash. <b>Cut ALL themes immediately.</b>${itaBull?' Exception: ITA defense may hold on geopolitical bid.':''} <b>${mBear}/4 masters bearish.</b>${carryWarn?' <span style="color:var(--red)">🔴 EWJ/SPY bear — yen carry unwind risk is high. Reduce ALL beta now.</span>':''}`;
   } else {
     call='MIXED — WATCH';cls='mix';rbCol='#f5a623';
     // Build nuanced mixed advice based on what's actually working
@@ -1962,7 +1968,7 @@ function renderBanner(data){
   document.getElementById('bigLight').className=`rl-light ${lc}`;
   document.getElementById('bigCall').textContent=call.replace(' ▲','').replace(' ▼','');
   document.getElementById('bigCall').style.color=rbCol;
-  document.getElementById('bigScore').innerHTML=`<span style="color:var(--text)">${mBull}/4</span> masters · <span style="color:var(--text)">${bullN}/${valid.length}</span> bullish${neutralN?` · <span style="color:var(--text-faint)" title="within ±0.3% of SMA20 — no conviction, abstains from the score">${neutralN} on the line</span>`:''}`;
+  document.getElementById('bigScore').innerHTML=`<span style="color:var(--text)">${mBull}/4</span> masters bullish${mNeut?` <span style="color:var(--text-faint)">(${mNeut} on the line)</span>`:''} · <span style="color:var(--text)">${bullN}/${valid.length-neutralN}</span> bullish${neutralN?` · <span style="color:var(--text-faint)" title="within ±0.3% of SMA20 — no conviction, abstains from the score">${neutralN} on the line</span>`:''}`;
   document.getElementById('rbScoreBig').innerHTML=`${ss}<span class="rb-score-denom">/${maxR}</span>`;
   document.getElementById('rbScoreBig').style.color=rbCol;
   document.getElementById('rbMeterFill').style.cssText=`width:${pctBar.toFixed(1)}%;background:${rbCol}`;
