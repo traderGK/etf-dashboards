@@ -1353,7 +1353,7 @@ const THEME_R=[
 ];
 const ALL_R=[...CORE_R,...THEME_R];
 const LENS_C={equity:'var(--amber)',credit:'var(--green)',macro:'var(--cyan)',breadth:'var(--violet)'};
-const SIG_LABEL={'strong-bull':'▲▲ STRONG BULL','bull':'▲ BULLISH','bear':'▼ BEARISH','strong-bear':'▼▼ STRONG BEAR'};
+const SIG_LABEL={'strong-bull':'▲▲','bull':'▲','bear':'▼','strong-bear':'▼▼'};
 
 async function ftch(url,ms=12000){const c=new AbortController();const id=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal,cache:'no-store'});clearTimeout(id);return r;}catch(e){clearTimeout(id);throw e;}}
 async function yfetch(ticker){
