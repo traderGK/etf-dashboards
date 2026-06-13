@@ -469,6 +469,7 @@ stock_tks = sorted(set(stock_parent) - set(ETF_TICKERS) - set(LEVERAGED_TICKERS)
 print(f"\nSetups scan: {len(stock_tks)} stocks across {len(set(stock_parent.values()))} parent ETFs")
 
 setups_out = {"internals": {}, "list": [], "scanned": 0}
+kv_prev_ok = False   # True only once the previous book is read from KV without error
 try:
     raw3 = yf.download(stock_tks + ETF_TICKERS, period="3mo", interval="1d",
                        auto_adjust=True, progress=False, threads=True)
@@ -740,6 +741,7 @@ try:
             _u = f"https://api.cloudflare.com/client/v4/accounts/{_ka}/storage/kv/namespaces/{_kn}/values/latest"
             _r = _ureq.Request(_u, headers={"Authorization": f"Bearer {_kt}", "User-Agent": "Mozilla/5.0"})
             prev_hist = (json.load(_ureq.urlopen(_r, timeout=20)).get("hist")) or []
+            kv_prev_ok = True   # read succeeded — safe to write the carried-forward book back
             print(f"   Prev setups from KV: {len(prev_hist)} hist rows")
         except Exception as e:
             print(f"prev setups from KV failed (non-fatal): {e}", file=sys.stderr)
@@ -1100,7 +1102,16 @@ with open("data.json", "w") as f:
 _kv_token = os.environ.get("CF_KV_TOKEN")
 _kv_acc   = os.environ.get("CF_ACCOUNT_ID")
 _kv_ns    = os.environ.get("CF_KV_NS")
-if _kv_token and _kv_acc and _kv_ns:
+if not (_kv_token and _kv_acc and _kv_ns):
+    print("   Setups → Cloudflare KV: skipped (CF_* env not set — local run)")
+elif not (kv_prev_ok and "hist" in setups_out):
+    # SAFETY GUARD: never overwrite the live book unless we (a) read the previous
+    # book from KV without error AND (b) produced a full scan this run. Otherwise a
+    # transient KV-read failure or a crashed scan would push an empty/partial book
+    # and wipe every carried open position. Skip → KV keeps the last good book.
+    print(f"   Setups → Cloudflare KV: SKIPPED to protect the book "
+          f"(kv_prev_ok={kv_prev_ok}, full_scan={'hist' in setups_out})", file=sys.stderr)
+else:
     try:
         import urllib.request
         body = json.dumps(setups_out, separators=(",", ":")).encode()
@@ -1111,8 +1122,6 @@ if _kv_token and _kv_acc and _kv_ns:
             print(f"   Setups → Cloudflare KV: pushed ({len(body)} bytes, HTTP {r.status})")
     except Exception as e:
         print(f"KV push failed (non-fatal): {e}", file=sys.stderr)
-else:
-    print("   Setups → Cloudflare KV: skipped (CF_* env not set — local run)")
 
 ok = sum(1 for r in results if not r.get("error"))
 live_h = sum(1 for v in etf_holdings_map.values() if v and v[0].get('w',0) > 0)
