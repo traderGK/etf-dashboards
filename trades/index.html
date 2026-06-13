@@ -762,7 +762,6 @@
       <div class="regime-banner mix" style="--rb-col:var(--gold)">
         <!-- Col 1: Signal light + score -->
         <div class="rb-sig-col">
-          <div class="rl-light dim" id="bigLight"></div>
           <div class="rb-verdict" id="bigCall" style="color:var(--text-faint)">Loading…</div>
           <div>
             <div class="rb-score-big" id="rbScoreBig" style="color:var(--gold)">—</div>
@@ -1951,7 +1950,6 @@ function renderBanner(data){
   if(oppHdrEl) oppHdrEl.textContent=oppColHdr;
 
   // ── Update DOM ────────────────────────────────────────────────────────────
-  document.getElementById('bigLight').className=`rl-light ${lc}`;
   document.getElementById('bigCall').textContent=call.replace(' ▲','').replace(' ▼','');
   document.getElementById('bigCall').style.color=rbCol;
   document.getElementById('bigScore').innerHTML=`<span style="color:var(--text)">${mBull}/4</span> masters bullish${mNeut?` <span style="color:var(--text-faint)">(${mNeut} on the line)</span>`:''} · <span style="color:var(--text)">${bullN}/${valid.length-neutralN}</span> bullish${neutralN?` · <span style="color:var(--text-faint)" title="within ±0.3% of SMA20 — no conviction, abstains from the score">${neutralN} on the line</span>`:''}`;
