@@ -719,6 +719,7 @@
     <button class="tab" data-go="regime">Regimes</button>
     <button class="tab" data-go="playbook">Playbook</button>
     <button class="tab" data-go="caveats">Caveats</button>
+    <button class="tab" data-go="help">❔ Help</button>
   </div>
 </nav>
 
@@ -1278,6 +1279,7 @@ tabs.forEach(t=>t.addEventListener('click',()=>{
   const id=t.dataset.go;
   // Cross-page navigation: Trades has its own URL (tradergk.com/trades).
   if(id==='trades' && !window.TRADES_ONLY){ location.href='/trades'; return; }
+  if(id==='help'){ location.href='/help'; return; }
   if(window.TRADES_ONLY && id!=='trades'){ location.href='/#'+id; return; } // jump back to a dashboard section
   // Auto-expand if section has a collapsible wrap
   const wrapId=TAB_EXPAND[id];
