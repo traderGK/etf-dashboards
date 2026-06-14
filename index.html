@@ -788,7 +788,7 @@
 
     <div id="staleBanner" style="display:none;align-items:center;gap:10px;padding:10px 14px;margin-bottom:14px;background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--amber);flex-wrap:wrap">
       <span style="font-size:13px;flex-shrink:0">⚠</span>
-      <span style="flex:1;min-width:160px">Showing pre-cached data · <span class="stale-age"></span> · <span class="stale-hint" style="color:var(--text-faint)">server refresh runs every 30 min</span></span>
+      <span style="flex:1;min-width:160px">Showing pre-cached data · <span class="stale-age"></span> · <span class="stale-hint" style="color:var(--text-faint)">backend should refresh within 30 min</span></span>
       <button onclick="loadLiveData()" style="flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:5px 12px;border:1px solid rgba(245,166,35,.4);background:transparent;color:var(--amber);border-radius:3px;cursor:pointer;white-space:nowrap">↺ Refresh</button>
     </div>
 
@@ -1451,7 +1451,7 @@ function loadCache(){
 }
 function showStaleBanner(ageMin){
   const ago=ageMin<60?`${ageMin} min ago`:ageMin<120?`${Math.round(ageMin/60)}h ago`:`${(ageMin/60).toFixed(1)}h ago`;
-  const hint=ageMin>90?'server may have missed a cycle':'server refresh runs every 30 min';
+  const hint=ageMin>30?'⚠ backend stalled — server scanner (also feeds setups + Telegram) may be down':'backend refresh is a little behind';
   const b=document.getElementById('staleBanner');
   if(!b)return;
   b.style.display='flex';
@@ -2474,12 +2474,16 @@ async function loadLiveData(){
                → localStorage cache (user's own previous fetch)
                → built-in seedData snapshot (hardcoded fallback)              */
   let shownFromServer=false;
+  let djAgeMin=null;                          // backend data.json age — re-checked in STEP 2
   const dj=await loadDataJson();
   if(dj&&dj.data.length>=10){
     renderAll(dj.data);
     saveCache(dj.data);                       // save into localStorage too
-    const ageMin=Math.round((Date.now()-dj.ts)/60000);
-    if(ageMin>60){showStaleBanner(ageMin);}else{hideStaleBanner();}
+    djAgeMin=Math.round((Date.now()-dj.ts)/60000);
+    // The backend refreshes well within 30 min. Older than that means the server
+    // scanner likely stalled — and that SAME scanner feeds setups + Telegram —
+    // so surface it loudly rather than show a falsely-healthy dashboard.
+    if(djAgeMin>30){showStaleBanner(djAgeMin);}else{hideStaleBanner();}
     dot.className='live-dot on';
     stxt.textContent='updated · '+new Date(dj.ts).toLocaleTimeString();
     shownFromServer=true;
@@ -2526,7 +2530,10 @@ async function loadLiveData(){
 
     renderAll(aD);
     saveCache(aD);
-    hideStaleBanner();
+    // Ratios are now live (recomputed from current prices). But if the BACKEND
+    // data.json is still >30 min stale, the server pipeline (setups + Telegram)
+    // may be down — keep the warning up even though the on-screen ratios are live.
+    if(djAgeMin!=null && djAgeMin>30){showStaleBanner(djAgeMin);}else{hideStaleBanner();}
     dot.className='live-dot on';stxt.textContent='live · '+new Date().toLocaleTimeString();
   }catch(e){
     console.warn('Live proxy fetch failed:',e.message);
