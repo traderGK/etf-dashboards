@@ -825,6 +825,39 @@
     <div class="live-note">Data via Yahoo Finance (~15 min delay) · SMA20 = trend · SMA50 = regime · Copper proxy = CPER · GLD/SPY inverted · Theme signals: SMH/SPY (tech themes), ITA/SPY (defense), ARKK/SPY (speculative) · Theme ETFs are high-beta — last to add, first to cut · Not investment advice.</div>
   </section>
 
+  <!-- SECTORS -->
+  <section id="sectors">
+    <div class="sec-head sec-collapse-hdr" id="sectorsToggleHdr" onclick="toggleSectorsSection()" title="Click to expand / collapse">
+      <div>
+        <div class="num">SECTION 04 / SECTOR · ASSET-CLASS · THEME ETFs</div>
+        <h3>The most liquid fund per industry &amp; theme</h3>
+        <p>US sectors, global ETFs, macro asset classes — plus trending thematic industries (defense, space, quantum, AI, nuclear and more) that cut across GICS sectors.</p>
+      </div>
+      <span class="sec-arrow">▼</span>
+    </div>
+    <div class="sec-collapsible collapsed" id="sectorsWrap" style="max-height:0">
+    <div class="legend">
+      <span><i class="dot" style="background:var(--amber)"></i> US sector</span>
+      <span><i class="dot" style="background:var(--cyan)"></i> Global sector</span>
+      <span><i class="dot" style="background:var(--violet)"></i> Macro / asset class</span>
+      <span><i class="dot" style="background:var(--gold)"></i> Trending theme</span>
+    </div>
+    <div class="filters" id="sectorFilters">
+      <button class="chip active" data-f="all">All</button>
+      <button class="chip" data-f="us">US Sectors</button>
+      <button class="chip" data-f="global">Global Sectors</button>
+      <button class="chip" data-f="macro">Macro / Asset</button>
+      <button class="chip" data-f="theme">Trending Themes</button>
+      <input class="search" id="sectorSearch" placeholder="search ticker / name…">
+    </div>
+    <div class="table-scroll">
+      <table><thead><tr><th>Ticker</th><th>Fund</th><th>Category</th><th>Tracks</th><th>Approx AUM</th><th>Why it's the one</th></tr></thead>
+      <tbody id="sectorBody"></tbody></table>
+    </div>
+    <p style="margin-top:11px;font-size:11px;color:var(--text-faint);font-family:var(--mono)">AUM approximate (early–mid 2026). Trending themes are <b style="color:var(--text-dim)">not GICS sectors</b> — higher-beta, rotate faster. Verify before sizing.</p>
+    </div><!-- /sectorsWrap -->
+  </section>
+
   <!-- REGIME -->
   <section id="regime">
     <div class="sec-head"><div><div class="num">SECTION 01 / REGIME ARCHETYPES</div><h3>Read them together</h3><p>Score each lens +1/−1 by its 50-day MA slope. Net the score across lenses.</p></div></div>
@@ -876,39 +909,6 @@
       <div class="cav"><h5>Narrative can persist beyond fundamentals</h5><p>Quantum/space/nuclear ETFs can stay elevated on narrative alone. The ratio signal is your reality check — if it's rolling over, the narrative is fading.</p></div>
       <div class="cav"><h5>Not investment advice</h5><p>Educational framework only. All signals are lagging, based on closing prices, and should be layered on top of your own risk management and position sizing rules.</p></div>
     </div>
-  </section>
-
-  <!-- SECTORS -->
-  <section id="sectors">
-    <div class="sec-head sec-collapse-hdr" id="sectorsToggleHdr" onclick="toggleSectorsSection()" title="Click to expand / collapse">
-      <div>
-        <div class="num">SECTION 04 / SECTOR · ASSET-CLASS · THEME ETFs</div>
-        <h3>The most liquid fund per industry &amp; theme</h3>
-        <p>US sectors, global ETFs, macro asset classes — plus trending thematic industries (defense, space, quantum, AI, nuclear and more) that cut across GICS sectors.</p>
-      </div>
-      <span class="sec-arrow">▼</span>
-    </div>
-    <div class="sec-collapsible collapsed" id="sectorsWrap" style="max-height:0">
-    <div class="legend">
-      <span><i class="dot" style="background:var(--amber)"></i> US sector</span>
-      <span><i class="dot" style="background:var(--cyan)"></i> Global sector</span>
-      <span><i class="dot" style="background:var(--violet)"></i> Macro / asset class</span>
-      <span><i class="dot" style="background:var(--gold)"></i> Trending theme</span>
-    </div>
-    <div class="filters" id="sectorFilters">
-      <button class="chip active" data-f="all">All</button>
-      <button class="chip" data-f="us">US Sectors</button>
-      <button class="chip" data-f="global">Global Sectors</button>
-      <button class="chip" data-f="macro">Macro / Asset</button>
-      <button class="chip" data-f="theme">Trending Themes</button>
-      <input class="search" id="sectorSearch" placeholder="search ticker / name…">
-    </div>
-    <div class="table-scroll">
-      <table><thead><tr><th>Ticker</th><th>Fund</th><th>Category</th><th>Tracks</th><th>Approx AUM</th><th>Why it's the one</th></tr></thead>
-      <tbody id="sectorBody"></tbody></table>
-    </div>
-    <p style="margin-top:11px;font-size:11px;color:var(--text-faint);font-family:var(--mono)">AUM approximate (early–mid 2026). Trending themes are <b style="color:var(--text-dim)">not GICS sectors</b> — higher-beta, rotate faster. Verify before sizing.</p>
-    </div><!-- /sectorsWrap -->
   </section>
 
   <!-- RATIOS -->
