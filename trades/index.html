@@ -557,6 +557,25 @@
   .info-pop b{color:var(--text);font-weight:600}
   @keyframes infoIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 
+  /* theme triggers — live "is it happening now?" strip */
+  .tg-lead{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--text-faint);
+    text-transform:uppercase;margin:16px 0 9px}
+  .tg-lead b{color:var(--text-dim)}
+  .theme-triggers{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px}
+  .tg-row{background:var(--bg-card);border:1px solid var(--line);border-left:3px solid var(--line-bright);
+    border-radius:9px;padding:12px 14px}
+  .tg-row.is-active{border-left-color:var(--red);background:rgba(255,92,97,.06)}
+  .tg-row.is-info{border-left-color:var(--gold)}
+  .tg-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+  .tg-cond{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text)}
+  .tg-act{font-size:12px;color:var(--text-dim);line-height:1.45}
+  .tg-badge{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.5px;padding:3px 8px;
+    border-radius:20px;white-space:nowrap;flex-shrink:0}
+  .tg-badge.on{color:var(--red);background:rgba(255,92,97,.16)}
+  .tg-badge.off{color:var(--green);background:rgba(63,209,126,.12)}
+  .tg-badge.info{color:var(--gold);background:rgba(232,193,74,.12)}
+  .tg-badge.na{color:var(--text-faint);background:var(--bg-elev)}
+
   /* theme-toggle-hdr replaced by sec-collapse-hdr */
 
   /* ---- SIGNAL EXPLAIN POPUP ---- */
@@ -812,9 +831,10 @@
       <div>
         <div class="num">ALL RATIO CARDS · <span id="ratioCardsCount"></span></div>
         <h3 style="margin:4px 0 2px">Live signal cards — all ratios</h3>
-        <p style="margin:0">Top 8 bull + top 8 bear shown · click button below to see all</p>
       </div>
     </div>
+    <div class="tg-lead">Theme triggers — <b>is it happening right now?</b></div>
+    <div class="theme-triggers" id="themeTriggers"></div>
     <div id="livePulseGrid" style="padding-top:12px"><div class="live-spinner-wrap"><div class="spinner"></div>Fetching live ratio data…</div></div>
   </section>
 
@@ -1775,6 +1795,37 @@ async function loadBestPerformers(){
   if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
 }
 
+function renderThemeTriggers(data){
+  const el=document.getElementById('themeTriggers'); if(!el) return;
+  const get=(key,theme)=>data.find(r=>r.key===key&&(theme===undefined||r.theme===theme));
+  const masters=data.filter(r=>r.master&&!r.error);
+  const mBull=masters.filter(r=>r.cl&&r.cl.bullish).length;
+  const riskOff=mBull<2;
+  const below=(r,f)=>!!(r&&r.curr!=null&&r[f]!=null&&r.curr<r[f]);
+  const above=(r,f)=>!!(r&&r.curr!=null&&r[f]!=null&&r.curr>r[f]);
+  const smh=get('SMH/SPY',true),arkk=get('ARKK/SPY',true),hyg=get('HYG/LQD'),ita=get('ITA/SPY',true);
+  const rows=[
+    {cond:'SMH/SPY below SMA50', act:'Cut AI/quantum/robotics themes. Semis lead tech — if the canary dies, themes follow.',
+     have:!!smh, active:below(smh,'s50')},
+    {cond:'ARKK/SPY rolling over SMA20', act:'Exit speculative themes first (space, genomics, crypto equity).',
+     have:!!arkk, active:below(arkk,'s20')},
+    {cond:'HYG/LQD breaks SMA50 down', act:'Risk-off — exit ALL themes. Credit leading equity lower is the clearest warning.',
+     have:!!hyg, active:below(hyg,'s50')},
+    {cond:'ITA/SPY rising in risk-off', act:'Defense can be a diversifier. Hold ITA/XAR/SHLD as a separate geopolitical sleeve.',
+     have:!!ita, active:above(ita,'s20')&&riskOff},
+    {cond:'Cadence', act:'Review theme signals daily. Regime re-score weekly. Higher volatility on themes — check stops intraday around catalysts.',
+     info:true},
+  ];
+  el.innerHTML=rows.map(r=>{
+    let badge,cls='';
+    if(r.info){ badge='<span class="tg-badge info">ONGOING</span>'; cls=' is-info'; }
+    else if(!r.have){ badge='<span class="tg-badge na">no data</span>'; }
+    else if(r.active){ badge='<span class="tg-badge on">⚠ ACTIVE NOW</span>'; cls=' is-active'; }
+    else { badge='<span class="tg-badge off">✓ not triggered</span>'; }
+    return `<div class="tg-row${cls}"><div class="tg-top"><span class="tg-cond">${r.cond}</span>${badge}</div><div class="tg-act">${r.act}</div></div>`;
+  }).join('');
+}
+
 function renderBanner(data){
   const valid=data.filter(r=>!r.error);
   if(!valid.length){document.getElementById('liveRegimeBanner').innerHTML='<div class="live-error-msg">Could not load live data.</div>';return;}
@@ -1976,6 +2027,7 @@ function renderAll(aD){
   const cD=aD.filter(r=>CORE_R.some(x=>x.key===r.key&&!r.theme));
   const tD=aD.filter(r=>r.theme);
   renderBanner(aD);
+  renderThemeTriggers(aD);
   document.getElementById('liveMasters').innerHTML=cD.filter(r=>r.master).map(r=>buildCard(r,false)).join('');
   const tOrder=['strong-bull','bull','bear','strong-bear'];
   const tSorted=[...tD].sort((a,b)=>{
