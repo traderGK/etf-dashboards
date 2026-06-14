@@ -92,6 +92,25 @@
   footer{padding:30px 0 0;color:var(--text-faint);font-family:var(--mono);font-size:11px;
     letter-spacing:.5px;text-align:center;line-height:1.7}
 
+  /* contact form */
+  .form{display:flex;flex-direction:column;gap:15px;max-width:560px;margin-top:10px;position:relative}
+  .form label{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--text-faint);
+    text-transform:uppercase;margin-bottom:6px;display:block}
+  .form input,.form textarea{width:100%;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:9px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:15px;transition:.15s}
+  .form input:focus,.form textarea:focus{outline:none;border-color:var(--gold)}
+  .form input::placeholder,.form textarea::placeholder{color:var(--text-faint)}
+  .form textarea{resize:vertical;min-height:130px;line-height:1.55}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .send{align-self:flex-start;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--bg);background:var(--gold);border:none;padding:13px 30px;
+    border-radius:9px;cursor:pointer;transition:.18s}
+  .send:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .send:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .form-status{font-family:var(--mono);font-size:13px;min-height:18px;line-height:1.5}
+  .form-status.ok{color:var(--green)} .form-status.err{color:var(--red)}
+  .contact-note{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);margin-top:2px}
+
   @media(max-width:600px){
     h1.title{font-size:33px}.lede{font-size:16px}h2{font-size:24px}
     .stat .big{font-size:34px}
@@ -250,10 +269,66 @@
     </ul>
   </section>
 
+  <section class="blk" id="contact">
+    <div class="num">09 · Get in touch</div>
+    <h2>Questions? Leave a message</h2>
+    <p>Want access, have a question about the desk, or just want to talk markets? Drop a note below —
+      it comes straight to me.</p>
+    <form class="form" id="contactForm" autocomplete="off" novalidate>
+      <div>
+        <label for="cf-name">Your name</label>
+        <input id="cf-name" type="text" maxlength="100" placeholder="Name" required>
+      </div>
+      <div>
+        <label for="cf-email">Email <span style="text-transform:none;color:var(--text-faint)">(optional — so I can reply)</span></label>
+        <input id="cf-email" type="email" maxlength="150" placeholder="you@example.com">
+      </div>
+      <div>
+        <label for="cf-msg">Message</label>
+        <textarea id="cf-msg" maxlength="4000" placeholder="Your message…" required></textarea>
+      </div>
+      <!-- honeypot: hidden from humans, bots fill it → message is silently dropped -->
+      <div class="hp" aria-hidden="true">
+        <label>Company<input type="text" name="company" tabindex="-1" autocomplete="off"></label>
+        <input type="text" name="website2" tabindex="-1" autocomplete="off">
+      </div>
+      <button class="send" type="submit" id="cf-send">Send message</button>
+      <div class="form-status" id="cf-status" role="status" aria-live="polite"></div>
+      <div class="contact-note">🔒 Protected against spam &amp; abuse · sent securely · nothing is stored on this page.</div>
+    </form>
+  </section>
+
   <div class="cta">
     <div class="pitch">See the regime. See the themes. Get the focus list.</div>
     <a href="/">Open the desk →</a>
   </div>
+  <script>
+  (function(){
+    var f=document.getElementById('contactForm'); if(!f) return;
+    var btn=document.getElementById('cf-send'), st=document.getElementById('cf-status');
+    var nameEl=document.getElementById('cf-name'), emailEl=document.getElementById('cf-email'),
+        msgEl=document.getElementById('cf-msg'),
+        hp1=f.querySelector('[name=company]'), hp2=f.querySelector('[name=website2]');
+    f.addEventListener('submit', async function(e){
+      e.preventDefault();
+      st.className='form-status'; st.textContent='';
+      var name=nameEl.value.trim(), email=emailEl.value.trim(), message=msgEl.value.trim();
+      if(!name || message.length<5){ st.className='form-status err'; st.textContent='Please enter your name and a short message.'; return; }
+      if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ st.className='form-status err'; st.textContent='That email looks invalid.'; return; }
+      btn.disabled=true; var old=btn.textContent; btn.textContent='Sending…';
+      try{
+        var r=await fetch('https://api.tradergk.com/contact',{
+          method:'POST', headers:{'content-type':'application/json'},
+          body: JSON.stringify({name:name, email:email, message:message, company:hp1.value, website2:hp2.value})
+        });
+        var j={}; try{ j=await r.json(); }catch(_){}
+        if(r.ok && j.ok){ st.className='form-status ok'; st.textContent='✓ Message sent — thank you. I’ll get back to you soon.'; f.reset(); }
+        else { st.className='form-status err'; st.textContent=(j && j.error) || 'Something went wrong — please try again.'; }
+      }catch(_){ st.className='form-status err'; st.textContent='Network error — please try again.'; }
+      btn.disabled=false; btn.textContent=old;
+    });
+  })();
+  </script>
 
   <footer>
     TraderGK · Intermarket + Thematic Intelligence<br>
