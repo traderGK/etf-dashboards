@@ -543,6 +543,20 @@
   .sec-head.sec-collapse-hdr:hover h3{color:var(--gold)}
   .sec-head.sec-collapse-hdr .sec-arrow{margin-top:6px;font-size:14px}
   /* Theme signal toggle header */
+  /* info "i" button + popover — declutters dense section descriptions */
+  .info{position:relative;display:inline-flex;vertical-align:middle;margin-left:9px}
+  .info-btn{width:19px;height:19px;border-radius:50%;border:1px solid var(--line-bright);background:transparent;
+    color:var(--text-faint);font-family:var(--serif);font-style:italic;font-size:12px;line-height:1;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;padding:0;transition:.15s;flex-shrink:0}
+  .info-btn:hover,.info.open .info-btn{border-color:var(--gold);color:var(--gold);background:rgba(232,193,74,.1)}
+  .info-pop{position:absolute;top:27px;left:0;z-index:60;width:330px;max-width:78vw;background:var(--bg-elev);
+    border:1px solid var(--line-bright);border-radius:10px;padding:13px 15px;font-family:var(--sans);font-size:12.5px;
+    font-weight:400;line-height:1.6;color:var(--text-dim);letter-spacing:0;text-transform:none;
+    box-shadow:0 12px 34px rgba(0,0,0,.45);display:none;white-space:normal}
+  .info.open .info-pop{display:block;animation:infoIn .15s ease}
+  .info-pop b{color:var(--text);font-weight:600}
+  @keyframes infoIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+
   /* theme-toggle-hdr replaced by sec-collapse-hdr */
 
   /* ---- SIGNAL EXPLAIN POPUP ---- */
@@ -746,8 +760,7 @@
     <div class="sec-head">
       <div>
         <div class="num">SECTION 00 / LIVE SIGNAL ENGINE</div>
-        <h3>Green light / Red light — now</h3>
-        <p>15 intermarket ratios + 9 theme signals vs. SMA20 &amp; SMA50. <b>Weighted scoring</b> — masters ×3, yen carry ×2.5, credit/breadth ×2, directional ×1.5, rotational ×1, phase signals ×0.5. Strong signals count double. Theme row shows which categories have a green light right now.</p>
+        <h3>Green light / Red light — now <span class="info"><button class="info-btn" aria-label="How this is scored" onclick="toggleInfo(event,this)">i</button><span class="info-pop">15 intermarket ratios + 9 theme signals vs. SMA20 &amp; SMA50. <b>Weighted scoring</b> — masters ×3, yen carry ×2.5, credit/breadth ×2, directional ×1.5, rotational ×1, phase signals ×0.5. Strong signals count double. Theme row shows which categories have a green light right now.</span></span></h3>
       </div>
       <button class="refresh-btn" id="refreshBtn" onclick="loadLiveData()"><span class="spinner-sm"></span>↺ Refresh</button>
     </div>
@@ -830,8 +843,7 @@
     <div class="sec-head sec-collapse-hdr" id="sectorsToggleHdr" onclick="toggleSectorsSection()" title="Click to expand / collapse">
       <div>
         <div class="num">SECTION 04 / SECTOR · ASSET-CLASS · THEME ETFs</div>
-        <h3>The most liquid fund per industry &amp; theme</h3>
-        <p>US sectors, global ETFs, macro asset classes — plus trending thematic industries (defense, space, quantum, AI, nuclear and more) that cut across GICS sectors.</p>
+        <h3>The most liquid fund per industry &amp; theme <span class="info"><button class="info-btn" aria-label="About this table" onclick="toggleInfo(event,this)">i</button><span class="info-pop">US sectors, global ETFs, macro asset classes — plus trending thematic industries (defense, space, quantum, AI, nuclear and more) that cut across GICS sectors.</span></span></h3>
       </div>
       <span class="sec-arrow">▼</span>
     </div>
@@ -916,8 +928,7 @@
     <div class="sec-head sec-collapse-hdr" id="ratiosToggleHdr" onclick="toggleRatiosSection()" title="Click to expand / collapse">
       <div>
         <div class="num">SECTION 05 / INTERMARKET RATIOS + THEME RATIOS</div>
-        <h3>What each ratio means &amp; how to position</h3>
-        <p>The last three ratios map themes onto the same framework: SMH/SPY (tech-AI), ITA/SPY (defense), ARKK/SPY (speculative).</p>
+        <h3>What each ratio means &amp; how to position <span class="info"><button class="info-btn" aria-label="More info" onclick="toggleInfo(event,this)">i</button><span class="info-pop">The last three ratios map themes onto the same framework: SMH/SPY (tech-AI), ITA/SPY (defense), ARKK/SPY (speculative).</span></span></h3>
       </div>
       <span class="sec-arrow">▼</span>
     </div>
@@ -955,8 +966,7 @@
     <div class="sec-head">
       <div>
         <div class="num">BEST PERFORMERS / RELATIVE STRENGTH RANKING</div>
-        <h3>Who is beating the market?</h3>
-        <p>Each ETF is measured as <b>ETF / SPY ratio</b> — then ranked by how far that ratio sits <b>above its own 20-day SMA</b>. This removes the market tide and shows which ETF is genuinely outperforming. Strong Bull = ratio above both SMA20 and SMA50.</p>
+        <h3>Who is beating the market? <span class="info"><button class="info-btn" aria-label="How this is ranked" onclick="toggleInfo(event,this)">i</button><span class="info-pop">Each ETF is measured as <b>ETF / SPY ratio</b> — then ranked by how far that ratio sits <b>above its own 20-day SMA</b>. This removes the market tide and shows which ETF is genuinely outperforming. Strong Bull = ratio above both SMA20 and SMA50.</span></span></h3>
       </div>
       <button class="refresh-btn" id="bpRefreshBtn" onclick="loadBestPerformers()"><span class="spinner-sm"></span>↺ Refresh</button>
     </div>
@@ -979,8 +989,7 @@
     <div class="sec-head sec-collapse-hdr open" id="setupsToggleHdr" onclick="toggleSetupsSection()" title="Click to expand / collapse">
       <div>
         <div class="num">TODAY'S SETUPS / TRADE SHEET</div>
-        <h3>Where to focus — concluded for you</h3>
-        <p class="sub">Scans every stock in the universe (SMA20/50 structure, 20-day relative strength vs own sector, sector vs SPY, volume, ATR) and concludes: which side to trade, which sectors, which names, at what level, with what size.</p>
+        <h3>Where to focus — concluded for you <span class="info"><button class="info-btn" aria-label="How setups are built" onclick="toggleInfo(event,this)">i</button><span class="info-pop">Scans every stock in the universe (SMA20/50 structure, 20-day relative strength vs own sector, sector vs SPY, volume, ATR) and concludes: which side to trade, which sectors, which names, at what level, with what size.</span></span></h3>
       </div>
       <span class="sec-arrow">▼</span>
     </div>
@@ -3608,6 +3617,16 @@ function toggleCollapse(hdrId, wrapId){
   }
 }
 function toggleThemeSection(){ toggleCollapse('themeToggleHdr','themeSignalsWrap'); }
+function toggleInfo(e,btn){
+  e.stopPropagation();
+  const wrap=btn.closest('.info');
+  const open=wrap.classList.contains('open');
+  document.querySelectorAll('.info.open').forEach(w=>{ if(w!==wrap) w.classList.remove('open'); });
+  wrap.classList.toggle('open',!open);
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.info')) document.querySelectorAll('.info.open').forEach(w=>w.classList.remove('open'));
+});
 function toggleSectorsSection(){ toggleCollapse('sectorsToggleHdr','sectorsWrap'); }
 function toggleSetupsSection(){ toggleCollapse('setupsToggleHdr','setupsWrap'); }
 function toggleRatiosSection(){ toggleCollapse('ratiosToggleHdr','ratiosWrap'); }
