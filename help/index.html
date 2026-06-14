@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How to Read the Desk — TraderGK</title>
+<meta name="description" content="A plain-language field guide to the TraderGK intermarket rotation desk: what it shows, how it's built, the ideology, and how to combine it with your own edge.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz@0,6..72;1,6..72&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#22292c;--bg-elev:#2a3235;--bg-card:#2e3538;
+    --line:#3d474b;--line-bright:#546268;
+    --text:#e6edec;--text-dim:#a5b4b2;--text-faint:#758280;
+    --amber:#f5a623;--green:#3fd17e;--red:#ff5c61;
+    --cyan:#46d6d2;--violet:#9d8cff;--gold:#e8c14a;
+    --mono:'JetBrains Mono',monospace;--sans:'Archivo',sans-serif;--serif:'Newsreader',serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 15% 0%,rgba(70,214,210,.04),transparent 40%),
+      radial-gradient(circle at 85% 25%,rgba(245,166,35,.04),transparent 45%);background-attachment:fixed}
+  .wrap{max-width:900px;margin:0 auto;padding:0 24px 80px;position:relative}
+  header{border-bottom:1px solid var(--line);background:rgba(15,19,21,.85);backdrop-filter:blur(10px);
+    position:sticky;top:0;z-index:50}
+  .head-inner{display:flex;align-items:center;justify-content:space-between;padding:15px 24px;
+    max-width:900px;margin:0 auto;gap:12px}
+  .mark{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--bg);background:var(--gold);
+    padding:5px 10px;font-weight:700;border-radius:2px}
+  .mark span{opacity:.6}
+  .back{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--text-faint);text-decoration:none;
+    border:1px solid var(--line);padding:7px 14px;border-radius:7px;transition:.18s}
+  .back:hover{border-color:var(--gold);color:var(--gold)}
+
+  .hero{padding:54px 0 30px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--gold);
+    text-transform:uppercase;margin-bottom:16px}
+  h1.title{font-family:var(--serif);font-size:46px;line-height:1.08;letter-spacing:-.5px;font-weight:500}
+  h1.title .it{font-style:italic;color:var(--gold)}
+  .lede{margin-top:18px;font-size:18px;color:var(--text-dim);max-width:62ch;line-height:1.6}
+
+  section.blk{padding:38px 0;border-bottom:1px solid var(--line)}
+  .num{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;color:var(--text-faint);
+    text-transform:uppercase;margin-bottom:12px}
+  h2{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.3px;margin-bottom:14px}
+  h3{font-size:17px;font-weight:700;margin:22px 0 6px;color:var(--text)}
+  p{color:var(--text-dim);margin-bottom:14px;font-size:15.5px}
+  p strong,li strong{color:var(--text);font-weight:600}
+  .accent{color:var(--gold)}
+  ul{list-style:none;margin:10px 0 14px}
+  li{position:relative;padding-left:22px;margin-bottom:11px;color:var(--text-dim);font-size:15.5px}
+  li::before{content:"→";position:absolute;left:0;color:var(--gold);font-family:var(--mono)}
+  .pull{font-family:var(--serif);font-size:22px;font-style:italic;color:var(--text);
+    border-left:3px solid var(--gold);padding:6px 0 6px 20px;margin:20px 0;line-height:1.45}
+  .mono-note{font-family:var(--mono);font-size:12.5px;color:var(--text-faint);line-height:1.7}
+
+  /* funnel */
+  .funnel{display:grid;grid-template-columns:1fr;gap:12px;margin:22px 0}
+  .layer{background:var(--bg-card);border:1px solid var(--line);border-radius:11px;padding:18px 20px;
+    border-left:4px solid var(--gold)}
+  .layer.l2{border-left-color:var(--cyan)}
+  .layer.l3{border-left-color:var(--green)}
+  .layer .lh{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--text-faint);
+    text-transform:uppercase;margin-bottom:5px}
+  .layer h4{font-size:18px;font-weight:700;margin-bottom:6px}
+  .layer p{margin:0;font-size:14.5px}
+  .flow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:13px;letter-spacing:1px;color:var(--text-dim);margin:6px 0 18px}
+  .flow b{color:var(--gold)} .flow .arr{color:var(--text-faint)}
+
+  /* stat callout */
+  .stat{background:linear-gradient(180deg,#2e3538,#262d30);border:1px solid var(--line-bright);
+    border-radius:13px;padding:26px 26px;margin:22px 0;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .stat .big{font-family:var(--mono);font-size:42px;font-weight:700;color:var(--gold);line-height:1;flex-shrink:0}
+  .stat .txt{flex:1;min-width:240px}
+  .stat .txt b{color:var(--text)}
+
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;
+    border-radius:20px;margin-right:6px}
+  .chip.g{color:var(--green);background:rgba(63,209,126,.14)}
+  .chip.r{color:var(--red);background:rgba(255,92,97,.14)}
+
+  .cta{text-align:center;padding:46px 0 6px}
+  .cta .pitch{font-family:var(--serif);font-size:26px;font-style:italic;margin-bottom:22px;color:var(--text)}
+  .cta a{display:inline-block;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--bg);background:var(--gold);padding:14px 30px;border-radius:9px;
+    text-decoration:none;transition:.18s}
+  .cta a:hover{filter:brightness(1.08);transform:translateY(-2px)}
+  footer{padding:30px 0 0;color:var(--text-faint);font-family:var(--mono);font-size:11px;
+    letter-spacing:.5px;text-align:center;line-height:1.7}
+
+  @media(max-width:600px){
+    h1.title{font-size:33px}.lede{font-size:16px}h2{font-size:24px}
+    .stat .big{font-size:34px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <span class="mark">TRADER<span>GK</span></span>
+    <a class="back" href="/">← Back to the desk</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Field Guide · How to read the desk</div>
+    <h1 class="title">Stop watching prices.<br>Watch the <span class="it">ratios.</span></h1>
+    <p class="lede">A plain-language guide to what this desk shows you, how it's built, the thinking
+      behind it, and how to fold it into your own trading edge.</p>
+  </div>
+
+  <section class="blk">
+    <div class="num">01 · What this is</div>
+    <h2>An intermarket rotation desk</h2>
+    <p>Instead of staring at the price of one ETF, this desk watches how money moves <em>between</em>
+      assets — and turns that into a clear read on three things: <strong>the market regime</strong>
+      (risk-on or risk-off), <strong>which themes are turning on or off</strong>, and
+      <strong>where to actually focus</strong> today.</p>
+    <p>Price alone lies. The S&amp;P at "all-time highs" tells you nothing about whether the rally is
+      healthy or quietly rotting underneath. The relationships between assets do.</p>
+  </section>
+
+  <section class="blk">
+    <div class="num">02 · The idea behind it</div>
+    <h2>Why ratios, not prices</h2>
+    <p>When you divide one asset by another, you strip out the broad-market tide and see who's
+      <em>really</em> winning. A handful of these relationships have decades of history as
+      early-warning gauges:</p>
+    <ul>
+      <li><strong>Stocks ÷ Bonds</strong> — are investors reaching for risk, or hiding?</li>
+      <li><strong>Junk credit ÷ safe credit</strong> — is the credit market calm or stressed? Credit usually breaks <em>before</em> stocks do.</li>
+      <li><strong>Copper ÷ Gold</strong> — does the world expect growth, or fear?</li>
+      <li><strong>High-beta ÷ low-volatility</strong> — is the crowd aggressive or defensive?</li>
+    </ul>
+    <p>This is classic <strong>intermarket analysis</strong>, in the lineage of John Murphy. The desk
+      simply automates roughly thirty of these relationships, reads them every few minutes, and
+      concludes for you.</p>
+    <div class="pull">Confirm the regime first. Themes are the last thing you add — and the first thing you cut.</div>
+  </section>
+
+  <section class="blk">
+    <div class="num">03 · How it's built</div>
+    <h2>A funnel — from weather to houses</h2>
+    <div class="flow"><b>REGIME</b><span class="arr">→</span><b>THEMES</b><span class="arr">→</span><b>FOCUS</b></div>
+    <div class="funnel">
+      <div class="layer l1">
+        <div class="lh">Layer 1 · the weather</div>
+        <h4>Live Signal Cards</h4>
+        <p>20+ intermarket ratios, each compared to its own 20-day and 50-day moving average. Four
+          "master gauges" carry the most weight. Everything rolls into a single weighted score and a
+          one-line verdict at the top: risk-on, risk-off, or mixed. That's your green light for taking risk at all.</p>
+      </div>
+      <div class="layer l2">
+        <div class="lh">Layer 2 · which neighborhoods are open</div>
+        <h4>Theme Signal Lights</h4>
+        <p>Plain on/off switches for the popular thematic baskets — AI/semis, defense, speculative growth,
+          quantum, biotech, the Mag-7 and more. Each one speaks in actions: <span class="chip g">GREEN add</span>
+          where leadership is, <span class="chip r">RED cut</span> what to drop first.</p>
+      </div>
+      <div class="layer l3">
+        <div class="lh">Layer 3 · which houses to buy</div>
+        <h4>Where to Focus — concluded for you</h4>
+        <p>The payoff layer. It scans every individual stock in the universe and concludes: which side to
+          trade, which sectors, which names, at what entry level, with what stop, and what position size
+          for your account.</p>
+      </div>
+    </div>
+    <p class="mono-note">Top-down, the way rotation trading is meant to work: read the macro tide first,
+      decide which baskets deserve capital, then pick the specific entries.</p>
+  </section>
+
+  <section class="blk">
+    <div class="num">04 · The edge in coverage</div>
+    <h2>It sees what a human can't</h2>
+    <div class="stat">
+      <div class="big">100s<br><span style="font-size:14px;letter-spacing:1px">every&nbsp;10&nbsp;min</span></div>
+      <div class="txt">
+        <p style="margin:0"><b>The desk re-scans hundreds of stocks across the whole universe every 10 minutes</b>
+          — trend structure, relative strength, volume and volatility on each one — and re-concludes from scratch.</p>
+      </div>
+    </div>
+    <p>No human can do that. You can watch a handful of charts well; you cannot eyeball 400 names, rank them
+      by leadership, check each against its sector <em>and</em> the broad market, and re-do it every ten
+      minutes — all day, without fatigue or bias. The machine never gets tired, never falls in love with a
+      ticker, and never forgets to check the one name that just turned.</p>
+    <p>That's the real job here: <strong>it does the brute-force, unglamorous scanning so your attention is
+      free for the decisions that actually need a human</strong> — judgment, timing, and risk.</p>
+  </section>
+
+  <section class="blk">
+    <div class="num">05 · How to read it in 30 seconds</div>
+    <h2>The quick routine</h2>
+    <ul>
+      <li><strong>Top verdict + score</strong> — risk-on, risk-off, or mixed? That sets your aggression for the day.</li>
+      <li><strong>Master gauges</strong> — you want at least 2 of 4 bullish before taking real risk.</li>
+      <li><strong>Theme lights</strong> — green = where to lean, red = where to be out.</li>
+      <li><strong>Where to Focus</strong> — drop in for the specific names and levels.</li>
+    </ul>
+    <p class="mono-note">Green means lean in, red means step back — and the colour is consistent everywhere on the page.</p>
+  </section>
+
+  <section class="blk">
+    <div class="num">06 · How the signals are built</div>
+    <h2>Layered confirmation, not one indicator</h2>
+    <p>A signal is never a single line crossing another. It only earns weight when several independent
+      things agree:</p>
+    <ul>
+      <li><strong>Trend structure</strong> — where price sits relative to its short- and longer-term averages (is it trending, and is the bigger trend backing it?).</li>
+      <li><strong>Relative strength</strong> — is the name actually outperforming <em>its own sector</em>, and is that sector outperforming the broad market? Real leadership, not just floating up with everything.</li>
+      <li><strong>Participation</strong> — is volume confirming the move, or is it hollow?</li>
+      <li><strong>Volatility</strong> — measured (via ATR) so that entries, stops and position size are all derived from how much the thing <em>actually moves</em>, not a fixed guess.</li>
+    </ul>
+    <p>Then everything is <strong>weighted by importance</strong> — the macro and credit master gauges count
+      far more than a minor rotational ratio, and the strongest signals count double. So the final read is a
+      <em>consensus</em> across trend, leadership, participation and risk — which is exactly what filters out
+      the noise that traps single-indicator systems.</p>
+    <p class="mono-note">The exact thresholds and weightings are the proprietary part. The principle is simple
+      and deliberate: <span class="accent">nothing gets a green light on one piece of evidence alone.</span></p>
+  </section>
+
+  <section class="blk">
+    <div class="num">07 · For every trader</div>
+    <h2>Bring your own edge — it stacks</h2>
+    <p>This desk is the <strong>context layer</strong>, not a replacement for your own method. It answers
+      <em>"is the environment right, and where?"</em> — it doesn't pretend to nail the exact tick. That's
+      where you come in:</p>
+    <ul>
+      <li><strong>Use it as a filter.</strong> Only take your long setups when the regime is green and the theme light is green. Skip the same setup in a red regime — that one rule removes a lot of bad trades.</li>
+      <li><strong>Time the entry with your own tools.</strong> Use your momentum / oscillator / price-action triggers to time the <em>entry</em> once the desk says the direction and environment are favourable.</li>
+      <li><strong>Use it for confirmation.</strong> If your indicator flags a long and the desk's regime + theme + relative-strength all agree, that's high conviction. If they disagree — size down, or pass.</li>
+      <li><strong>Use it to manage risk.</strong> The ATR-based stops and sizing are a sane default you can adopt or adapt.</li>
+    </ul>
+    <div class="pull">The desk tells you <span class="accent">whether</span> and <span class="accent">where</span>.
+      Your edge tells you exactly <span class="accent">when</span>. They stack.</div>
+  </section>
+
+  <section class="blk">
+    <div class="num">08 · Honest limits</div>
+    <h2>What it is not</h2>
+    <ul>
+      <li>It works off closing-price relationships and ~15-minute-delayed data — a <strong>regime and rotation tool</strong>, not a scalping feed.</li>
+      <li>All signals are inherently a little <strong>lagging</strong> — that's the price of robustness. It waits for confirmation instead of guessing tops and bottoms.</li>
+      <li>It is an <strong>educational framework, not personalised investment advice.</strong> Always layer it on top of your own risk management.</li>
+    </ul>
+  </section>
+
+  <div class="cta">
+    <div class="pitch">See the regime. See the themes. Get the focus list.</div>
+    <a href="/">Open the desk →</a>
+  </div>
+
+  <footer>
+    TraderGK · Intermarket + Thematic Intelligence<br>
+    Educational framework — not investment advice. Data is delayed and approximate.
+  </footer>
+
+</div>
+</body>
+</html>
