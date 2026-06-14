@@ -23,6 +23,10 @@
   button{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;letter-spacing:.5px;padding:16px;border-radius:10px;border:none;cursor:pointer;transition:.15s}
   .pay-card{background:var(--gold);color:#16191b}
   .pay-crypto{background:transparent;color:var(--gold);border:1.5px solid var(--gold)}
+  .fields{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+  .fields input{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit}
+  .fields input:focus{outline:none;border-color:var(--gold)}
+  .fields input::placeholder{color:var(--faint)}
   button:hover{filter:brightness(1.08)}
   button:disabled{opacity:.5;cursor:default}
   .msg{min-height:18px;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#ff5c61;text-align:center}
@@ -43,10 +47,15 @@
       <li><b>Today's Setups</b> — entry, stop, T1/T2 and sizing on the names in play</li>
       <li><b>Best Performers</b> — who's actually beating the market, ranked by relative strength</li>
       <li>Auto-updated every 10 minutes from the live engine</li>
-      <li>One key, valid 7 days — pay by card or crypto</li>
+      <li>One key, valid 7 days — pay with crypto</li>
     </ul>
+    <div class="fields">
+      <input id="buyerName" type="text" maxlength="100" placeholder="Your name (optional)" autocomplete="name">
+      <input id="buyerEmail" type="email" maxlength="150" placeholder="Email — where your access key is sent" autocomplete="email" required>
+    </div>
     <div class="btns">
-      <button class="pay-card"   id="payCard">Pay $500 by card</button>
+      <!-- card hidden while Lemon Squeezy store is under review / in test mode -->
+      <button class="pay-card"   id="payCard" style="display:none">Pay $500 by card</button>
       <button class="pay-crypto" id="payCrypto">Pay $500 with crypto</button>
     </div>
     <div class="msg" id="msg"></div>
@@ -60,10 +69,13 @@
 const API='https://api.tradergk.com';
 const msg=document.getElementById('msg');
 async function go(path,btn){
+  const name=document.getElementById('buyerName').value.trim();
+  const email=document.getElementById('buyerEmail').value.trim();
+  if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color='#ff5c61'; msg.textContent='Please enter a valid email — your access key is sent there.'; return; }
   msg.style.color='#9aa4ab'; msg.textContent='Opening secure checkout…';
   [...document.querySelectorAll('button')].forEach(b=>b.disabled=true);
   try{
-    const r=await fetch(API+path,{method:'POST'});
+    const r=await fetch(API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,email})});
     const d=await r.json().catch(()=>({}));
     if(r.ok && d.url){ location.href=d.url; return; }
     msg.style.color='#ff5c61';
