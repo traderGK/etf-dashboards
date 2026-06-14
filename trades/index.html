@@ -805,6 +805,26 @@
     <div id="livePulseGrid" style="padding-top:12px"><div class="live-spinner-wrap"><div class="spinner"></div>Fetching live ratio data…</div></div>
   </section>
 
+  <!-- THEME SIGNAL LIGHTS -->
+  <section id="themeLights">
+    <div class="sec-head sec-collapse-hdr" id="themeToggleHdr" onclick="toggleThemeSection()" title="Click to expand / collapse">
+      <div>
+        <div class="num">SIGNAL ENGINE / THEME INDICATORS</div>
+        <h3 style="margin:4px 0 2px">Theme Signal Lights</h3>
+        <p style="margin:0">Green = add exposure · Red = cut first · Powered by SMH/SPY, ITA/SPY, ARKK/SPY ratios</p>
+      </div>
+      <span class="sec-arrow">▼</span>
+    </div>
+    <div class="sec-collapsible collapsed" id="themeSignalsWrap" style="max-height:0">
+      <div class="theme-live-row" id="liveThemes">
+        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
+        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
+        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+    <div class="live-note">Data via Yahoo Finance (~15 min delay) · SMA20 = trend · SMA50 = regime · Copper proxy = CPER · GLD/SPY inverted · Theme signals: SMH/SPY (tech themes), ITA/SPY (defense), ARKK/SPY (speculative) · Theme ETFs are high-beta — last to add, first to cut · Not investment advice.</div>
+  </section>
+
   <!-- REGIME -->
   <section id="regime">
     <div class="sec-head"><div><div class="num">SECTION 01 / REGIME ARCHETYPES</div><h3>Read them together</h3><p>Score each lens +1/−1 by its 50-day MA slope. Net the score across lenses.</p></div></div>
@@ -856,26 +876,6 @@
       <div class="cav"><h5>Narrative can persist beyond fundamentals</h5><p>Quantum/space/nuclear ETFs can stay elevated on narrative alone. The ratio signal is your reality check — if it's rolling over, the narrative is fading.</p></div>
       <div class="cav"><h5>Not investment advice</h5><p>Educational framework only. All signals are lagging, based on closing prices, and should be layered on top of your own risk management and position sizing rules.</p></div>
     </div>
-  </section>
-
-  <!-- THEME SIGNAL LIGHTS -->
-  <section id="themeLights">
-    <div class="sec-head sec-collapse-hdr" id="themeToggleHdr" onclick="toggleThemeSection()" title="Click to expand / collapse">
-      <div>
-        <div class="num">SIGNAL ENGINE / THEME INDICATORS</div>
-        <h3 style="margin:4px 0 2px">Theme Signal Lights</h3>
-        <p style="margin:0">Green = add exposure · Red = cut first · Powered by SMH/SPY, ITA/SPY, ARKK/SPY ratios</p>
-      </div>
-      <span class="sec-arrow">▼</span>
-    </div>
-    <div class="sec-collapsible collapsed" id="themeSignalsWrap" style="max-height:0">
-      <div class="theme-live-row" id="liveThemes">
-        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
-        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
-        <div class="pulse-card theme-card"><div class="live-spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
-      </div>
-    </div>
-    <div class="live-note">Data via Yahoo Finance (~15 min delay) · SMA20 = trend · SMA50 = regime · Copper proxy = CPER · GLD/SPY inverted · Theme signals: SMH/SPY (tech themes), ITA/SPY (defense), ARKK/SPY (speculative) · Theme ETFs are high-beta — last to add, first to cut · Not investment advice.</div>
   </section>
 
   <!-- SECTORS -->
