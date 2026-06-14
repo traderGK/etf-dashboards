@@ -92,6 +92,14 @@
   footer{padding:30px 0 0;color:var(--text-faint);font-family:var(--mono);font-size:11px;
     letter-spacing:.5px;text-align:center;line-height:1.7}
 
+  /* paid-layer badge + note */
+  .paid{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px;
+    color:var(--gold);background:rgba(232,193,74,.14);border:1px solid rgba(232,193,74,.4);
+    padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;text-transform:uppercase}
+  .paid-note{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px}
+  .paid-note a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(232,193,74,.4)}
+  .paid-note a:hover{border-bottom-color:var(--gold)}
+
   /* operating-rule callout */
   .rule-box{background:rgba(232,193,74,.07);border:1px solid rgba(232,193,74,.38);border-radius:13px;
     padding:22px 24px;margin:24px 0}
@@ -192,11 +200,14 @@
           where leadership is, <span class="chip r">RED cut</span> what to drop first.</p>
       </div>
       <div class="layer l3">
-        <div class="lh">Layer 3 · which houses to buy</div>
+        <div class="lh">Layer 3 · which houses to buy <span class="paid">🔒 Members</span></div>
         <h4>Where to Focus — concluded for you</h4>
         <p>The payoff layer. It scans every individual stock in the universe and concludes: which side to
           trade, which sectors, which names, at what entry level, with what stop, and what position size
           for your account.</p>
+        <p class="paid-note"><strong>This is the paid part of the desk.</strong> Layers 1 &amp; 2 — the
+          regime read and the theme lights — are <strong>free for everyone</strong>. The specific trade
+          sheet unlocks with an access pass on the <a href="/trades">Trades</a> page.</p>
       </div>
     </div>
     <p>This is <strong>textbook John Murphy top-down intermarket analysis</strong>: read the macro tide
