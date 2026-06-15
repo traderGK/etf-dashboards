@@ -467,7 +467,7 @@ for etf in SECTOR_ETFS + THEME_ETFS:
 
 # Tickers NOT tradeable on GK broker -> kept out of the entire setups system
 # (universe scan, watchlist, alerts, website). Add more here as needed.
-EXCLUDE_TICKERS = {"XEL"}
+EXCLUDE_TICKERS = {"XEL", "HASI"}
 stock_tks = sorted(set(stock_parent) - set(ETF_TICKERS) - set(LEVERAGED_TICKERS) - EXCLUDE_TICKERS)
 print(f"\nSetups scan: {len(stock_tks)} stocks across {len(set(stock_parent.values()))} parent ETFs")
 
