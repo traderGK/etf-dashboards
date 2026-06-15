@@ -798,6 +798,7 @@ try:
             arch = json.load(open("archive.json"))
         except Exception:
             arch = []
+        arch = [a for a in arch if a.get("t") not in EXCLUDE_TICKERS]   # scrub excluded tickers from trade history
         akeys = {(a.get("t"), a.get("type"), a.get("created")) for a in arch}
         new_arch = 0
         for s in prev_hist:
@@ -893,6 +894,7 @@ try:
             arch_all = json.load(open("archive.json"))
         except Exception:
             arch_all = []
+        arch_all = [a for a in arch_all if a.get("t") not in EXCLUDE_TICKERS]   # exclude from advisor history
         RES_STATES = ("stopped", "t2", "be", "timeout")
         resolved = [a for a in arch_all if a.get("status") in RES_STATES]
         trig_res = [a for a in resolved if a.get("path")]
