@@ -643,10 +643,12 @@
   .trk-link:hover{filter:brightness(1.25)}
   .trk-link-zero{opacity:.45;border-bottom-style:dotted}
   .trk-link-zero:hover{opacity:.8}
-  .trk-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-  .trk-tbl th{text-align:right;color:var(--text-faint);font-weight:400;letter-spacing:.6px;padding:5px 9px;border-bottom:1px solid var(--line);font-size:8.5px;white-space:nowrap}
-  .trk-tbl th:first-child,.trk-tbl td:first-child{text-align:left}
-  .trk-tbl td{padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap;color:var(--text-dim)}
+  .trk-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;-webkit-overflow-scrolling:touch}
+  .trk-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+  .trk-tbl th{text-align:right;color:var(--text-faint);font-weight:400;letter-spacing:.4px;padding:5px 5px;border-bottom:1px solid var(--line);font-size:8.5px;white-space:nowrap}
+  .trk-tbl th:first-child,.trk-tbl td:first-child{text-align:left;padding-left:2px}
+  .trk-tbl th:last-child,.trk-tbl td:last-child{padding-right:2px}
+  .trk-tbl td{padding:6px 5px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap;color:var(--text-dim)}
   .trk-tbl tr:hover td{background:rgba(255,255,255,.02)}
   .trk-tk{font-weight:800;color:var(--text);font-size:12px}
   .trk-etf{color:var(--text-faint);font-size:9px;margin-left:5px}
@@ -1106,7 +1108,7 @@
 
 <!-- Track-Record trade detail (click a W or L count) -->
 <div class="se-overlay" id="trkOverlay" role="dialog" aria-modal="true" onclick="if(event.target===this)closeTrkPopup()">
-  <div class="se-box" style="max-width:680px;width:100%">
+  <div class="se-box" style="max-width:760px;width:100%">
     <button class="se-close" onclick="closeTrkPopup()" aria-label="Close">✕</button>
     <div class="se-top">
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:6px">Track Record · scored trades</div>
@@ -2198,7 +2200,7 @@ function showTrackTrades(type, outcome){
   const rows=su.hist
     .filter(s=>s.type===type && _trkOutcome(s)===outcome)
     .sort((a,b)=>String(b.closed||b.trigDate||b.created||'').localeCompare(String(a.closed||a.trigDate||a.created||'')));
-  const $=v=>v==null?'<span style="color:var(--text-faint)">–</span>':'$'+Number(v).toFixed(2);
+  const $=v=>v==null?'<span style="color:var(--text-faint)">–</span>':Number(v).toFixed(2);  // no $ — headers label the price columns; saves width so dates fit
   const dt=d=>d?String(d).slice(5):'–';            // MM-DD
   const win=outcome==='W';
   const body=rows.map(s=>{
@@ -2230,9 +2232,9 @@ function showTrackTrades(type, outcome){
   document.getElementById('trkSub').textContent=win
     ? 'Win = TP1 reached (half banked at +1.5R, stop to breakeven → ≥ +0.75R locked) or any closed trade with positive R.'
     : 'Loss = price hit the published stop for −1R before TP1.';
-  document.getElementById('trkBody').innerHTML=rows.length?`<table class="trk-tbl">
+  document.getElementById('trkBody').innerHTML=rows.length?`<div class="trk-scroll"><table class="trk-tbl">
     <tr><th>TICKER</th><th>SIDE</th><th>ENTRY</th><th>STOP</th><th>T1</th><th>T2</th><th style="text-align:left">RESULT</th><th>R</th><th>TRIG→CLOSE</th></tr>
-    ${body}</table>`:`<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:10px 2px;line-height:1.7">No ${win?'winning':'losing'} ${TRK_TYPE_LBL[type]||type} yet.<br>This list fills automatically the moment a ${TRK_TYPE_LBL[type]||type} trade ${win?'hits TP1':'is stopped out'}.</div>`;
+    ${body}</table></div>`:`<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:10px 2px;line-height:1.7">No ${win?'winning':'losing'} ${TRK_TYPE_LBL[type]||type} yet.<br>This list fills automatically the moment a ${TRK_TYPE_LBL[type]||type} trade ${win?'hits TP1':'is stopped out'}.</div>`;
   const ov=document.getElementById('trkOverlay'); ov.classList.add('open'); document.body.style.overflow='hidden';
 }
 function closeTrkPopup(){
