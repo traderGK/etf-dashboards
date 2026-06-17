@@ -227,6 +227,12 @@
   html.trades-only #hero,
   html.trades-only .wrap>section{display:none!important}
   html:not(.trades-only) #trades{display:none!important}
+  /* Site-wide footer — policy links visible on every view (home + /trades) */
+  .site-footer{border-top:1px solid var(--line);margin:48px auto 0;padding:22px 24px 40px;max-width:1280px;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:var(--text-faint)}
+  .site-footer a{color:var(--text-dim);text-decoration:none;margin:0 7px}
+  .site-footer a:hover{color:var(--gold)}
+  .site-footer .sf-dot{color:var(--text-faint)}
+  .site-footer .sf-copy{display:block;margin-top:9px;letter-spacing:0;color:var(--text-faint)}
   .signal-group-hdr{display:flex;align-items:center;gap:12px;margin-bottom:12px}
   .signal-group-hdr:not(:first-child){margin-top:24px}
   .sg-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;white-space:nowrap}
@@ -3891,5 +3897,9 @@ function toggleRatiosSection(){ toggleCollapse('ratiosToggleHdr','ratiosWrap'); 
   });
 })();
 </script>
+<footer class="site-footer">
+  <a href="/terms">Terms of Service</a><span class="sf-dot">·</span><a href="/privacy">Privacy Policy</a><span class="sf-dot">·</span><a href="/refund">Refund Policy</a>
+  <span class="sf-copy">Educational market research only — not financial advice · © 2026 TraderGK</span>
+</footer>
 </body>
 </html>
