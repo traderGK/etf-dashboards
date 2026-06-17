@@ -768,7 +768,25 @@ try:
                 if s.get("created") == today_str:
                     lo = hi = tp["p"]
                 advance_setup(s, tp["p"], lo, hi, today_str)
-    open_keys = {(s.get("t"), s.get("type")) for s in prev_hist if s.get("status") in OPEN_STATES}
+    # ── One open setup per ticker ────────────────────────────────────────────
+    # A name can qualify for two same-direction types on different days (e.g.
+    # rs_leader, then pullback_long). The old guard was keyed by (ticker, type),
+    # so both published -> stacked same-side entries: double risk on one name and
+    # two boxes back-to-back on the chart. Collapse to a SINGLE open setup per
+    # ticker, keeping the most-advanced (t1 > triggered > pending) and, on a tie,
+    # the earliest-published. Runs every refresh, so it also heals any names that
+    # are already stacked. (GK 2026-06-17)
+    _rank = {"t1": 2, "triggered": 1, "pending": 0}
+    _best = {}
+    for s in prev_hist:
+        if s.get("status") in OPEN_STATES:
+            key = (-_rank.get(s.get("status"), 0), s.get("created") or "", s.get("cts") or 0)
+            if s["t"] not in _best or key < _best[s["t"]][0]:
+                _best[s["t"]] = (key, id(s))
+    _keep_id = {v[1] for v in _best.values()}
+    prev_hist = [s for s in prev_hist
+                 if s.get("status") not in OPEN_STATES or id(s) in _keep_id]
+    open_tickers = {s.get("t") for s in prev_hist if s.get("status") in OPEN_STATES}
     # Market context frozen at publication — the self-evaluation layer needs
     # to know what the tape looked like when each idea was issued, with no
     # possibility of hindsight (these numbers are computed BEFORE the outcome).
@@ -778,14 +796,14 @@ try:
         "secBull": sum(1 for e in SECTOR_ETFS if (bp_scores.get(e) or {}).get('bullish')),
     }
     for cnd in final[:16]:
-        if (cnd["t"], cnd["type"]) in open_keys: continue
+        if cnd["t"] in open_tickers: continue   # one open setup per ticker — no stacked/duplicate entries
         rec = {k: cnd.get(k) for k in ("t","etf","type","nm","side","entry","stop","t1","t2",
                                        "risk","expires","score","atr","vr","rsS","rsE","d20","t2b")}
         # cts = exact publication timestamp (ms) — anchors the TradingView box
         # to the real moment the setup appeared, on any chart timeframe
         rec.update({"created": today_str, "cts": int(time.time() * 1000),
                     "status": "pending", "mkt": mkt_ctx})
-        prev_hist.append(rec); open_keys.add((cnd["t"], cnd["type"]))
+        prev_hist.append(rec); open_tickers.add(cnd["t"])
     # ── Permanent archive: EVERY published proposal lands here when it
     # resolves (stopped / t2 / be / timeout / expired) — nothing is ever
     # deleted, unlike the 35-day window inside data.json. Each record keeps
