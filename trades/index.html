@@ -788,7 +788,7 @@
 
     <div id="staleBanner" style="display:none;align-items:center;gap:10px;padding:10px 14px;margin-bottom:14px;background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--amber);flex-wrap:wrap">
       <span style="font-size:13px;flex-shrink:0">⚠</span>
-      <span style="flex:1;min-width:160px">Showing pre-cached data · <span class="stale-age"></span> · <span class="stale-hint" style="color:var(--text-faint)">server refresh runs every 30 min</span></span>
+      <span style="flex:1;min-width:160px">Showing pre-cached data · <span class="stale-age"></span> · <span class="stale-hint" style="color:var(--text-faint)">backend should refresh within 30 min</span></span>
       <button onclick="loadLiveData()" style="flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:5px 12px;border:1px solid rgba(245,166,35,.4);background:transparent;color:var(--amber);border-radius:3px;cursor:pointer;white-space:nowrap">↺ Refresh</button>
     </div>
 
@@ -999,6 +999,17 @@
     </div>
   </section>
 
+  <!-- WHAT BEATS THE MARKET — LIVE INTERMARKET RATIO RANKING (mirrors home Live Pulse) -->
+  <section id="tradesRatios">
+    <div class="sec-head">
+      <div>
+        <div class="num">WHAT BEATS THE MARKET / INTERMARKET RATIO RANKING</div>
+        <h3>Which forces are leading the market right now <span class="info"><button class="info-btn" aria-label="How ratios are ranked" onclick="toggleInfo(event,this)">i</button><span class="info-pop">Every intermarket &amp; theme ratio measured against its own 20-day SMA, ranked bullish-first by strength. Master regime gauges (credit HYG/LQD, consumer XLY/XLP, stocks-vs-bonds SPY/TLT, growth-vs-fear CPER/GLD) carry the most weight. Same live engine as the home dashboard's Live Pulse.</span></span></h3>
+      </div>
+    </div>
+    <div id="tradesRatioGrid"><div class="live-spinner-wrap"><div class="spinner"></div>Fetching live ratio data…</div></div>
+  </section>
+
   <!-- TODAY'S SETUPS -->
   <section id="setups">
     <div class="sec-head sec-collapse-hdr open" id="setupsToggleHdr" onclick="toggleSetupsSection()" title="Click to expand / collapse">
@@ -1075,7 +1086,7 @@
       </div>
     </div>
     <div class="se-footer" style="justify-content:space-between">
-      <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Holdings ≈ mid-2026 · movers: live Yahoo Finance · not investment advice</span>
+      <span id="hoFootNote" style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Holdings ≈ mid-2026 · movers: live Yahoo Finance · not investment advice</span>
       <button class="se-dismiss" onclick="closeHoldingsPopup()">Close</button>
     </div>
   </div>
@@ -1440,7 +1451,7 @@ function loadCache(){
 }
 function showStaleBanner(ageMin){
   const ago=ageMin<60?`${ageMin} min ago`:ageMin<120?`${Math.round(ageMin/60)}h ago`:`${(ageMin/60).toFixed(1)}h ago`;
-  const hint=ageMin>90?'server may have missed a cycle':'server refresh runs every 30 min';
+  const hint=ageMin>30?'⚠ backend stalled — server scanner (also feeds setups + Telegram) may be down':'backend refresh is a little behind';
   const b=document.getElementById('staleBanner');
   if(!b)return;
   b.style.display='flex';
@@ -1823,7 +1834,13 @@ function renderThemeTriggers(data){
 
 function renderBanner(data){
   const valid=data.filter(r=>!r.error);
-  if(!valid.length){document.getElementById('liveRegimeBanner').innerHTML='<div class="live-error-msg">Could not load live data.</div>';return;}
+  if(!valid.length){
+    // Never show a red "Could not load" while we hold a built-in snapshot —
+    // re-render Section 00 from the saved seed so it always shows saved data.
+    const seed=seedData().filter(r=>!r.error);
+    if(seed.length){renderBanner(seed);return;}
+    document.getElementById('liveRegimeBanner').innerHTML='<div class="live-error-msg">Could not load live data.</div>';return;
+  }
 
   // ── Weighted scoring: strong-bull=+2w, bull=+1w, bear=-1w, strong-bear=-2w ──
   // Each ratio carries a weight (w) reflecting its macro importance.
@@ -2033,9 +2050,27 @@ function renderAll(aD){
   });
   document.getElementById('liveThemes').innerHTML=tSorted.map(r=>buildCard(r,true)).join('');
   renderSplitGrid(aD,'livePulseGrid');
+  renderTradesRatios(aD);
   const validN=aD.filter(r=>!r.error).length;
   const el=document.getElementById('ratioCardsCount');
   if(el)el.textContent=`(${validN} ratios)`;
+}
+// /trades page mirror of the Live Pulse ranking — same buildCard + bull/bear
+// split as renderSplitGrid, but shows ALL cards (no Show-all toggle) and uses
+// its own container id so there's no collision with #livePulseGrid.
+function renderTradesRatios(aD){
+  const el=document.getElementById('tradesRatioGrid');
+  if(!el)return;
+  const order=['strong-bull','bull','strong-bear','bear'];
+  const strength=r=>(r.inv?-1:1)*((r.curr-r.s20)/r.s20);
+  const bull=aD.filter(r=>!r.error&&r.cl.bullish).sort((a,b)=>{const t=order.indexOf(a.cl.sig)-order.indexOf(b.cl.sig);return t!==0?t:strength(b)-strength(a);});
+  const bear=aD.filter(r=>!r.error&&!r.cl.bullish).sort((a,b)=>{const t=order.indexOf(a.cl.sig)-order.indexOf(b.cl.sig);return t!==0?t:strength(a)-strength(b);});
+  const errs=aD.filter(r=>r.error);
+  let h='';
+  if(bull.length){h+=`<div class="signal-group-hdr bull-hdr"><span class="sg-label">▲ Bullish</span><span class="sg-count">${bull.length} ratio${bull.length>1?'s':''}</span><div class="sg-line"></div></div>`;h+=`<div class="pulse-grid">${bull.map(r=>buildCard(r,false)).join('')}</div>`;}
+  if(bear.length){h+=`<div class="signal-group-hdr bear-hdr"><span class="sg-label">▼ Bearish</span><span class="sg-count">${bear.length} ratio${bear.length>1?'s':''}</span><div class="sg-line"></div></div>`;h+=`<div class="pulse-grid">${bear.map(r=>buildCard(r,false)).join('')}</div>`;}
+  if(errs.length)h+=`<div class="pulse-grid" style="margin-top:10px;opacity:.4">${errs.map(r=>buildCard(r,false)).join('')}</div>`;
+  el.innerHTML=h||'<div class="live-error-msg">No data</div>';
 }
 
 /* ── TODAY'S SETUPS ──────────────────────────────────────────────────────────
@@ -2439,12 +2474,16 @@ async function loadLiveData(){
                → localStorage cache (user's own previous fetch)
                → built-in seedData snapshot (hardcoded fallback)              */
   let shownFromServer=false;
+  let djAgeMin=null;                          // backend data.json age — re-checked in STEP 2
   const dj=await loadDataJson();
   if(dj&&dj.data.length>=10){
     renderAll(dj.data);
     saveCache(dj.data);                       // save into localStorage too
-    const ageMin=Math.round((Date.now()-dj.ts)/60000);
-    if(ageMin>60){showStaleBanner(ageMin);}else{hideStaleBanner();}
+    djAgeMin=Math.round((Date.now()-dj.ts)/60000);
+    // The backend refreshes well within 30 min. Older than that means the server
+    // scanner likely stalled — and that SAME scanner feeds setups + Telegram —
+    // so surface it loudly rather than show a falsely-healthy dashboard.
+    if(djAgeMin>30){showStaleBanner(djAgeMin);}else{hideStaleBanner();}
     dot.className='live-dot on';
     stxt.textContent='updated · '+new Date(dj.ts).toLocaleTimeString();
     shownFromServer=true;
@@ -2481,9 +2520,20 @@ async function loadLiveData(){
     const cD=compute(CORE_R),tD=compute(THEME_R),aD=[...cD,...tD];
     if(aD.find(r=>r.key==='CPER/GLD'&&r.error))console.warn('⚠️ CPER/GLD unavailable');
 
+    // GUARD: a flaky CORS proxy can return ≥4 tickers (so it doesn't throw above)
+    // yet still produce too few COMPLETE ratio pairs. Without this, renderAll()
+    // would overwrite good saved data (data.json/cache/seed) with a red
+    // "Could not load live data" banner. Instead, treat a sparse refresh as a
+    // failure and keep whatever saved data is already on screen.
+    const freshValid=aD.filter(r=>!r.error).length;
+    if(freshValid<8) throw new Error('Live fetch too sparse ('+freshValid+' valid pairs) — keeping saved data');
+
     renderAll(aD);
     saveCache(aD);
-    hideStaleBanner();
+    // Ratios are now live (recomputed from current prices). But if the BACKEND
+    // data.json is still >30 min stale, the server pipeline (setups + Telegram)
+    // may be down — keep the warning up even though the on-screen ratios are live.
+    if(djAgeMin!=null && djAgeMin>30){showStaleBanner(djAgeMin);}else{hideStaleBanner();}
     dot.className='live-dot on';stxt.textContent='live · '+new Date().toLocaleTimeString();
   }catch(e){
     console.warn('Live proxy fetch failed:',e.message);
@@ -3104,10 +3154,19 @@ function openHoldingsPopup(ticker){
   }
 
   // Build top 10 holdings as flex rows (no table = no horizontal overflow)
-  const maxW=e.h.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
+  // Prefer the LIVE holdings feed (window.etfHoldings, same source the Fast Movers
+  // use) so the table's weights match the movers; fall back to the stored snapshot.
+  const _nameFb=new Map(e.h.map(r=>[r[0],r[1]]));
+  const _liveH=window.etfHoldings&&window.etfHoldings[ticker];
+  let holdingsLive=false, dispH;
+  if(Array.isArray(_liveH)&&_liveH.length){
+    dispH=_liveH.filter(h=>h&&h.t).map(h=>[h.t,h.n||_nameFb.get(h.t)||h.t,+h.w||0]).sort((a,b)=>b[2]-a[2]);
+    holdingsLive=true;
+  }else{ dispH=e.h; }
+  const maxW=dispH.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
   // Use absolute scale (cap at 30%) so small weights stay visually small
   const barScale=Math.max(maxW,30);
-  const rows=e.h.slice(0,10).map((r,i)=>{
+  const rows=dispH.slice(0,10).map((r,i)=>{
     const w=parseFloat(r[2])||0;
     const barPct=barScale>0?Math.min(100,(w/barScale)*100).toFixed(1):0;
     const stp=tp_cache&&tp_cache[r[0]];
@@ -3136,6 +3195,13 @@ function openHoldingsPopup(ticker){
   const noteEl=overlay.querySelector('.ho-note');
   noteEl.textContent=e.note||'';
   noteEl.style.display=e.note?'block':'none';
+
+  // Footer provenance — say "live" when the table is driven by the live feed
+  const footEl=document.getElementById('hoFootNote');
+  if(footEl){
+    const hAge=holdingsLive&&window.tickerPricesTs?` · updated ${fmtAge(window.tickerPricesTs)}`:'';
+    footEl.textContent=(holdingsLive?`Holdings: live${hAge}`:'Holdings ≈ mid-2026')+' · movers: live Yahoo Finance · not investment advice';
+  }
 
   // ── ETF own price/change ──────────────────────────────────────────────────
   const priceEl=overlay.querySelector('.ho-etf-price');

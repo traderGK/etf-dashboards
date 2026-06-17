@@ -1086,7 +1086,7 @@
       </div>
     </div>
     <div class="se-footer" style="justify-content:space-between">
-      <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Holdings ≈ mid-2026 · movers: live Yahoo Finance · not investment advice</span>
+      <span id="hoFootNote" style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Holdings ≈ mid-2026 · movers: live Yahoo Finance · not investment advice</span>
       <button class="se-dismiss" onclick="closeHoldingsPopup()">Close</button>
     </div>
   </div>
@@ -3154,10 +3154,19 @@ function openHoldingsPopup(ticker){
   }
 
   // Build top 10 holdings as flex rows (no table = no horizontal overflow)
-  const maxW=e.h.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
+  // Prefer the LIVE holdings feed (window.etfHoldings, same source the Fast Movers
+  // use) so the table's weights match the movers; fall back to the stored snapshot.
+  const _nameFb=new Map(e.h.map(r=>[r[0],r[1]]));
+  const _liveH=window.etfHoldings&&window.etfHoldings[ticker];
+  let holdingsLive=false, dispH;
+  if(Array.isArray(_liveH)&&_liveH.length){
+    dispH=_liveH.filter(h=>h&&h.t).map(h=>[h.t,h.n||_nameFb.get(h.t)||h.t,+h.w||0]).sort((a,b)=>b[2]-a[2]);
+    holdingsLive=true;
+  }else{ dispH=e.h; }
+  const maxW=dispH.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
   // Use absolute scale (cap at 30%) so small weights stay visually small
   const barScale=Math.max(maxW,30);
-  const rows=e.h.slice(0,10).map((r,i)=>{
+  const rows=dispH.slice(0,10).map((r,i)=>{
     const w=parseFloat(r[2])||0;
     const barPct=barScale>0?Math.min(100,(w/barScale)*100).toFixed(1):0;
     const stp=tp_cache&&tp_cache[r[0]];
@@ -3186,6 +3195,13 @@ function openHoldingsPopup(ticker){
   const noteEl=overlay.querySelector('.ho-note');
   noteEl.textContent=e.note||'';
   noteEl.style.display=e.note?'block':'none';
+
+  // Footer provenance — say "live" when the table is driven by the live feed
+  const footEl=document.getElementById('hoFootNote');
+  if(footEl){
+    const hAge=holdingsLive&&window.tickerPricesTs?` · updated ${fmtAge(window.tickerPricesTs)}`:'';
+    footEl.textContent=(holdingsLive?`Holdings: live${hAge}`:'Holdings ≈ mid-2026')+' · movers: live Yahoo Finance · not investment advice';
+  }
 
   // ── ETF own price/change ──────────────────────────────────────────────────
   const priceEl=overlay.querySelector('.ho-etf-price');
