@@ -3162,10 +3162,12 @@ function openHoldingsPopup(ticker){
   const _liveMapped=Array.isArray(_liveH)
     ? _liveH.filter(h=>h&&h.t&&(+h.w>0)).map(h=>[h.t,h.n||_nameFb.get(h.t)||h.t,+h.w||0]).sort((a,b)=>b[2]-a[2])
     : [];
-  // Use live only when it's at least as complete as the snapshot table would show
-  // (≥ min(10, snapshot count)) — otherwise the richer stored snapshot wins, so a
-  // sparse live feed (e.g. COPX=1, BOTZ=2) never shrinks the table.
-  if(_liveMapped.length>=Math.min(10,e.h.length)){
+  // Use live when the feed is reasonably complete (≥8 holdings, so the table stays
+  // 8–10 rows). Sparse feeds (e.g. COPX=1, BOTZ=2, EEM=5) keep the richer stored
+  // snapshot so the table never shrinks to a few rows. Deepen the backend feed to
+  // push the remaining ETFs live.
+  const _need=Math.min(8,e.h.length);
+  if(_liveMapped.length>=_need){
     dispH=_liveMapped; holdingsLive=true;
   }else{ dispH=e.h; }
   const maxW=dispH.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
