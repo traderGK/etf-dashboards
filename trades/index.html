@@ -639,6 +639,16 @@
   .su-stats table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;color:var(--text-dim)}
   .su-stats th{text-align:left;color:var(--text-faint);font-weight:400;letter-spacing:.8px;padding:3px 8px;border-bottom:1px solid var(--line);font-size:8.5px}
   .su-stats td{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.03)}
+  .trk-link{cursor:pointer;font-weight:700;border-bottom:1px dotted currentColor;padding-bottom:1px}
+  .trk-link:hover{filter:brightness(1.25)}
+  .trk-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .trk-tbl th{text-align:right;color:var(--text-faint);font-weight:400;letter-spacing:.6px;padding:5px 9px;border-bottom:1px solid var(--line);font-size:8.5px;white-space:nowrap}
+  .trk-tbl th:first-child,.trk-tbl td:first-child{text-align:left}
+  .trk-tbl td{padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap;color:var(--text-dim)}
+  .trk-tbl tr:hover td{background:rgba(255,255,255,.02)}
+  .trk-tk{font-weight:800;color:var(--text);font-size:12px}
+  .trk-etf{color:var(--text-faint);font-size:9px;margin-left:5px}
+  .trk-res{font-weight:700;text-align:left !important}
   .su-track{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:var(--card)}
   .su-track-scroll{max-height:800px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;padding-right:6px}
   /* spreadsheet-style grid: STATUS | TICKER | SIDE | ENTRY | STOP | T1 | T2 | NOW | P/L */
@@ -1088,6 +1098,24 @@
     <div class="se-footer" style="justify-content:space-between">
       <span id="hoFootNote" style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Holdings ≈ mid-2026 · movers: live Yahoo Finance · not investment advice</span>
       <button class="se-dismiss" onclick="closeHoldingsPopup()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Track-Record trade detail (click a W or L count) -->
+<div class="se-overlay" id="trkOverlay" role="dialog" aria-modal="true" onclick="if(event.target===this)closeTrkPopup()">
+  <div class="se-box" style="max-width:680px;width:100%">
+    <button class="se-close" onclick="closeTrkPopup()" aria-label="Close">✕</button>
+    <div class="se-top">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:6px">Track Record · scored trades</div>
+      <div id="trkTitle" style="font-size:22px;font-weight:800;letter-spacing:-.3px"></div>
+      <div id="trkSub" style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-top:5px;margin-bottom:14px"></div>
+    </div>
+    <div class="se-divider"></div>
+    <div class="se-body" style="padding:16px 24px"><div id="trkBody"></div></div>
+    <div class="se-footer" style="justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)">Levels as published at entry · R = result in risk multiples · same-day ties resolve against the trade</span>
+      <button class="se-dismiss" onclick="closeTrkPopup()">Close</button>
     </div>
   </div>
 </div>
@@ -2129,7 +2157,9 @@ function renderSetupStats(stats){
   let tt='';
   for(const [k,v] of Object.entries(stats.byType||{})){
     const closed=v.w+v.l;
-    tt+=`<tr><td>${types[k]||k}</td><td>${v.n}</td><td style="color:var(--green)">${v.w}</td><td style="color:var(--red)">${v.l}</td><td>${closed?Math.round(v.w/closed*100)+'%':'–'}</td></tr>`;
+    const wCell=v.w>0?`<td style="color:var(--green)"><span class="trk-link" onclick="showTrackTrades('${k}','W')" title="Show the ${v.w} winning ${types[k]||k} trade${v.w>1?'s':''}">${v.w}</span></td>`:`<td style="color:var(--green)">${v.w}</td>`;
+    const lCell=v.l>0?`<td style="color:var(--red)"><span class="trk-link" onclick="showTrackTrades('${k}','L')" title="Show the ${v.l} losing ${types[k]||k} trade${v.l>1?'s':''}">${v.l}</span></td>`:`<td style="color:var(--red)">${v.l}</td>`;
+    tt+=`<tr><td>${types[k]||k}</td><td>${v.n}</td>${wCell}${lCell}<td>${closed?Math.round(v.w/closed*100)+'%':'–'}</td></tr>`;
   }
   el.innerHTML=`<div class="su-stats">
     <div class="su-stats-hdr">📊 TRACK RECORD — our own setups, scored automatically (30 days)</div>
@@ -2144,6 +2174,66 @@ function renderSetupStats(stats){
     ${tt?`<table><tr><th>TYPE</th><th>ISSUED</th><th>W</th><th>L</th><th>HIT</th></tr>${tt}</table>`:''}
     <div style="font-family:var(--mono);font-size:8.5px;color:var(--text-faint);margin-top:8px">Win = TP1 hit (counted IMMEDIATELY — half banked at +1.5R, stop moves to breakeven, so ≥ +0.75R is locked) or any closed trade with positive R. Loss = stop −1R. Expectancy in R per scored trade — positive means the system pays. Fills &amp; stops are checked against the day's intraday high/low (wicks count); same-day ties resolve AGAINST the trade, so these numbers can only understate.</div>
   </div>`;
+}
+
+// ── Track-record drill-down: click a W or L count to see the real trades ──────
+// Classification MUST reproduce the server's stats.byType exactly (verified
+// against all 4 types): Loss = stopped or r<0; Win = TP1 hit (status t1/t2/be,
+// a t1Date, or any closed trade with positive R). hist is the full ledger.
+function _trkOutcome(s){
+  const st=s.status, r=s.r;
+  if(st==='stopped' || (r!=null && r<0)) return 'L';
+  if(st==='t1'||st==='t2'||st==='be' || s.t1Date || (r!=null && r>0)) return 'W';
+  return null;
+}
+const TRK_TYPE_LBL={pullback_long:'Pullback Longs',rip_short:'Rip Shorts',rs_leader:'RS Leaders',rs_laggard:'RS Laggards'};
+function showTrackTrades(type, outcome){
+  const su=window._setups; if(!su||!Array.isArray(su.hist)) return;
+  // Live price / open-R from the open book, keyed by ticker+type+created.
+  const live=new Map((su.open||[]).map(o=>[o.t+'|'+o.type+'|'+o.created,o]));
+  const rows=su.hist
+    .filter(s=>s.type===type && _trkOutcome(s)===outcome)
+    .sort((a,b)=>String(b.closed||b.trigDate||b.created||'').localeCompare(String(a.closed||a.trigDate||a.created||'')));
+  const $=v=>v==null?'<span style="color:var(--text-faint)">–</span>':'$'+Number(v).toFixed(2);
+  const dt=d=>d?String(d).slice(5):'–';            // MM-DD
+  const win=outcome==='W';
+  const body=rows.map(s=>{
+    const isL=s.side!=='short';
+    const sideTxt=`<span style="color:${isL?'var(--green)':'var(--red)'}">${isL?'LONG':'SHORT'}</span>`;
+    const o=live.get(s.t+'|'+s.type+'|'+s.created);
+    // Result label — be honest about open winners (TP1 banked, runner still live).
+    let res, rcol;
+    if(outcome==='L'){ res='STOPPED'; rcol='var(--red)'; }
+    else if(s.status==='t1'||(o&&o.status==='t1')){ res='TP1 ✓ · runner live'; rcol='var(--green)'; }
+    else if(s.status==='t2'){ res='TP1+TP2 ✓'; rcol='var(--green)'; }
+    else if(s.status==='be'){ res='TP1 ✓ · closed BE'; rcol='var(--green)'; }
+    else { res='TP1 ✓'; rcol='var(--green)'; }
+    const rTxt=s.r!=null?`<span style="color:${s.r>=0?'var(--green)':'var(--red)'}">${s.r>=0?'+':''}${s.r}R</span>`
+      :(win?'<span style="color:var(--green)">≥+0.75R 🔒</span>':'<span style="color:var(--text-faint)">–</span>');
+    return `<tr>
+      <td><span class="trk-tk">${s.t}</span>${s.etf?`<span class="trk-etf">${s.etf}</span>`:''}</td>
+      <td>${sideTxt}</td>
+      <td><b style="color:var(--text)">${$(s.entry)}</b></td>
+      <td>${$(s.stop)}</td>
+      <td>${$(s.t1)}</td>
+      <td>${$(s.t2)}</td>
+      <td class="trk-res" style="color:${rcol}">${res}</td>
+      <td>${rTxt}</td>
+      <td>${dt(s.trigDate||s.created)}→${dt(s.closed)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('trkTitle').innerHTML=`<span style="color:${win?'var(--green)':'var(--red)'}">${rows.length} ${win?'winning':'losing'}</span> · ${TRK_TYPE_LBL[type]||type}`;
+  document.getElementById('trkSub').textContent=win
+    ? 'Win = TP1 reached (half banked at +1.5R, stop to breakeven → ≥ +0.75R locked) or any closed trade with positive R.'
+    : 'Loss = price hit the published stop for −1R before TP1.';
+  document.getElementById('trkBody').innerHTML=rows.length?`<table class="trk-tbl">
+    <tr><th>TICKER</th><th>SIDE</th><th>ENTRY</th><th>STOP</th><th>T1</th><th>T2</th><th style="text-align:left">RESULT</th><th>R</th><th>TRIG→CLOSE</th></tr>
+    ${body}</table>`:'<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:8px 0">No trades.</div>';
+  const ov=document.getElementById('trkOverlay'); ov.classList.add('open'); document.body.style.overflow='hidden';
+}
+function closeTrkPopup(){
+  document.getElementById('trkOverlay').classList.remove('open');
+  document.body.style.overflow='';
 }
 
 function renderSetupAdvisor(adv){
@@ -3375,7 +3465,7 @@ document.addEventListener('DOMContentLoaded',function(){
     ho.addEventListener('click',function(ev){if(ev.target===this)closeHoldingsPopup();});
   }
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape')closeHoldingsPopup();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeHoldingsPopup();closeTrkPopup();}});
 
 // Click delegation for Best Performers cards and ETF universe table rows
 document.addEventListener('click',function(e){
