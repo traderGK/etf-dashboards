@@ -641,6 +641,8 @@
   .su-stats td{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.03)}
   .trk-link{cursor:pointer;font-weight:700;border-bottom:1px dotted currentColor;padding-bottom:1px}
   .trk-link:hover{filter:brightness(1.25)}
+  .trk-link-zero{opacity:.45;border-bottom-style:dotted}
+  .trk-link-zero:hover{opacity:.8}
   .trk-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
   .trk-tbl th{text-align:right;color:var(--text-faint);font-weight:400;letter-spacing:.6px;padding:5px 9px;border-bottom:1px solid var(--line);font-size:8.5px;white-space:nowrap}
   .trk-tbl th:first-child,.trk-tbl td:first-child{text-align:left}
@@ -2157,9 +2159,11 @@ function renderSetupStats(stats){
   let tt='';
   for(const [k,v] of Object.entries(stats.byType||{})){
     const closed=v.w+v.l;
-    const wCell=v.w>0?`<td style="color:var(--green)"><span class="trk-link" onclick="showTrackTrades('${k}','W')" title="Show the ${v.w} winning ${types[k]||k} trade${v.w>1?'s':''}">${v.w}</span></td>`:`<td style="color:var(--green)">${v.w}</td>`;
-    const lCell=v.l>0?`<td style="color:var(--red)"><span class="trk-link" onclick="showTrackTrades('${k}','L')" title="Show the ${v.l} losing ${types[k]||k} trade${v.l>1?'s':''}">${v.l}</span></td>`:`<td style="color:var(--red)">${v.l}</td>`;
-    tt+=`<tr><td>${types[k]||k}</td><td>${v.n}</td>${wCell}${lCell}<td>${closed?Math.round(v.w/closed*100)+'%':'–'}</td></tr>`;
+    // Always clickable — a 0 opens an empty list that auto-fills the moment a
+    // trade of that type/outcome closes (no code change needed). The dotted-link
+    // styling is muted at 0 so it doesn't look like there's data to see.
+    const cell=(n,out,col)=>`<td style="color:${col}"><span class="trk-link${n?'':' trk-link-zero'}" onclick="showTrackTrades('${k}','${out}')" title="${n?`Show the ${n} ${out==='W'?'winning':'losing'} ${types[k]||k} trade${n>1?'s':''}`:`No ${out==='W'?'winning':'losing'} ${types[k]||k} trades yet — opens automatically once one closes`}">${n}</span></td>`;
+    tt+=`<tr><td>${types[k]||k}</td><td>${v.n}</td>${cell(v.w,'W','var(--green)')}${cell(v.l,'L','var(--red)')}<td>${closed?Math.round(v.w/closed*100)+'%':'–'}</td></tr>`;
   }
   el.innerHTML=`<div class="su-stats">
     <div class="su-stats-hdr">📊 TRACK RECORD — our own setups, scored automatically (30 days)</div>
@@ -2228,7 +2232,7 @@ function showTrackTrades(type, outcome){
     : 'Loss = price hit the published stop for −1R before TP1.';
   document.getElementById('trkBody').innerHTML=rows.length?`<table class="trk-tbl">
     <tr><th>TICKER</th><th>SIDE</th><th>ENTRY</th><th>STOP</th><th>T1</th><th>T2</th><th style="text-align:left">RESULT</th><th>R</th><th>TRIG→CLOSE</th></tr>
-    ${body}</table>`:'<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:8px 0">No trades.</div>';
+    ${body}</table>`:`<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:10px 2px;line-height:1.7">No ${win?'winning':'losing'} ${TRK_TYPE_LBL[type]||type} yet.<br>This list fills automatically the moment a ${TRK_TYPE_LBL[type]||type} trade ${win?'hits TP1':'is stopped out'}.</div>`;
   const ov=document.getElementById('trkOverlay'); ov.classList.add('open'); document.body.style.overflow='hidden';
 }
 function closeTrkPopup(){
