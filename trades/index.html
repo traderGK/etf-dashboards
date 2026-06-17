@@ -3159,9 +3159,14 @@ function openHoldingsPopup(ticker){
   const _nameFb=new Map(e.h.map(r=>[r[0],r[1]]));
   const _liveH=window.etfHoldings&&window.etfHoldings[ticker];
   let holdingsLive=false, dispH;
-  if(Array.isArray(_liveH)&&_liveH.length){
-    dispH=_liveH.filter(h=>h&&h.t).map(h=>[h.t,h.n||_nameFb.get(h.t)||h.t,+h.w||0]).sort((a,b)=>b[2]-a[2]);
-    holdingsLive=true;
+  const _liveMapped=Array.isArray(_liveH)
+    ? _liveH.filter(h=>h&&h.t&&(+h.w>0)).map(h=>[h.t,h.n||_nameFb.get(h.t)||h.t,+h.w||0]).sort((a,b)=>b[2]-a[2])
+    : [];
+  // Use live only when it's at least as complete as the snapshot table would show
+  // (≥ min(10, snapshot count)) — otherwise the richer stored snapshot wins, so a
+  // sparse live feed (e.g. COPX=1, BOTZ=2) never shrinks the table.
+  if(_liveMapped.length>=Math.min(10,e.h.length)){
+    dispH=_liveMapped; holdingsLive=true;
   }else{ dispH=e.h; }
   const maxW=dispH.reduce((m,r)=>Math.max(m,parseFloat(r[2])||0),0);
   // Use absolute scale (cap at 30%) so small weights stay visually small
