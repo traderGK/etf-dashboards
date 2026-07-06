@@ -41,6 +41,9 @@ THEME_R = [
     {"key":"INDA/SPY",  "num":"INDA", "den":"SPY",  "master":False, "inv":False, "theme":True},
     {"key":"PAVE/SPY",  "num":"PAVE", "den":"SPY",  "master":False, "inv":False, "theme":True},
     {"key":"MAGS/SPY",  "num":"MAGS", "den":"SPY",  "master":False, "inv":False, "theme":True},
+    {"key":"DRAM/SPY",  "num":"DRAM", "den":"SPY",  "master":False, "inv":False, "theme":True},
+    {"key":"GRID/SPY",  "num":"GRID", "den":"SPY",  "master":False, "inv":False, "theme":True},
+    {"key":"BOTZ/SPY",  "num":"BOTZ", "den":"SPY",  "master":False, "inv":False, "theme":True},
 ]
 ALL_R = CORE_R + THEME_R
 SMA_S, SMA_L = 20, 50
@@ -50,11 +53,11 @@ BP_GROUPS = {
     'US Sectors':      ['XLK','XLF','XLE','XLV','XLI','XLC','XLU','XLY','XLP','XLRE','XLB'],
     'Global Sectors':  ['IXN','IXJ','IXC','IXG','MXI','KXI'],
     'Macro / Asset':   ['QQQ','IWM','SMH','SOXX','IBIT','GLD','EEM','EFA','RSP','HYG','TLT','MAGS','SKYY','FINX','INDA'],
-    'Trending Themes': ['ITA','XAR','SHLD','NASA','UFO','QTUM','AIQ','CHAT','BOTZ','CIBR','URA','ARKK','ARKG','XBI','COPX','PAVE','BLOK','ICLN','TAN','LIT','REMX'],
+    'Trending Themes': ['ITA','XAR','SHLD','NASA','UFO','QTUM','AIQ','CHAT','BOTZ','CIBR','URA','ARKK','ARKG','XBI','COPX','PAVE','BLOK','ICLN','TAN','LIT','REMX','DRAM','KOID','GRID','NUKZ'],
 }
 ALL_BP_TICKERS = list({t for g in BP_GROUPS.values() for t in g} | {'SPY'})
 
-# ── All 62 ETFs on the dashboard ──────────────────────────────────────────────
+# ── All 66 ETFs on the dashboard ──────────────────────────────────────────────
 ETF_TICKERS = [
     'XLK','XLF','XLE','XLV','XLI','XLC','XLU','XLY','XLP','XLRE','XLB',
     'IXN','IXJ','IXC','IXG','MXI','KXI',
@@ -63,6 +66,7 @@ ETF_TICKERS = [
     'ITA','XAR','SHLD','NASA','UFO','ARKX','QTUM','AIQ','CHAT','BOTZ',
     'CIBR','URA','BLOK','ICLN','TAN','LIT','ARKG','ARKK',
     'SOXX','MAGS','PAVE','XBI','IBB','INDA','COPX','SKYY','FINX','REMX','TUR',
+    'DRAM','KOID','GRID','NUKZ',
 ]
 
 # ── Leveraged ETFs (trade ideas in popup) — BULL + BEAR ───────────────────────
@@ -144,6 +148,10 @@ HARDCODED_HOLDINGS = {
     'MXI':  ['LIN','BHP','RIO','NEM','FCX','APD'],
     'KXI':  ['PG','NESN','NVO','MDLZ','KO','PEP','WMT'],
     'FINX': ['V','MA','PYPL','SQ','AFRM','SOFI','UPST'],
+    'DRAM': ['MU','WDC','STX','SNDK'],                        # US-listed memory pure-plays (SK hynix/Samsung not US-tradeable)
+    'GRID': ['ETN','PWR','HUBB','ITRI','GNRC','JCI'],          # US-listed grid/electrification names
+    'KOID': ['NVDA','TSLA','TER'],                             # US-listed humanoid-chain (most holdings are foreign)
+    'NUKZ': ['OKLO','SMR','BWXT','LEU','CEG','VST','GEV'],     # reactor builders + SMRs + nuclear utilities
 }
 
 # ── Ticker validation ─────────────────────────────────────────────────────────
