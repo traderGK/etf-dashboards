@@ -2165,13 +2165,19 @@ function renderSetupStats(stats){
   const fm=(v,suf)=>v==null?'–':((v>0&&suf==='R'?'+':'')+v+(suf||''));
   const types={pullback_long:'Pullback L',rip_short:'Rip Short',rs_leader:'RS Leader',rs_laggard:'RS Laggard'};
   let tt='';
+  const tot={n:0,w:0,l:0};
   for(const [k,v] of Object.entries(stats.byType||{})){
     const closed=v.w+v.l;
+    tot.n+=v.n; tot.w+=v.w; tot.l+=v.l;
     // Always clickable — a 0 opens an empty list that auto-fills the moment a
     // trade of that type/outcome closes (no code change needed). The dotted-link
     // styling is muted at 0 so it doesn't look like there's data to see.
     const cell=(n,out,col)=>`<td style="color:${col}"><span class="trk-link${n?'':' trk-link-zero'}" onclick="showTrackTrades('${k}','${out}')" title="${n?`Show the ${n} ${out==='W'?'winning':'losing'} ${types[k]||k} trade${n>1?'s':''}`:`No ${out==='W'?'winning':'losing'} ${types[k]||k} trades yet — opens automatically once one closes`}">${n}</span></td>`;
     tt+=`<tr><td>${types[k]||k}</td><td>${v.n}</td>${cell(v.w,'W','var(--green)')}${cell(v.l,'L','var(--red)')}<td>${closed?Math.round(v.w/closed*100)+'%':'–'}</td></tr>`;
+  }
+  if(tt){
+    const closed=tot.w+tot.l, bd='border-top:1px solid var(--border,rgba(255,255,255,.15));font-weight:700';
+    tt+=`<tr><td style="${bd}">TOTAL</td><td style="${bd}">${tot.n}</td><td style="${bd};color:var(--green)">${tot.w}</td><td style="${bd};color:var(--red)">${tot.l}</td><td style="${bd}">${closed?Math.round(tot.w/closed*100)+'%':'–'}</td></tr>`;
   }
   el.innerHTML=`<div class="su-stats">
     <div class="su-stats-hdr">📊 TRACK RECORD — our own setups, scored automatically (30 days)</div>
