@@ -303,9 +303,14 @@ def m_breadth(px):
                          s.iloc[-1] > s.rolling(200).mean().iloc[-1],
                          m50 / len(mem) * 100 if mem else float("nan"), len(mem)))
     sec_rows.sort(key=lambda r: r[2], reverse=True)
-    glob = sorted(((COUNTRIES[e], e, (px[e].dropna().iloc[-1] / px[e].dropna().rolling(200).mean().iloc[-1] - 1) * 100)
-                   for e in COUNTRIES if e in px), key=lambda r: r[2], reverse=True)
+    glob = sorted(((nm, e, (px[e].dropna().iloc[-1] / px[e].dropna().rolling(200).mean().iloc[-1] - 1) * 100)
+                   for e, nm in list(COUNTRIES.items()) + [("SPY", "United States")] if e in px),
+                  key=lambda r: r[2], reverse=True)
     glob_above = sum(g[2] > 0 for g in glob) / len(glob) * 100
+    rsp_spy = float(((px["RSP"] / px["SPY"]).dropna().iloc[-1] /
+                     (px["RSP"] / px["SPY"]).dropna().iloc[-64] - 1) * 100)
+    iwm_spy = float(((px["IWM"] / px["SPY"]).dropna().iloc[-1] /
+                     (px["IWM"] / px["SPY"]).dropna().iloc[-64] - 1) * 100)
 
     look = 252
     spy_n = spy.iloc[-look:]; spy_norm = (spy_n / spy_n.iloc[0] * 100).tolist()
@@ -343,17 +348,34 @@ def m_breadth(px):
         line_chart([a50_series.tolist()], [GOLD], hlines=[(80, GREEN, "80"), (50, MUT, "50"), (20, RED, "20")], lo=0, hi=100) +
         '<div class="legend">Mean-reverting oscillator: &gt;80% = stretched but initiation-strong; '
         '&lt;20% = washout, historically nearer bottoms than new bear legs.</div>')
+    body += "<h2>Leadership check</h2>" + card(
+        f'<div><b>RSP/SPY</b> (equal-weight vs cap-weight) 3-month: '
+        f'<b style="color:{GREEN if rsp_spy > 0 else RED}">{rsp_spy:+.1f}%</b> &nbsp;·&nbsp; '
+        f'<b>IWM/SPY</b> (small vs large) 3-month: '
+        f'<b style="color:{GREEN if iwm_spy > 0 else RED}">{iwm_spy:+.1f}%</b></div>'
+        f'<div class="muted" style="margin-top:6px">' +
+        ("Broad leadership — the average stock and small caps are both beating the index; the healthiest configuration."
+         if rsp_spy > 0 and iwm_spy > 0 else
+         "Mega-cap squeeze — both ratios favor the largest names; the index is stronger than its market."
+         if rsp_spy < 0 and iwm_spy < 0 else
+         "Mixed leadership — neither a broad advance nor an extreme concentration; watch which ratio resolves first.")
+        + "</div>")
     body += "<h2>Sector participation</h2>" + card(table(
         ["Sector", "1m return", "> 50d", "> 200d", "Panel % > 50d"],
         [(f"<b>{e}</b> <span class='muted'>{nm}</span>", cnum(r), dot(a), dot(b),
           f"{pct(p) if not math.isnan(p) else '—'} <span class='muted'>(n={k})</span>")
-         for e, nm, r, a, b, p, k in sec_rows]))
+         for e, nm, r, a, b, p, k in sec_rows]) +
+        '<div class="legend">In a Mixed or Narrowing regime this table IS the trade list: green on both '
+        'trend columns with strong member breadth marks the sectors doing the carrying.</div>')
     body += "<h2>Global breadth</h2>" + card(
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px">' +
         "".join(f'<div style="display:flex;gap:7px;align-items:baseline;font-size:13px">{dot(d>0)} <b>{nm}</b> '
                 f'<span class="muted">{e}</span><span style="margin-left:auto;color:{GREEN if d>0 else RED}">{d:+.1f}%</span></div>'
-                for nm, e, d in glob) + "</div>",
-        "COUNTRY ETFs vs THEIR 200-DAY")
+                for nm, e, d in glob) + "</div>" +
+        f'<div class="legend">{sum(g[2] > 0 for g in glob)}/{len(glob)} markets above their 200-day. Global '
+        'confirmation strengthens any US signal; the US rallying alone while the world sits below trend is a '
+        'narrower story than the index chart suggests.</div>',
+        "COUNTRY ETFs vs THEIR 200-DAY · IS THE ADVANCE GLOBAL OR US-ONLY?")
     return dict(slug="breadth", title="Market Breadth",
                 sub="How many stocks are actually participating — the structural health under the index.",
                 body=body, stance=stance,
@@ -982,42 +1004,206 @@ def m_key_levels(px):
                 body=body, stance="info",
                 headline=f"SPY {spy.iloc[-1]:,.0f} — ladder built from volume, VWAPs, swings, MAs and options")
 
-def m_valuation(px, gspc_m):
-    spy = px["SPY"].dropna()
-    logp = pd.Series(range(len(gspc_m)), index=gspc_m.index)
+def _multpl(page, fallback=None):
+    try:
+        req = urllib.request.Request(f"https://www.multpl.com/{page}",
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        import re as _re
+        html = urllib.request.urlopen(req, timeout=20).read().decode()
+        m = _re.search(r"Current[^:]*:\s*<b>?\s*([\d.]+)", html) or \
+            _re.search(r'id="current"[^>]*>[^0-9]*([\d.]+)', html)
+        return float(m.group(1)) if m else fallback
+    except Exception:
+        return fallback
+
+def _log_trend_fv(s, since=None):
     import numpy as np
-    y = np.log(gspc_m.values.astype(float))
+    if since:
+        s = s[s.index.year >= since]
+    y = np.log(s.values.astype(float))
     x = np.arange(len(y))
     b, a = np.polyfit(x, y, 1)
-    trend = np.exp(a + b * x)
-    dev = (gspc_m.values[-1] / trend[-1] - 1) * 100
-    pe = None
+    fit = float(np.exp(a + b * (len(y) - 1)))
+    growth = (math.exp(b * 252) - 1) * 100 if len(s) > 500 else (math.exp(b * 12) - 1) * 100
+    return fit, growth
+
+def _anchor_200w(s):
+    w = s.resample("W-FRI").last().dropna()
+    sma = w.rolling(200).mean().dropna()
+    if not len(sma):
+        return None
+    ratio = (w.loc[sma.index] / sma).loc[lambda r: r.index.year >= 2020]
+    return float(sma.iloc[-1] * ratio.median())
+
+VAL_JS = r"""
+(function(){
+const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+let asset=Object.keys(D)[0];const off={};
+const wrap=document.getElementById('valw');
+function fmtp(v,p){return (p>2000?v.toLocaleString(undefined,{maximumFractionDigits:0}):v.toLocaleString(undefined,{maximumFractionDigits:2}));}
+function render(){
+ const a=D[asset],act=a.models.filter(m=>!off[asset+m.name]);
+ const fvs=act.map(m=>m.fv);
+ const comp=fvs.length?fvs.reduce((x,y)=>x+y,0)/fvs.length:null;
+ const med=fvs.length?fvs.slice().sort((x,y)=>x-y)[Math.floor((fvs.length-1)/2)]:null;
+ let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+Object.keys(D).map(k=>{
+  const dd=D[k],allfv=dd.models.map(m=>m.fv),cc=allfv.reduce((x,y)=>x+y,0)/allfv.length,dv=(cc/dd.price-1)*100;
+  return '<button data-a="'+k+'" style="cursor:pointer;font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid '+
+   (k===asset?GOLDC:'#232a3a')+';background:'+(k===asset?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+
+   dd.name+' <b style="color:'+(dv>=0?GRN:RED)+'">'+(dv>=0?'+':'')+dv.toFixed(1)+'%</b></button>';}).join('')+'</div>';
+ if(comp!=null){const dv=(comp/a.price-1)*100;
+  h+='<div style="font-size:20px;font-weight:700">'+(a.unit||'')+fmtp(comp,a.price)+
+   ' <span style="color:'+(dv>=0?GRN:RED)+'">'+(dv>=0?'+':'')+dv.toFixed(1)+'% vs price</span> '+
+   '<span class="pill" style="background:'+(dv<-15?RED:(dv>15?GRN:'#e0a94c'))+'22;color:'+(dv<-15?RED:(dv>15?GRN:'#e0a94c'))+'">'+
+   (dv<-15?'OVERVALUED':(dv>15?'UNDERVALUED':'FAIRLY VALUED'))+'</span></div>'+
+  '<div class="muted" style="font-size:12px;margin:4px 0 12px">Composite = average of '+act.length+'/'+a.models.length+
+   ' active models · median '+(a.unit||'')+fmtp(med,a.price)+' · current price '+(a.unit||'')+fmtp(a.price,a.price)+
+   ' · active range '+(a.unit||'')+fmtp(Math.min(...fvs),a.price)+' – '+(a.unit||'')+fmtp(Math.max(...fvs),a.price)+'</div>';}
+ a.models.forEach(m=>{const on=!off[asset+m.name],dv=(m.fv/a.price-1)*100;
+  h+='<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);opacity:'+(on?1:.4)+'">'+
+   '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#232a3a')+'"></button>'+
+   '<div style="flex:1"><b>'+m.name+'</b> <span style="color:'+(dv>=0?GRN:RED)+'">'+(a.unit||'')+fmtp(m.fv,a.price)+' ('+(dv>=0?'+':'')+dv.toFixed(1)+'%)</span>'+
+   '<div class="muted" style="font-size:12px">'+m.f+'</div>'+
+   '<div class="muted" style="font-size:11px;font-style:italic">'+m.note+'</div></div></div>';});
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button[data-a]').forEach(b=>b.onclick=()=>{asset=b.dataset.a;render();});
+ wrap.querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{off[asset+b.dataset.m]=!off[asset+b.dataset.m];render();});
+}
+render();
+})();
+"""
+
+def m_valuation(px, gspc_m):
+    hist = yf.download(["^GSPC", "^NDX", "^RUT", "BTC-USD", "ETH-USD", "GC=F", "SPY", "TLT"],
+                       period="max", interval="1d", auto_adjust=True, progress=False)["Close"]
+    pe = _multpl("s-p-500-pe-ratio", None)
+    if not pe:
+        try:
+            pe = yf.Ticker("SPY").info.get("trailingPE")
+        except Exception:
+            pe = None
+    cape = _multpl("shiller-pe", None)
+    cpi_idx = fred("CPIAUCSL", 4)
+    cpi = float((cpi_idx.iloc[-1] / cpi_idx.iloc[-13] - 1) * 100)
+    tnx = float(px["^TNX"].dropna().iloc[-1])
+    tips = None
     try:
-        pe = yf.Ticker("SPY").info.get("trailingPE")
+        tips = float(fred("DFII10", 1).iloc[-1])
     except Exception:
         pass
-    tnx = px["^TNX"].dropna().iloc[-1]
-    ey = (100 / pe) if pe else None
-    erp = (ey - tnx) if ey else None
-    stance = "bearish" if dev > 40 else ("bullish" if dev < -20 else "neutral")
-    items = [("S&P vs long-run trend", sgn(dev), col(dev, lambda v: v < 0, lambda v: v > 40)),
-             ("10-year yield", pct(tnx, 2), MUT)]
+    hy = float(fred("BAMLH0A0HYM2", 1).iloc[-1] * 100)
+    data = {}
+
+    def models_for(sym, name, since, unit=""):
+        s = hist[sym].dropna()
+        price = float(s.iloc[-1])
+        ms = []
+        fv, gr = _log_trend_fv(s, since)
+        ms.append(dict(name="Log-price trend", fv=round(fv, 2),
+                       f=f"Exponential fit of log price since {since} · growth {gr:.1f}%/yr",
+                       note="Pure time-series gravity — ignores valuation entirely; assumes the historical growth rate persists."))
+        a200 = _anchor_200w(s)
+        if a200:
+            ms.append(dict(name="200-week anchor", fv=round(a200, 2),
+                           f="200-week average × the median price/average ratio since 2020",
+                           note="A trader's fair value, not an economist's — where price sits vs its own 4-year habit."))
+        return s, price, ms
+
+    # --- S&P 500 (full model set)
+    s, price, ms = models_for("^GSPC", "S&P 500", 1985)
     if pe:
-        items += [("SPY trailing P/E", f"{pe:.1f}", col(pe, lambda v: v < 20, lambda v: v > 28)),
-                  ("Earnings yield − 10y", f"{erp:+.2f} pts", col(erp, lambda v: v > 0))]
-    dev_series = (pd.Series(gspc_m.values.astype(float), index=gspc_m.index) /
-                  pd.Series(trend, index=gspc_m.index) - 1) * 100
-    body = card(stat_grid(items) +
-                '<div class="muted" style="margin-top:10px">Valuation is a regime dial, not a timing tool: '
-                'stretched markets can stretch for years, but the further above trend, the thinner forward '
-                'returns get and the harder drawdowns hit. It sets position size, not entry timing.</div>',
-                "WHERE THE MARKET SITS") + card(
-        line_chart([dev_series.iloc[-360:].tolist()], [GOLD], hlines=[(0, MUT, "trend"), (40, RED, "+40"), (-20, GREEN, "−20")]) +
-        '<div class="legend">S&P 500 deviation from its full-history log-linear trend, last 30 years. '
-        'Above +40% marks the historically expensive zone; −20% and below marks the cheap zone.</div>')
+        eps = price / pe
+        ms.insert(0, dict(name="Rule of 20", fv=round(eps * max(20 - cpi, 4), 2),
+                          f=f"EPS (${eps:.0f}) × (20 − CPI inflation {cpi:.1f}%)",
+                          note="The old desk heuristic: fair P/E plus inflation sums to 20. Simple, venerable, blind to rates and margins."))
+        ms.insert(1, dict(name="Fed model", fv=round(eps / (tnx / 100), 2),
+                          f=f"EPS ÷ 10-year Treasury yield ({tnx:.2f}%)",
+                          note="Sets the earnings yield equal to the 10-year. Famous and flawed — implies infinite value at zero rates; use as a rates-sensitivity bound."))
+        ms.insert(2, dict(name="Equity risk premium", fv=round(eps / ((tnx + 2.5) / 100), 2),
+                          f=f"EPS ÷ (10y {tnx:.2f}% + 2.5% required premium)",
+                          note="Demands stocks out-yield bonds by 2.5pts — near the post-2000 norm. The premium assumption IS the model."))
+    if cape:
+        ms.insert(3 if pe else 0, dict(name="CAPE reversion", fv=round(price * 26 / cape, 2),
+                                       f=f"Price × (post-1990 median CAPE 26 ÷ current {cape:.1f})",
+                                       note="Shiller's cyclically-adjusted P/E pulled to its modern-era median. CAPE has read 'expensive' for 30 years — reversion can take a decade."))
+    data["spx"] = dict(name="S&P 500", price=price, models=ms)
+    # --- NDX / RUT
+    for sym, key, name, since in (("^NDX", "ndx", "Nasdaq 100", 1995), ("^RUT", "rut", "Russell 2000", 1995)):
+        s2, p2, ms2 = models_for(sym, name, since)
+        ratio = (hist[sym] / hist["^GSPC"]).dropna()
+        med = float(ratio.iloc[-2520:].median())
+        ms2.append(dict(name="S&P-relative reversion", fv=round(float(hist["^GSPC"].dropna().iloc[-1]) * med, 2),
+                        f=f"S&P price × 10-year median {name}/S&P ratio ({med:.3f})",
+                        note="Relative-value anchor: assumes the index reverts to its decade-normal weight vs the S&P."))
+        data[key] = dict(name=name, price=p2, models=ms2)
+    # --- BTC / ETH
+    s3, p3, ms3 = models_for("BTC-USD", "Bitcoin", 2015, "$")
+    import numpy as np
+    days = (s3.index - pd.Timestamp("2009-01-03")).days.values.astype(float)
+    bpl = np.polyfit(np.log(days), np.log(s3.values.astype(float)), 1)
+    ms3.append(dict(name="Power law", fv=round(float(np.exp(bpl[1] + bpl[0] * math.log(days[-1]))), 0),
+                    f=f"log(price) = {bpl[1]:.1f} + {bpl[0]:.2f}·log(days since genesis)",
+                    note="Bitcoin's price has tracked a power law of its own age for a decade — descriptive, not causal."))
+    data["btc"] = dict(name="Bitcoin", price=p3, models=ms3, unit="$")
+    s4, p4, ms4 = models_for("ETH-USD", "Ethereum", 2017, "$")
+    eb = (hist["ETH-USD"] / hist["BTC-USD"]).dropna()
+    ms4.append(dict(name="BTC-relative reversion", fv=round(p3 * float(eb.iloc[-1000:].median()), 0),
+                    f=f"BTC price × 4-year median ETH/BTC ratio ({float(eb.iloc[-1000:].median()):.4f})",
+                    note="Anchors ETH to its habitual weight against Bitcoin — a pair-trade view of fair value."))
+    data["eth"] = dict(name="Ethereum", price=p4, models=ms4, unit="$")
+    # --- Gold
+    s5, p5, ms5 = models_for("GC=F", "Gold", 2000, "$")
+    if tips is not None:
+        try:
+            ty = fred("DFII10", 10)
+            g = hist["GC=F"].dropna()
+            both = pd.concat([g, ty], axis=1).dropna()
+            bfit = np.polyfit(both.iloc[:, 1].values, np.log(both.iloc[:, 0].values), 1)
+            ms5.append(dict(name="Real-yield model", fv=round(float(np.exp(bfit[1] + bfit[0] * tips)), 0),
+                            f=f"Regression of log gold on the 10y real yield · today's real yield {tips:.2f}%",
+                            note="Gold's classic driver is the real rate: high real yields raise the cost of holding it. Breaks down when central-bank buying dominates — as it has recently."))
+        except Exception:
+            pass
+    data["gold"] = dict(name="Gold", price=p5, models=ms5, unit="$")
+    # --- equities vs bonds
+    rat = (hist["SPY"] / hist["TLT"]).dropna()
+    pr = float(rat.iloc[-1])
+    fvr, grr = _log_trend_fv(rat, 2004)
+    a200r = _anchor_200w(rat)
+    msr = [dict(name="Ratio trend", fv=round(fvr, 2), f=f"Log-trend of SPY/TLT since 2004 · {grr:.1f}%/yr",
+                note="Where the stocks-vs-bonds pendulum sits against its long swing.")]
+    if a200r:
+        msr.append(dict(name="200-week anchor", fv=round(a200r, 2),
+                        f="200-week average of the ratio × median deviation since 2020",
+                        note="The medium-term habit of the pair."))
+    data["eqbond"] = dict(name="Equities vs Bonds", price=pr, models=msr)
+
+    comp_dev = {}
+    for k, d in data.items():
+        fvs = [m["fv"] for m in d["models"]]
+        comp_dev[k] = (sum(fvs) / len(fvs) / d["price"] - 1) * 100
+    stance = "bearish" if comp_dev["spx"] < -25 else ("bullish" if comp_dev["spx"] > 15 else "neutral")
+    inputs = [("S&P trailing P/E", f"{pe:.1f}" if pe else "—", MUT),
+              ("Shiller CAPE", f"{cape:.1f}" if cape else "—", MUT),
+              ("10y Treasury", pct(tnx, 2), MUT),
+              ("10y real (TIPS)", pct(tips, 2) if tips is not None else "—", MUT),
+              ("CPI inflation", pct(cpi), MUT),
+              ("HY OAS", f"{hy:.0f} bps", MUT)]
+    body = card('<div id="valw">loading…</div><script>' +
+                VAL_JS.replace("__DATA__", json.dumps(data, separators=(",", ":"))) + "</script>",
+                "MULTI-MODEL FAIR VALUE · TOGGLE ANY MODEL AND EVERYTHING RECOMPUTES") + card(
+        stat_grid(inputs), "LIVE MODEL INPUTS") + card(
+        "No single valuation model is right, but a panel of independent ones is hard to fool — each attacks "
+        "fair value from a different direction (earnings, rates, history, trend, relative value), each shows "
+        "its formula and its main weakness, and the composite is simply the average of whatever you leave "
+        "switched on. Use it as a return forecast for YEARS, not a signal for Tuesday: a 30% overvaluation "
+        "historically means thin forward returns, not an imminent crash — expensive markets get more "
+        "expensive all the time. Size positions with it; time entries with the other tabs.",
+        "HOW TO USE FAIR VALUE")
     return dict(slug="valuation", title="Valuation",
-                sub="How expensive the market is versus its own history — the slow force under everything else.",
-                body=body, stance=stance, headline=f"S&P {sgn(dev)} vs its long-run trend")
+                sub="A panel of independent fair-value models per asset — composite, median, range, and every formula shown.",
+                body=body, stance=stance,
+                headline=f"S&P composite {comp_dev['spx']:+.1f}% vs price · BTC {comp_dev['btc']:+.0f}% · Gold {comp_dev['gold']:+.0f}%")
 
 CORR_ASSETS = [("SPY", "S&P 500"), ("QQQ", "NASDAQ"), ("IWM", "Small caps"),
                ("TLT", "Long bonds"), ("GLD", "Gold"), ("DX-Y.NYB", "Dollar"),
@@ -1621,32 +1807,150 @@ def m_fed_path(px):
                 sub="What the rates market expects the Fed to do — read from Fed funds futures.",
                 body=body, stance=stance, headline=f"EFFR {pct(effr,2)}, {exp_txt}")
 
+def _fg_scale(series, invert=False, win=252):
+    """Rolling percentile of the latest value -> 0..100 (optionally inverted)."""
+    s = series.dropna().iloc[-win:]
+    p = float((s < s.iloc[-1]).mean() * 100)
+    return 100 - p if invert else p
+
+def _fg_history(subs, weights=None):
+    """Daily composite 0-100 for the last ~260 sessions from sub-series percentiles."""
+    df = pd.concat(subs, axis=1).dropna()
+    ranks = df.rolling(252, min_periods=120).apply(
+        lambda w: float((w < w.iloc[-1]).mean() * 100), raw=False)
+    return ranks.mean(axis=1).dropna()
+
+def _mood(v):
+    return ("Extreme fear" if v < 25 else "Fear" if v < 45 else
+            "Neutral" if v <= 55 else "Greed" if v <= 75 else "Extreme greed")
+
+def _mood_col(v):
+    return RED if v < 25 else (AMBER if v < 45 else
+           (MUT if v <= 55 else (GREEN if v <= 75 else GOLD)))
+
+def _seasonal_line(score, month_avg, month_n, asset):
+    m = NOW.strftime("%B")
+    if score < 35 and month_avg > 0.5:
+        return (f"Contrarian setup: fear into a seasonally strong {m} "
+                f"(avg {month_avg:+.1f}%) — historically the highest-odds long window.", "bullish")
+    if score > 70 and month_avg < 0:
+        return (f"Crowd offside: greed into a seasonally weak {m} "
+                f"(avg {month_avg:+.1f}%) — the calendar and the mood disagree with the longs.", "bearish")
+    return (f"Neutral alignment: {m} averages {month_avg:+.1f}% and sentiment isn't extreme — "
+            "no calendar edge either way.", "neutral")
+
+def _fg_card(title, score, hist, month_avg, month_n, extra="", tag=""):
+    def snap(days):
+        if hist is None or len(hist) <= days:
+            return None
+        return float(hist.iloc[-1 - days])
+    strip = "".join(
+        f'<div><div class="slabel">{lab}</div><div class="sval" style="color:{_mood_col(v)}">{v:.0f}</div></div>'
+        for lab, v in (("now", score), ("1w", snap(5)), ("1m", snap(21)), ("3m", snap(63))) if v is not None)
+    line, _ = _seasonal_line(score, month_avg, month_n, title)
+    return card(
+        f'<div style="display:flex;gap:14px;align-items:baseline"><div style="font-size:30px;font-weight:700;'
+        f'color:{_mood_col(score)}">{score:.0f}</div><div><b>{_mood(score)}</b>'
+        + (f' <span class="pill" style="background:#232a3a;color:{MUT};font-size:10px">{tag}</span>' if tag else "")
+        + f'</div></div><div class="stats" style="margin-top:8px">{strip}</div>'
+        + extra +
+        f'<div class="muted" style="margin-top:8px;font-size:12px"><b>Seasonal alignment</b> · {line} '
+        f'<span style="font-size:10px">(n={month_n} {NOW.strftime("%B")}s)</span></div>', title.upper())
+
 def m_sentiment(px):
-    vix = px["^VIX"].dropna(); skew = px["^SKEW"].dropna()
-    vix_p = pctile(vix, vix.iloc[-1])
-    skew_p = pctile(skew, skew.iloc[-1])
-    hyg_ief = (px["HYG"] / px["IEF"]).dropna()
-    risk_app = (hyg_ief.iloc[-1] / hyg_ief.iloc[-64] - 1) * 100
-    gld_spy = (px["GLD"] / px["SPY"]).dropna()
-    fear_flow = (gld_spy.iloc[-1] / gld_spy.iloc[-64] - 1) * 100
-    # composite: low vix pctile + rising HYG/IEF = greed; opposite = fear
-    score = (50 - vix_p) * 0.4 + (10 if risk_app > 0 else -10) + (-fear_flow * 0.5)
-    mood = "Greed" if score > 15 else ("Fear" if score < -15 else "Neutral")
-    mc = GREEN if mood == "Greed" else (RED if mood == "Fear" else AMBER)
-    stance = "bearish" if mood == "Greed" and vix_p < 15 else ("bullish" if mood == "Fear" else "neutral")
-    body = card(
-        f'<div style="font-size:19px;font-weight:700;color:{mc}">{mood}</div>' +
-        stat_grid([("VIX 5y percentile", pct(vix_p, 0), col(vix_p, lambda v: 20 < v < 70, lambda v: v < 10 or v > 90)),
-                   ("SKEW percentile", pct(skew_p, 0), MUT),
-                   ("Risk appetite (HYG/IEF 3m)", sgn(risk_app), col(risk_app, lambda v: v > 0)),
-                   ("Fear flow (GLD/SPY 3m)", sgn(fear_flow), col(fear_flow, lambda v: v < 0))]) +
-        '<div class="muted" style="margin-top:10px">Sentiment is a contrarian tool only at extremes: '
-        'crowded fear (VIX &gt;90th percentile, gold bid, credit dumped) marks bottoms; total complacency '
-        '(VIX &lt;10th percentile with junk-bond euphoria) removes the fuel rallies run on. In between, '
-        'the crowd is right — trend beats fading it.</div>', "COMPOSITE MOOD (PRICE-BASED PROXIES)")
+    # --- US equities: five sub-gauges, CNN-style construction from raw data
+    hist2 = yf.download(["^GSPC", "^VIX", "^VIX3M", "SPY", "TLT", "HYG", "IEF",
+                         "GLD", "DX-Y.NYB"], period="3y", interval="1d",
+                        auto_adjust=True, progress=False)["Close"].ffill(limit=3)
+    spx = hist2["^GSPC"].dropna()
+    subs = {
+        "S&P momentum (vs 125d)": (spx / spx.rolling(125).mean() - 1),
+        "VIX level": -hist2["^VIX"],
+        "VIX term structure": hist2["^VIX3M"] / hist2["^VIX"],
+        "Stocks vs bonds": (hist2["SPY"].pct_change(20) - hist2["TLT"].pct_change(20)),
+        "Junk-bond demand": (hist2["HYG"] / hist2["IEF"]).pct_change(20),
+    }
+    sub_scores = {k: _fg_scale(v) for k, v in subs.items()}
+    eq_hist = _fg_history(list(subs.values()))
+    eq_score = float(sum(sub_scores.values()) / len(sub_scores))
+    sub_html = ('<div style="margin-top:8px">' + "".join(
+        f'<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;'
+        f'border-bottom:1px solid var(--line)"><span class="muted">{k}</span>'
+        f'<b style="color:{_mood_col(v)}">{v:.0f}</b></div>' for k, v in sub_scores.items()) + "</div>")
+    # --- seasonal averages per asset
+    def month_stats(sym):
+        s = yf.download(sym, period="max", interval="1mo", auto_adjust=True,
+                        progress=False)["Close"].squeeze().dropna().pct_change().dropna() * 100
+        mm = s[s.index.month == NOW.month]
+        return float(mm.mean()), len(mm)
+    eq_avg, eq_n = month_stats("^GSPC")
+    # --- crypto: alternative.me index
+    fng_hist, fng_now = None, None
+    try:
+        with urllib.request.urlopen("https://api.alternative.me/fng/?limit=400", timeout=20) as r:
+            fj = json.loads(r.read())["data"]
+        vals = [int(d["value"]) for d in fj][::-1]
+        fng_hist = pd.Series(vals)
+        fng_now = float(vals[-1])
+    except Exception:
+        pass
+    btc_avg, btc_n = month_stats("BTC-USD")
+    # --- funding rates (positioning of the leveraged crowd)
+    fund_html = ""
+    try:
+        rows = []
+        for sym in ("BTCUSDT", "ETHUSDT"):
+            with urllib.request.urlopen(
+                    f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={sym}", timeout=15) as r:
+                fr = float(json.loads(r.read())["lastFundingRate"]) * 100
+            rows.append((sym[:3], fr))
+        fund_html = ('<div style="margin-top:8px;font-size:12px">' + " · ".join(
+            f'{n} perp funding <b style="color:{GREEN if f < 0 else (RED if f > 0.03 else "var(--tx)")}">{f:+.4f}%</b>'
+            for n, f in rows) +
+            '<span class="muted"> — what leveraged traders PAY to hold their bias: heavily positive = '
+            'crowded longs (squeeze fuel below), negative = crowded shorts.</span></div>')
+    except Exception:
+        pass
+    # --- gold & dollar proxies (labelled as such)
+    def proxy(sym):
+        s = hist2[sym].dropna()
+        rsi_p = _fg_scale(_rsi(s))
+        mom_p = _fg_scale(s.pct_change(63))
+        h = _fg_history([_rsi(s), s.pct_change(63)])
+        return (rsi_p + mom_p) / 2, h
+    gold_score, gold_hist = proxy("GLD")
+    dxy_score, dxy_hist = proxy("DX-Y.NYB")
+    gold_avg, gold_n = month_stats("GC=F")
+    dxy_avg, dxy_n = month_stats("DX-Y.NYB")
+
+    body = _fg_card("US Equities", eq_score, eq_hist, eq_avg, eq_n, extra=sub_html)
+    if fng_now is not None:
+        body += _fg_card("Crypto", fng_now, fng_hist, btc_avg, btc_n, extra=fund_html,
+                         tag="alternative.me index")
+    body += _fg_card("Gold", gold_score, gold_hist, gold_avg, gold_n, tag="proxy")
+    body += _fg_card("US Dollar", dxy_score, dxy_hist, dxy_avg, dxy_n, tag="proxy")
+    body += card(
+        "<ul class='pb'>"
+        "<li><b>Fade the extremes, not the middle</b> — sub-25 and 75+ are the actionable zones; a 55 is "
+        "noise, a 15 into a seasonally strong month is a signal.</li>"
+        "<li><b>Read the strip for the trend of mood</b> — 20 today from 60 a month ago is capitulation in "
+        "progress; 20 that has sat at 20 for a quarter is a bear regime, not a bottom.</li>"
+        "<li><b>Cross the markets</b> — equity greed against crypto fear is a rotation tell; synchronized "
+        "extreme fear on all four cards is the washout signature that marks cycle lows.</li>"
+        "<li><b>Confirm with funding</b> — crypto fear plus negative perp funding means the crowd is short "
+        "AND scared: the highest-octane squeeze setup there is.</li></ul>"
+        '<div class="muted" style="margin-top:8px;font-size:12px">Construction: the equities gauge rebuilds '
+        'five classic fear/greed inputs from raw data (index momentum vs its 125-day average, VIX level, '
+        'VIX term structure, 20-day stock-vs-bond demand, junk-bond demand) as rolling one-year percentiles, '
+        'averaged. Crypto uses the alternative.me industry-standard index. Gold and the dollar have no '
+        'credible survey, so those cards use an RSI + momentum-percentile proxy — labelled, not disguised.</div>',
+        "HOW TO USE IT")
+    stance = ("bullish" if eq_score < 25 else "bearish" if eq_score > 75 else "neutral")
     return dict(slug="sentiment", title="Sentiment",
-                sub="Fear and greed read from prices, not surveys — vol, credit appetite, and safe-haven flows.",
-                body=body, stance=stance, headline=f"{mood} — VIX in its {vix_p:.0f}th percentile")
+                sub="Each market's mood on one 0–100 scale — equities, crypto, gold, dollar — with history and a seasonal cross-check.",
+                body=body, stance=stance,
+                headline=f"Equities {eq_score:.0f} ({_mood(eq_score)})" +
+                         (f" · Crypto {fng_now:.0f} ({_mood(fng_now)})" if fng_now is not None else ""))
 
 def m_crypto(px):
     btc = px["BTC-USD"].dropna(); eth = px["ETH-USD"].dropna()
