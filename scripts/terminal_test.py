@@ -543,25 +543,193 @@ def m_momentum(px):
                 body=body, stance=stance,
                 headline=f"10-month filter: {'risk-on' if sig10 else 'risk-off'}")
 
+SEAS_INSTRUMENTS = [("ES", "S&P 500 E-mini", "ES=F"), ("GC", "Gold futures", "GC=F"),
+                    ("BTC", "Bitcoin", "BTC-USD"), ("NG", "Natural gas", "NG=F")]
+
+def _seas_pack(s):
+    """Per-instrument seasonality dataset for the client-side charts."""
+    s = s.dropna()
+    cur_y = NOW.year
+    years = sorted(set(s.index.year))
+    # day-of-year aligned cumulative % paths, one array[367] per year
+    paths = {}
+    for y in years:
+        sy = s[s.index.year == y]
+        if len(sy) < 30 and y != cur_y:
+            continue
+        cum = (sy / sy.iloc[0] - 1) * 100
+        arr = [None] * 367
+        arr[0] = 0.0
+        for d, v in cum.items():
+            arr[d.dayofyear] = round(float(v), 2)
+        last = 0.0
+        for i in range(1, 367):
+            if arr[i] is None:
+                arr[i] = last
+            else:
+                last = arr[i]
+        paths[y] = arr
+    def avg_path(w):
+        yrs = [y for y in paths if y < cur_y][-w:]
+        if len(yrs) < 3:
+            return None
+        return [round(sum(paths[y][i] for y in yrs) / len(yrs), 2) for i in range(367)]
+    ytd = paths.get(cur_y)
+    doy_now = NOW.timetuple().tm_yday
+    if ytd:
+        ytd = [v if i <= doy_now else None for i, v in enumerate(ytd)]
+    # monthly averages + hit rate
+    mr = s.resample("ME").last().pct_change().dropna() * 100
+    mo = [[round(float(mr[mr.index.month == m].mean()), 2),
+           round(float((mr[mr.index.month == m] > 0).mean() * 100), 0)] for m in range(1, 13)]
+    # trading-day-of-month grid (12 x 23)
+    dr = s.pct_change().dropna() * 100
+    tdi = dr.groupby([dr.index.year, dr.index.month]).cumcount() + 1
+    grid = []
+    for m in range(1, 13):
+        row = []
+        for td in range(1, 24):
+            v = dr[(dr.index.month == m) & (tdi == td)]
+            row.append(round(float(v.mean()), 3) if len(v) >= 5 else None)
+        grid.append(row)
+    return dict(w5=avg_path(5), w10=avg_path(10), w15=avg_path(15), ytd=ytd,
+                mo=mo, grid=grid, since=int(years[0]), bars=len(s),
+                last=round(float(s.iloc[-1]), 2),
+                chg=round(float((s.iloc[-1] / s.iloc[-2] - 1) * 100), 2))
+
+SEAS_JS = r"""
+(function(){
+const D=__DATA__,MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',BLU='#5aa2d4',MUT='#8891a5';
+let inst='ES',view='overlay';
+const wrap=document.getElementById('seas'),tip=document.getElementById('stip');
+function tabs(id,items,cur,fn){return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px">'+items.map(([k,l])=>
+ '<button data-'+id+'="'+k+'" style="cursor:pointer;font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid '+
+ (k===cur?GOLDC:'#232a3a')+';background:'+(k===cur?'rgba(212,175,90,.12)':'transparent')+';color:'+
+ (k===cur?GOLDC:'#8891a5')+'">'+l+'</button>').join('')+'</div>';}
+function render(){
+ const d=D[inst];if(!d){wrap.innerHTML='data unavailable';return}
+ let h=tabs('i',Object.keys(D).map(k=>[k,k+' · '+D[k].name]),inst,0);
+ h+='<div class="muted" style="font-size:12px;margin-bottom:6px">Latest '+d.last.toLocaleString()+
+    ' · <span style="color:'+(d.chg>=0?GRN:RED)+'">'+(d.chg>=0?'+':'')+d.chg+'%</span> · '+
+    d.bars.toLocaleString()+' sessions · history since '+d.since+'</div>';
+ h+=tabs('v',[['overlay','Year-path overlay'],['monthly','Monthly bars'],['days','Day-of-month pattern'],['grid','Month × day grid']],view,0);
+ h+='<div id="sviz"></div>';
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.i)inst=b.dataset.i;if(b.dataset.v)view=b.dataset.v;render();});
+ const viz=document.getElementById('sviz');
+ if(view==='overlay')overlay(viz,d);else if(view==='monthly')monthly(viz,d);
+ else if(view==='days')days(viz,d);else grid(viz,d);
+}
+function overlay(el,d){
+ const W=860,H=320,P=40,S=[['15-year avg',d.w15,GRN],['10-year avg',d.w10,BLU],['5-year avg',d.w5,MUT],['YTD',d.ytd,GOLDC]].filter(s=>s[1]);
+ let vals=[];S.forEach(s=>s[1].forEach(v=>{if(v!=null)vals.push(v)}));
+ const lo=Math.min(...vals),hi=Math.max(...vals),rg=(hi-lo)||1;
+ const X=i=>P+(W-2*P)*(i-1)/365,Y=v=>P+(H-2*P)*(1-(v-lo)/rg);
+ let g='<rect x="'+P+'" y="'+P+'" width="'+(W-2*P)+'" height="'+(H-2*P)+'" fill="none" stroke="#232a3a"/>';
+ if(lo<0&&hi>0)g+='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" stroke="'+MUT+'" stroke-width="0.6" stroke-dasharray="3 4"/>';
+ for(let m=0;m<12;m++){const x=X(m*30.4+1);g+='<text x="'+x+'" y="'+(H-14)+'" fill="'+MUT+'" font-size="10">'+MN[m]+'</text>';}
+ [lo,lo+rg/2,hi].forEach(v=>{g+='<text x="4" y="'+(Y(v)+3)+'" fill="'+MUT+'" font-size="10">'+v.toFixed(0)+'%</text>';});
+ const doy=Math.min(366,Math.floor((Date.now()-Date.UTC(new Date().getUTCFullYear(),0,0))/864e5));
+ g+='<line x1="'+X(doy)+'" x2="'+X(doy)+'" y1="'+P+'" y2="'+(H-P)+'" stroke="'+GOLDC+'" stroke-width="0.6" stroke-dasharray="4 4"/>';
+ S.forEach(([n,a,c])=>{let pts=[];for(let i=1;i<367;i++)if(a[i]!=null)pts.push(X(i).toFixed(1)+','+Y(a[i]).toFixed(1));
+  g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+(n==='YTD'?2.2:1.4)+'"/>';});
+ el.innerHTML='<svg id="ssvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+g+
+  '<line id="cx" y1="'+P+'" y2="'+(H-P)+'" stroke="#d6dae3" stroke-width="0.5" visibility="hidden"/></svg>'+
+  '<div class="legend">'+S.map(([n,,c])=>'<span style="color:'+c+'">▬</span> '+n).join(' · ')+
+  ' · cumulative % from the first session of the year, aligned by calendar day. When the YTD line hugs the averages, the year is behaving seasonally; a hard split from them is information on its own.</div>';
+ const svg=document.getElementById('ssvg'),cx=document.getElementById('cx');
+ svg.addEventListener('mousemove',e=>{
+  const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)*W/r.width;
+  const i=Math.max(1,Math.min(366,Math.round((x-P)/(W-2*P)*365+1)));
+  if(x<P||x>W-P){tip.style.display='none';cx.setAttribute('visibility','hidden');return}
+  cx.setAttribute('x1',X(i));cx.setAttribute('x2',X(i));cx.setAttribute('visibility','visible');
+  tip.innerHTML='<b>Day '+i+'</b><br>'+S.map(([n,a,c])=>'<span style="color:'+c+'">'+n+': '+
+   (a[i]==null?'—':(a[i]>=0?'+':'')+a[i].toFixed(2)+'%')+'</span>').join('<br>');
+  tip.style.display='block';tip.style.left=Math.min(e.clientX+14,innerWidth-170)+'px';tip.style.top=(e.clientY+14)+'px';});
+ svg.addEventListener('mouseleave',()=>{tip.style.display='none';cx.setAttribute('visibility','hidden');});
+}
+function monthly(el,d){
+ const W=860,H=260,P=36,vals=d.mo.map(m=>m[0]),lo=Math.min(0,...vals),hi=Math.max(0,...vals),rg=(hi-lo)||1;
+ const Y=v=>P+(H-2*P)*(1-(v-lo)/rg),y0=Y(0),bw=(W-2*P)/12*0.6,cm=new Date().getUTCMonth();
+ let g='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+y0+'" y2="'+y0+'" stroke="'+MUT+'" stroke-width="0.7"/>';
+ vals.forEach((v,i)=>{const x=P+(W-2*P)*(i+0.2)/12,yy=Y(v),c=i===cm?GOLDC:(v>=0?GRN:RED);
+  g+='<rect x="'+x+'" y="'+Math.min(yy,y0)+'" width="'+bw+'" height="'+Math.max(Math.abs(y0-yy),1)+'" fill="'+c+'" opacity="0.85"><title>'+MN[i]+': '+(v>=0?'+':'')+v+'% avg, '+d.mo[i][1]+'% positive</title></rect>';
+  g+='<text x="'+(x+bw/2)+'" y="'+(H-16)+'" fill="'+MUT+'" font-size="10" text-anchor="middle">'+MN[i]+'</text>';
+  g+='<text x="'+(x+bw/2)+'" y="'+(H-4)+'" fill="'+MUT+'" font-size="8" text-anchor="middle">'+d.mo[i][1]+'%</text>';});
+ el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+g+'</svg>'+
+  '<div class="legend">Average calendar-month return over the full history (since '+d.since+') · bottom row = share of years the month closed positive · gold = current month. Hover a bar for exact numbers.</div>';
+}
+function days(el,d){
+ const cm=new Date().getUTCMonth();
+ let sel='<select id="msel" style="background:#0d1017;color:#d6dae3;border:1px solid #232a3a;border-radius:6px;padding:4px 8px;font-size:12px;margin-bottom:8px">'+
+  MN.map((m,i)=>'<option value="'+i+'"'+(i===cm?' selected':'')+'>'+m+'</option>').join('')+'<option value="-1">All months</option></select>';
+ el.innerHTML=sel+'<div id="dviz"></div>';
+ const draw=mi=>{
+  const row=mi<0?Array.from({length:23},(_,t)=>{const vs=d.grid.map(r=>r[t]).filter(v=>v!=null);
+    return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null}):d.grid[mi];
+  const W=860,H=240,P=36,vals=row.filter(v=>v!=null),lo=Math.min(0,...vals),hi=Math.max(0,...vals),rg=(hi-lo)||1;
+  const Y=v=>P+(H-2*P)*(1-(v-lo)/rg),y0=Y(0),bw=(W-2*P)/23*0.6;
+  let g='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+y0+'" y2="'+y0+'" stroke="'+MUT+'" stroke-width="0.7"/>';
+  row.forEach((v,i)=>{if(v==null)return;const x=P+(W-2*P)*(i+0.2)/23,yy=Y(v);
+   g+='<rect x="'+x+'" y="'+Math.min(yy,y0)+'" width="'+bw+'" height="'+Math.max(Math.abs(y0-yy),1)+'" fill="'+(v>=0?GRN:RED)+'" opacity="0.85"><title>Trading day '+(i+1)+': '+(v>=0?'+':'')+v.toFixed(3)+'%/day avg</title></rect>';
+   if(i%2===0)g+='<text x="'+(x+bw/2)+'" y="'+(H-8)+'" fill="'+MUT+'" font-size="9" text-anchor="middle">'+(i+1)+'</text>';});
+  document.getElementById('dviz').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+g+'</svg>'+
+   '<div class="legend">Average % return on each trading day of the month (day 1 = first session). Use it to time entries you already planned inside the month — the turn-of-month days usually carry the drift.</div>';};
+ draw(cm);document.getElementById('msel').onchange=e=>draw(+e.target.value);
+}
+function grid(el,d){
+ let mx=0;d.grid.forEach(r=>r.forEach(v=>{if(v!=null)mx=Math.max(mx,Math.abs(v))}));
+ let h='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px"><tr><th style="padding:3px 6px"></th>';
+ for(let t=1;t<=23;t++)h+='<th style="padding:3px 4px;color:#8891a5">'+t+'</th>';h+='</tr>';
+ d.grid.forEach((row,m)=>{h+='<tr><td style="padding:3px 6px;color:#8891a5;font-weight:600">'+MN[m]+'</td>';
+  row.forEach((v,t)=>{if(v==null){h+='<td></td>';return}
+   const a=Math.min(0.9,Math.abs(v)/mx),c=v>=0?'76,175,125':'224,85,85';
+   h+='<td title="'+MN[m]+' · trading day '+(t+1)+': '+(v>=0?'+':'')+v.toFixed(3)+'%" style="padding:3px 4px;background:rgba('+c+','+a.toFixed(2)+');border:1px solid #0d1017;text-align:center;min-width:22px">'+(Math.abs(v)>=0.05?(v>0?'+':'−'):'')+'</td>';});
+  h+='</tr>';});
+ el.innerHTML=h+'</table></div><div class="legend">Every month × trading-day cell, colored by average daily return over the full history (green = positive drift, red = negative; intensity = size). Hover any cell for the exact number. The vertical green band at the month edges is the turn-of-month effect.</div>';
+}
+render();
+})();
+"""
+
 def m_seasonality(gspc_m):
+    data = {}
+    for code, name, tk in SEAS_INSTRUMENTS:
+        try:
+            s = yf.download(tk, period="max", interval="1d", auto_adjust=True,
+                            progress=False)["Close"].squeeze()
+            pack = _seas_pack(s)
+            pack["name"] = name
+            data[code] = pack
+        except Exception:
+            continue
+    if "ES" not in data:
+        raise RuntimeError("seasonality: ES download failed")
+    # headline/stance from long S&P history (1950+)
     m = gspc_m.pct_change().dropna()
     m = m[m.index.year >= 1950]
-    by_mo = m.groupby(m.index.month)
-    avg = by_mo.mean() * 100
-    winr = by_mo.apply(lambda g: (g > 0).mean() * 100)
+    avg = m.groupby(m.index.month).mean() * 100
+    winr = m.groupby(m.index.month).apply(lambda g: (g > 0).mean() * 100)
     cur = NOW.month
     labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     stance = "bullish" if avg[cur] > 0.5 else ("bearish" if avg[cur] < 0 else "neutral")
-    body = card(bar_chart(labels, [avg.get(i, 0) for i in range(1, 13)], highlight=cur - 1) +
-                '<div class="legend">Average S&P 500 monthly return since 1950 · gold bar = current month.</div>',
-                "MONTHLY SEASONALITY") + card(
+    payload = json.dumps(data, separators=(",", ":"))
+    body = card('<div id="seas">loading…</div>'
+                '<div id="stip" style="display:none;position:fixed;z-index:9;background:#141926;'
+                'border:1px solid #232a3a;border-radius:8px;padding:8px 11px;font-size:12px;'
+                'pointer-events:none;line-height:1.5"></div>'
+                "<script>" + SEAS_JS.replace("__DATA__", payload) + "</script>",
+                "SEASONAL BEHAVIOR · PICK AN INSTRUMENT AND A VIEW") + card(
         f"<b>{labels[cur-1]}</b> has averaged <b style='color:{GREEN if avg[cur]>0 else RED}'>{avg[cur]:+.2f}%</b> "
-        f"with a {winr[cur]:.0f}% hit rate since 1950. Seasonality is a tailwind/headwind gauge — worth maybe "
-        "a sizing adjustment, never a standalone trade. The famous patterns: Nov–Apr carries most of the "
-        "market's annual return; September is the only reliably negative month; October is volatile but a "
-        "bottom-maker, not a top-maker.", "THIS MONTH IN CONTEXT")
+        f"on the S&P with a {winr[cur]:.0f}% hit rate since 1950. Seasonality measures the recurring footprint "
+        "of flows — tax dates, rebalancing, holiday liquidity, harvest and inventory cycles in commodities, "
+        "futures roll dates. It is a probabilistic tilt, never a guarantee: use it to size and time risk you "
+        "already wanted to take, not as a trade on its own. The classics: Nov–Apr carries most of the equity "
+        "market's annual return, September is the only reliably negative month, and October is a bottom-maker, "
+        "not a top-maker.", "THIS MONTH IN CONTEXT")
     return dict(slug="seasonality", title="Seasonality",
-                sub="The calendar's historical drift — which months carry the return and which take it back.",
+                sub="The calendar's recurring footprint — year-path overlays, monthly drift, and day-of-month patterns across four instruments.",
                 body=body, stance=stance,
                 headline=f"{labels[cur-1]} averages {avg[cur]:+.2f}% since 1950")
 
