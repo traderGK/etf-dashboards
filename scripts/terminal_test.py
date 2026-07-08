@@ -1751,28 +1751,140 @@ def m_calendar(gspc_d):
                 body=body, stance="info",
                 headline="Turn-of-month, OPEX week and weekday tilts across 8 assets")
 
+CYCLE_NAMES = {1: "Post-election", 2: "Midterm", 3: "Pre-election", 0: "Election"}
+CYCLE_NOTES = {
+    "Post-election": ("The hangover year — new administrations spend their political capital on the painful "
+                      "things early, so the market absorbs the bad news while expectations reset.",
+                      ["Expect policy noise; let it pass rather than trading each headline",
+                       "Positioning matters more than the calendar in year one",
+                       "The cycle's tailwind builds from here, not immediately"],
+                      "Treating early-term volatility as a regime change. It usually isn't."),
+    "Midterm": ("The weakest average year of the cycle and the deepest average drawdown — and, because of "
+                "exactly that, the entry window the cycle is famous for.",
+                ["Budget for chop: expect an outsized intra-year drawdown, historically bottoming in the "
+                 "August–October window",
+                 "Build the shopping list now — the 12 months after midterm-year lows have been the cycle's "
+                 "strongest stretch",
+                 "The Q4-midterm through Q2-pre-election run is the window worth being fully invested for"],
+                "Don't front-run the low with full size. The pattern pays those who keep powder dry into "
+                "autumn, not those who buy every spring dip."),
+    "Pre-election": ("Historically the strongest year of the four by a wide margin — the mechanism is policy: "
+                     "administrations stimulate into re-election.",
+                     ["Trend-following gets paid; fading strength has been the losing trade",
+                      "Stay invested through minor drawdowns — the cycle's wind is at your back",
+                      "Begin trimming into the year's second half as the election year's uncertainty approaches"],
+                     "Assuming the pattern is a law. Pre-election years have had losses; they are just rarer."),
+    "Election": ("A middling year with a volatility hump into November, then relief once the outcome is known "
+                 "regardless of who wins.",
+                 ["Expect vol to build into the vote and collapse after it — that asymmetry is the trade",
+                  "Sector dispersion widens on policy expectations; the index often goes nowhere",
+                  "The post-election relief rally is the reliable part, not the pre-election positioning"],
+                 "Trading your politics. The market's reaction to elections has consistently defied partisan "
+                 "predictions."),
+}
+
 def m_election(gspc_m):
+    gd = yf.download("^GSPC", period="max", interval="1d", auto_adjust=True,
+                     progress=False)["Close"].squeeze().dropna()
     m = gspc_m.pct_change().dropna()
     m = m[m.index.year >= 1950]
-    cyc = (m.index.year % 4)  # 0=election yr, 1=post, 2=midterm, 3=pre
-    names = {0: "Election year", 1: "Post-election", 2: "Midterm", 3: "Pre-election"}
-    avg_yr = {c: m[cyc == c].groupby(m[cyc == c].index.year).apply(lambda g: (1 + g).prod() - 1).mean() * 100
-              for c in range(4)}
-    cur_c = NOW.year % 4
-    stance = "bullish" if avg_yr[cur_c] > 8 else "neutral"
-    body = card(bar_chart([names[c] for c in range(4)], [avg_yr[c] for c in range(4)],
-                          highlight=cur_c) +
-                '<div class="legend">Average S&P 500 total-year return by presidential-cycle year since 1950 · gold = current.</div>',
-                "THE FOUR-YEAR CYCLE") + card(
-        f"{NOW.year} is a <b>{names[cur_c].lower()}</b> year (averages {avg_yr[cur_c]:+.1f}%). The classic pattern: "
-        "midterm years run weak and choppy into autumn, then launch the strongest 12-month window of the cycle; "
-        "pre-election years are historically the best full year. The mechanism is policy — administrations "
-        "stimulate into re-election. Treat it as context, not destiny: single cycles deviate wildly.",
-        "WHERE WE ARE")
+    def cyc_of(y):  # 2026 % 4 == 2 -> midterm
+        return y % 4
+    yearly = m.groupby(m.index.year).apply(lambda g: ((1 + g).prod() - 1) * 100)
+    cur_y = NOW.year
+    cur_c = cyc_of(cur_y)
+    cname = CYCLE_NAMES[cur_c]
+    stats = {}
+    for c in range(4):
+        ys = [y for y in yearly.index if cyc_of(y) == c and y < cur_y]
+        vals = [yearly[y] for y in ys]
+        stats[c] = (sum(vals) / len(vals), sum(v > 0 for v in vals) / len(vals) * 100, len(vals))
+    # intra-year drawdown per cycle year
+    dds = {c: [] for c in range(4)}
+    for y in sorted(set(gd.index.year)):
+        if y < 1950 or y >= cur_y:
+            continue
+        yr = gd[gd.index.year == y]
+        if len(yr) < 100:
+            continue
+        dds[cyc_of(y)].append(float((yr / yr.cummax() - 1).min() * 100))
+    dd_avg = {c: (sum(v) / len(v) if v else 0) for c, v in dds.items()}
+    # average shape of the current cycle-year vs this year
+    paths = []
+    for y in sorted(set(gd.index.year)):
+        if y < 1990 or y >= cur_y or cyc_of(y) != cur_c:
+            continue
+        yr = gd[gd.index.year == y]
+        if len(yr) < 200:
+            continue
+        norm = (yr / yr.iloc[0] * 100).values
+        paths.append([float(norm[min(int(i * (len(norm) - 1) / 251), len(norm) - 1)]) for i in range(252)])
+    avg_path = [sum(p[i] for p in paths) / len(paths) for i in range(252)] if paths else []
+    this_yr = gd[gd.index.year == cur_y]
+    this_path = (this_yr / this_yr.iloc[0] * 100).tolist() if len(this_yr) else []
+    shape = ""
+    if avg_path and this_path:
+        shape = line_chart([avg_path, this_path], [GOLD, BLUE]) + (
+            f'<div class="legend"><span style="color:{GOLD}">▬</span> average shape of a {cname.lower()} year '
+            f'(n={len(paths)}, since 1990) · <span style="color:{BLUE}">▬</span> {cur_y} so far, both indexed '
+            'to 100 on 1 January. The classic pattern for a midterm year: choppy first half, weakness into late '
+            'summer, then the year-end recovery that launches the cycle\'s strongest stretch.</div>')
+    # quarter x cycle-year table
+    qm = gspc_m.pct_change().dropna()
+    qm = qm[qm.index.year >= 1950]
+    qrows = []
+    for c in (1, 2, 3, 0):
+        cells = []
+        for q in range(1, 5):
+            sel = qm[(qm.index.year % 4 == c) & (qm.index.quarter == q)]
+            byq = sel.groupby([sel.index.year, sel.index.quarter]).apply(lambda g: ((1 + g).prod() - 1) * 100)
+            cells.append(float(byq.mean()) if len(byq) else 0.0)
+        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a;font-size:10px">now</span>' if c == cur_c else ""
+        qrows.append((f"<b>{CYCLE_NAMES[c]}</b>{tag}", *[cnum(v, 1) for v in cells]))
+    desc, actions, caution = CYCLE_NOTES[cname]
+    avg, winr, n = stats[cur_c]
+    elec_day = pd.Timestamp(f"{cur_y}-11-03") if cur_c in (0, 2) else None
+    days_to = (elec_day - pd.Timestamp(NOW.date())).days if elec_day is not None and elec_day > pd.Timestamp(NOW.date()) else None
+    yr_frac = (NOW.timetuple().tm_yday / 365 + {1: 0, 2: 1, 3: 2, 0: 3}[cur_c]) / 4 * 100
+    yr_no = {1: 1, 2: 2, 3: 3, 0: 4}[cur_c]
+    body = card(
+        f'<div style="font-size:19px;font-weight:700;color:{GOLD}">Year {yr_no} · {cname}</div>' +
+        stat_grid([("Through the term", f"{yr_frac:.0f}%", MUT),
+                   ("This cycle-year average", sgn(avg), col(avg, lambda v: v > 5)),
+                   ("Positive years", f"{winr:.0f}% (n={n})", col(winr, lambda v: v > 60)),
+                   ("Avg intra-year drawdown", f"{dd_avg[cur_c]:.1f}%", RED)] +
+                  ([("Days to the midterms", f"{days_to}d", GOLD)] if days_to else [])),
+        "YOU ARE HERE")
+    body += card(f'<div class="muted">{desc}</div>' +
+                 "".join(f'<div style="font-size:13px;margin-top:5px">▸ {a}</div>' for a in actions) +
+                 f'<div class="muted" style="margin-top:10px;font-size:12px"><b>Caution:</b> {caution}</div>',
+                 f"PLAYBOOK · {cname.upper()} YEAR")
+    body += "<h2>S&P 500 by cycle year</h2>" + card(
+        bar_chart([CYCLE_NAMES[c] for c in (1, 2, 3, 0)], [stats[c][0] for c in (1, 2, 3, 0)],
+                  highlight=[1, 2, 3, 0].index(cur_c)) +
+        '<div class="legend">Average calendar-year S&P return by presidential-cycle year since 1950 · gold = '
+        'current. Below each: the deepest average intra-year drawdown of that cycle year.</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px">' +
+        "".join(f'<div style="text-align:center"><div class="slabel">{CYCLE_NAMES[c]}</div>'
+                f'<div style="font-size:12px">{stats[c][1]:.0f}% positive · avg DD '
+                f'<span style="color:{RED}">{dd_avg[c]:.0f}%</span></div></div>' for c in (1, 2, 3, 0)) + "</div>")
+    if shape:
+        body += f"<h2>The average {cname.lower()} year vs {cur_y}</h2>" + card(shape)
+    body += "<h2>Average return by quarter × cycle year</h2>" + card(
+        table(["Cycle year", "Q1", "Q2", "Q3", "Q4"], qrows) +
+        '<div class="legend">The Q4-midterm → Q2-pre-election stretch is visible here as the cycle\'s sweet '
+        'spot. The mechanism is policy: fiscal and monetary support gets front-loaded into re-election years.</div>')
+    body += card(
+        "The four-year rhythm is real in the averages and unreliable in any single instance. Use it the way you "
+        "use seasonality: to set expectations about the SHAPE of a year — where the drawdown usually lands, "
+        "where the recovery usually starts — never as the reason for a trade. Sample sizes here are small "
+        "(under 20 observations per cycle year since 1950), which is exactly why the drawdown column matters "
+        "more than the average-return column.", "HONEST LIMITATIONS")
+    stance = "bullish" if avg > 8 else ("neutral" if avg > 0 else "bearish")
     return dict(slug="election-cycle", title="Election Cycle",
-                sub="The four-year policy rhythm in equity returns — where this year sits in the pattern.",
+                sub="The four-year policy rhythm — cycle-year returns, drawdowns, the year's average shape, and the quarterly map.",
                 body=body, stance=stance,
-                headline=f"{names[cur_c]} year — historical average {avg_yr[cur_c]:+.1f}%")
+                headline=f"{cname} year — averages {avg:+.1f}%, avg drawdown {dd_avg[cur_c]:.0f}%")
 
 TENORS = [("DGS1MO", "1M", 1 / 12), ("DGS3MO", "3M", 0.25), ("DGS6MO", "6M", 0.5),
           ("DGS1", "1Y", 1), ("DGS2", "2Y", 2), ("DGS3", "3Y", 3), ("DGS5", "5Y", 5),
@@ -2136,74 +2248,446 @@ def m_credit():
                 body=body, stance=stance,
                 headline=f"HY {lvl:.0f}bps ({zname}, {p3y:.0f}th pctile) · {cvd.lower()}")
 
+LIQ_ASSETS = [("BTC-USD", "Bitcoin"), ("^GSPC", "S&P 500"), ("^NDX", "NASDAQ 100"), ("GC=F", "Gold")]
+
+def _stablecoins():
+    req = urllib.request.Request("https://stablecoins.llama.fi/stablecoincharts/all",
+                                 headers={"User-Agent": "Mozilla/5.0"})
+    data = json.loads(urllib.request.urlopen(req, timeout=25).read())
+    s = pd.Series({pd.to_datetime(int(d["date"]), unit="s"): float(d["totalCirculating"]["peggedUSD"])
+                   for d in data if d.get("totalCirculating", {}).get("peggedUSD")})
+    return s.sort_index() / 1e9  # $bn
+
+def _liq_state(yoy, imp):
+    if yoy > 0 and imp > 0: return "Expanding & accelerating", GREEN
+    if yoy > 0: return "Expanding, decelerating", AMBER
+    if imp > 0: return "Contracting, improving", AMBER
+    return "Contracting & worsening", RED
+
 def m_liquidity():
-    walcl = fred("WALCL") / 1000  # millions -> billions
-    rrp = fred("RRPONTSYD")       # already billions
-    tga = fred("WTREGEN") / 1000  # millions -> billions
-    net = (walcl.resample("W").last() - rrp.resample("W").last().reindex(walcl.resample("W").last().index).ffill()
-           - tga.resample("W").last().reindex(walcl.resample("W").last().index).ffill()).dropna()
-    chg3m = (net.iloc[-1] - net.iloc[-13])
-    stance = "bullish" if chg3m > 0 else "bearish"
-    body = card(stat_grid([("Fed balance sheet", f"${walcl.iloc[-1]/1000:,.2f}T", MUT),
-                           ("Reverse repo (drain)", f"${rrp.iloc[-1]:,.0f}B", MUT),
-                           ("Treasury account (drain)", f"${tga.iloc[-1]:,.0f}B", MUT),
-                           ("Net liquidity", f"${net.iloc[-1]/1000:,.2f}T", MUT),
-                           ("3-month change", f"${chg3m:+,.0f}B", col(chg3m, lambda v: v > 0))]) +
-                '<div class="muted" style="margin-top:10px">Net liquidity = Fed balance sheet − reverse repo − '
-                'Treasury general account: the dollars actually available to the financial system. Risk assets '
-                'have tracked its direction closely since 2020 — expanding liquidity is a tailwind for '
-                'everything with duration, led by tech and crypto.</div>', "US NET LIQUIDITY") + card(
-        line_chart([(net / 1000).iloc[-156:].tolist()], [GOLD]) +
-        '<div class="legend">Net liquidity in $T, weekly, last ~3 years (FRED WALCL − RRPONTSYD − WTREGEN).</div>')
+    walcl = fred("WALCL", 8) / 1000          # $bn
+    rrp = fred("RRPONTSYD", 8)               # $bn
+    tga = fred("WTREGEN", 8) / 1000          # $bn
+    m2 = fred("M2SL", 8)                     # $bn
+    ecb = fred("ECBASSETSW", 8)              # € mn
+    boj = fred("JPNASSETS", 8)               # ¥ 100mn
+    fx = yf.download(["EURUSD=X", "JPY=X"], period="8y", interval="1d",
+                     auto_adjust=True, progress=False)["Close"].ffill()
+    wk = lambda s: s.resample("W-FRI").last().ffill()
+    fed_w, rrp_w, tga_w, m2_w = wk(walcl), wk(rrp), wk(tga), wk(m2)
+    idx = fed_w.index
+    us_net = (fed_w - rrp_w.reindex(idx).ffill() - tga_w.reindex(idx).ffill()).dropna()
+    eur = wk(fx["EURUSD=X"]).reindex(wk(ecb).index).ffill()
+    jpy = wk(fx["JPY=X"]).reindex(wk(boj).index).ffill()
+    ecb_usd = wk(ecb) * eur / 1000             # € mn -> $bn
+    boj_usd = wk(boj) / (10 * jpy)             # ¥100mn -> $bn (×1e8 yen ÷ USDJPY ÷ 1e9)
+    g3 = (fed_w + ecb_usd.reindex(idx).ffill() + boj_usd.reindex(idx).ffill()).dropna()
+    try:
+        stab = wk(_stablecoins())
+    except Exception:
+        stab = None
+    legs = [("G3 central banks", g3, "T"), ("US net liquidity", us_net, "T"),
+            ("US M2", m2_w, "T")] + ([("Stablecoins", stab, "B")] if stab is not None else [])
+    cards, states = "", {}
+    for name, s, unit in legs:
+        s = s.dropna()
+        yoy = float((s.iloc[-1] / s.iloc[-53] - 1) * 100)
+        imp13 = float(((s.iloc[-1] / s.iloc[-14]) ** 4 - 1) * 100)
+        prev_yoy = float((s.iloc[-14] / s.iloc[-66] - 1) * 100)
+        state, sc = _liq_state(yoy, yoy - prev_yoy)
+        states[name] = (yoy, imp13, state, sc)
+        val = f"${s.iloc[-1]/1000:,.2f}T" if unit == "T" else f"${s.iloc[-1]:,.1f}B"
+        cards += (f'<div><div class="slabel">{name}</div>'
+                  f'<div class="sval">{val}</div>'
+                  f'<div style="font-size:12px">YoY <b style="color:{GREEN if yoy>0 else RED}">{yoy:+.1f}%</b>'
+                  f' · 13w ann. <b style="color:{GREEN if imp13>0 else RED}">{imp13:+.1f}%</b></div>'
+                  f'<div style="font-size:11px;color:{sc}">{state}</div></div>')
+    g3_yoy, _, g3_state, g3c = states["G3 central banks"]
+    if g3_yoy > 3:
+        regime, rc, stance = "Tailwind", GREEN, "bullish"
+        rtxt = (f"Global liquidity is expanding {g3_yoy:+.1f}% year over year — the configuration risk assets "
+                "like most, and the liquidity-sensitive ones (crypto, long-duration growth) like most of all.")
+    elif g3_yoy > -2:
+        regime, rc, stance = "Neutral", AMBER, "neutral"
+        rtxt = (f"Liquidity is roughly flat year over year ({g3_yoy:+.1f}%) — no tide either way. Assets have to "
+                "earn their moves on fundamentals and positioning rather than being carried.")
+    else:
+        regime, rc, stance = "Headwind", RED, "bearish"
+        rtxt = (f"Liquidity is contracting {g3_yoy:+.1f}% year over year — the toughest configuration for risk, "
+                "and the one that punishes the liquidity-sensitive assets first and hardest.")
+    # lead/lag matrix
+    px_l = yf.download([s for s, _ in LIQ_ASSETS], period="8y", interval="1d",
+                       auto_adjust=True, progress=False)["Close"].ffill()
+    matrix, best_lead = [], None
+    for sym, aname in LIQ_ASSETS:
+        a13 = wk(px_l[sym].dropna()).pct_change(13).dropna() * 100
+        row = []
+        for lname, s, _u in legs:
+            l13 = s.dropna().pct_change(13).dropna() * 100
+            best = (0, 0.0)
+            for lead in range(0, 19):
+                shifted = l13.shift(lead)
+                both = pd.concat([shifted, a13], axis=1).dropna().iloc[-260:]
+                if len(both) < 60:
+                    continue
+                r = float(both.iloc[:, 0].corr(both.iloc[:, 1]))
+                if abs(r) > abs(best[1]):
+                    best = (lead, r)
+            row.append((lname, best[0], best[1]))
+            if aname == "Bitcoin" and lname == "G3 central banks":
+                best_lead = best
+        matrix.append((aname, row))
+    def rcell(r):
+        c = GREEN if r >= 0.35 else (RED if r <= -0.35 else "var(--tx)")
+        return c
+    mhdr = "".join(f"<th>{l}</th>" for l, _, _ in legs)
+    mrows = "".join(
+        f"<tr><td><b>{an}</b></td>" + "".join(
+            f'<td style="color:{rcell(r)};white-space:nowrap">{ld}w · r={r:+.2f}</td>' for _, ld, r in row)
+        + "</tr>" for an, row in matrix)
+    # liquidity cycle chart (YoY rates)
+    def yoy_series(s, n=156):
+        return (s.dropna().pct_change(52) * 100).dropna().iloc[-n:]
+    g3y, usy, m2y = yoy_series(g3), yoy_series(us_net), yoy_series(m2_w)
+    cyc = line_chart([g3y.tolist(), usy.tolist(), m2y.tolist()], [GOLD, BLUE, MUT],
+                     hlines=[(0, RED, "0")])
+    body = card(
+        f'<div style="font-size:19px;font-weight:700;color:{rc}">{regime}</div>'
+        f'<div class="muted" style="margin-top:3px">{rtxt}</div>'
+        f'<div class="stats" style="margin-top:12px">{cards}</div>', "LIQUIDITY REGIME")
+    body += "<h2>The liquidity cycle · year-over-year rate of change</h2>" + card(
+        cyc + f'<div class="legend"><span style="color:{GOLD}">▬</span> G3 central banks · '
+        f'<span style="color:{BLUE}">▬</span> US net liquidity · <span style="color:{MUT}">▬</span> US M2, '
+        'last 3 years. This is the FLOW, not the level. Assets respond to TURNS in these lines: a line hooking '
+        'up from below zero has historically been the earliest "tide is turning" signal, arriving before the '
+        'level itself recovers. Zero-line crossings mark expansion ↔ contraction regime changes per leg.</div>')
+    body += "<h2>Lead/lag matrix</h2>" + card(
+        f'<div style="overflow-x:auto"><table><tr><th>Asset</th>{mhdr}</tr>{mrows}</table></div>'
+        '<div class="legend">Each cell scans 0–18 week leads on 13-week rates of change and reports the '
+        'best-fit lead and its correlation: "when this liquidity measure moves, how many weeks later does the '
+        'asset respond, and how tightly?" Green = strong positive coupling, red = strong inverse. A weak |r| '
+        'means the asset is currently running on something other than liquidity.</div>')
+    if best_lead:
+        body += card(
+            f"Bitcoin's best fit against G3 liquidity right now is a <b>{best_lead[0]}-week lead</b> with "
+            f"correlation <b style='color:{rcell(best_lead[1])}'>r = {best_lead[1]:+.2f}</b>. Read that as: "
+            "liquidity turns first, Bitcoin follows about " + (f"{best_lead[0]} weeks later" if best_lead[0] else
+            "immediately") + ". When the coupling is tight the liquidity signal is live; when it decouples, "
+            "the crypto narrative is running on something else entirely.", "THE HEADLINE COUPLING")
+    body += card(
+        "Liquidity is the tide. US net liquidity = the Fed's balance sheet minus the reverse-repo facility "
+        "minus the Treasury's cash account — the dollars actually available to the financial system. G3 adds "
+        "the ECB and Bank of Japan converted to dollars, because capital doesn't respect borders. Stablecoins "
+        "are the crypto-native leg and run far hotter than the fiat ones. Levels tell you where you are; the "
+        "rate-of-change chart tells you where you're going, and that's the one assets respond to.",
+        "WHAT THIS MEASURES")
     return dict(slug="liquidity", title="Global Liquidity",
-                sub="The money actually available to markets — the tide that lifts or strands all boats.",
-                body=body, stance=stance, headline=f"Net liquidity {'expanding' if chg3m>0 else 'contracting'} (${chg3m:+,.0f}B / 3m)")
+                sub="The tide — G3 central banks, US net liquidity, M2 and stablecoins, with measured lead/lag against risk assets.",
+                body=body, stance=stance,
+                headline=f"{regime} — G3 liquidity {g3_yoy:+.1f}% YoY")
+
+FCI_INPUTS = [("real10", "Real 10y yield", "TIPS — the true cost of money", 1),
+              ("dollar", "Broad dollar", "global funding pressure", 1),
+              ("vix", "Equity vol (VIX)", "risk-appetite thermometer", 1),
+              ("move", "Bond vol (MOVE)", "rates-market stress", 1),
+              ("hy", "HY credit spread", "the price of default risk", 1),
+              ("mort", "30y mortgage rate", "household credit cost", 1),
+              ("dd", "S&P drawdown", "wealth-effect channel (deeper = tighter)", -1)]
+
+FCI_BETA_ASSETS = [("^GSPC", "S&P 500"), ("^NDX", "NASDAQ 100"), ("IWM", "Small caps"),
+                   ("GC=F", "Gold"), ("BTC-USD", "Bitcoin"), ("TLT", "Long bonds")]
 
 def m_finconditions():
-    nfci = fred("NFCI")
-    lvl = nfci.iloc[-1]
-    easing = lvl < nfci.iloc[-13]
-    stance = "bullish" if lvl < 0 and easing else ("bearish" if lvl > 0 else "neutral")
-    body = card(stat_grid([("Chicago Fed NFCI", f"{lvl:+.2f}", col(lvl, lambda v: v < 0)),
-                           ("3-month direction", "easing" if easing else "tightening",
-                            GREEN if easing else RED)]) +
-                '<div class="muted" style="margin-top:10px">Negative NFCI = conditions looser than average '
-                '(cheap money, easy credit, calm vol) — the environment where drawdowns stay shallow. '
-                'Crossings above zero have coincided with every major risk-off episode. Watch the direction '
-                'more than the level.</div>', "FINANCIAL CONDITIONS") + card(
-        line_chart([nfci.iloc[-260:].tolist()], [BLUE], hlines=[(0, RED, "0")]) +
-        '<div class="legend">Chicago Fed National Financial Conditions Index, weekly, ~5 years. Above 0 = tight.</div>')
+    import numpy as np
+    nfci = fred("NFCI", 60)
+    stlfsi = fred("STLFSI4", 30)
+    kcfsi = fred("KCFSI", 30)
+    # live daily composite
+    real10 = fred("DFII10", 4)
+    dollar = fred("DTWEXBGS", 4)
+    hy = fred("BAMLH0A0HYM2", 4)
+    mort = fred("MORTGAGE30US", 4)
+    mkt = yf.download(["^VIX", "^MOVE", "^GSPC"], period="4y", interval="1d",
+                      auto_adjust=True, progress=False)["Close"].ffill(limit=3)
+    spx = mkt["^GSPC"].dropna()
+    dd = (spx / spx.cummax() - 1) * 100
+    raw = dict(real10=real10, dollar=dollar, hy=hy, mort=mort,
+               vix=mkt["^VIX"].dropna(), move=mkt["^MOVE"].dropna(), dd=dd)
+    df = pd.DataFrame({k: v for k, v in raw.items()}).ffill().dropna()
+    z = (df - df.rolling(756, min_periods=250).mean()) / df.rolling(756, min_periods=250).std()
+    for key, _, _, sign in FCI_INPUTS:
+        z[key] = z[key] * sign
+    comp = z.mean(axis=1).dropna()
+    lvl = float(comp.iloc[-1])
+    imp = float(lvl - comp.iloc[-21])
+    state = ("Tight" if lvl > 0.5 else "Loose" if lvl < -0.5 else "Neutral")
+    scol = RED if lvl > 0.5 else (GREEN if lvl < -0.5 else AMBER)
+    direction = "loosening" if imp < -0.05 else ("tightening" if imp > 0.05 else "stable")
+    dtxt = ("A loosening impulse is the classic risk-asset tailwind — the cross-asset table shows who "
+            "historically benefits most." if imp < -0.05 else
+            "A tightening impulse drains the fuel from risk assets, hitting the highest-duration ones first."
+            if imp > 0.05 else "Conditions are drifting sideways; no impulse to trade off right now.")
+    # official indices
+    off_rows = []
+    for name, s, freq, note in (("Chicago Fed NFCI", nfci, "weekly", "broadest (100+ inputs)"),
+                                ("St. Louis Fed FSI", stlfsi, "weekly", "financial stress"),
+                                ("Kansas City Fed FSI", kcfsi, "monthly", "financial stress")):
+        try:
+            v = float(s.iloc[-1])
+            p = pctile(s, v)
+            chg = v - float(s.iloc[-13])
+            off_rows.append((name, v, p, chg, freq, note))
+        except Exception:
+            continue
+    off_html = "".join(
+        f'<div style="padding:7px 0;border-bottom:1px solid var(--line)">'
+        f'<div style="display:flex;justify-content:space-between"><span><b>{n}</b> '
+        f'<span class="pill" style="background:{(GREEN if v<0 else RED)}22;color:{GREEN if v<0 else RED};font-size:10px">'
+        f'{"Loose" if v < 0 else "Tight"}</span></span><b>{v:+.3f}</b></div>'
+        f'<div class="muted" style="font-size:11px">{p:.0f}th percentile of its history · '
+        f'{"loosening" if c < 0 else "tightening"} ({c:+.3f} / 3m) · {f2} · {nt}</div></div>'
+        for n, v, p, c, f2, nt in off_rows)
+    # component drivers
+    zl = z.iloc[-1]
+    z1m = z.iloc[-22]
+    comp_rows = []
+    for key, name, note, sign in FCI_INPUTS:
+        now_v = float(df[key].iloc[-1])
+        push = float(zl[key] - z1m[key]) / len(FCI_INPUTS)
+        unit = "%" if key in ("real10", "hy", "mort", "dd") else ("idx" if key == "dollar" else "")
+        comp_rows.append((f"<b>{name}</b><div class='muted' style='font-size:11px'>{note}</div>",
+                          f"{now_v:,.2f}{unit}",
+                          f'<span style="color:{RED if zl[key] > 0 else GREEN}">{float(zl[key]):+.2f}</span>',
+                          f"{float(z1m[key]):+.2f}",
+                          f'<span style="color:{RED if push > 0 else GREEN}">{"↑" if push > 0 else "↓"} {push:+.2f}</span>'))
+    # cross-asset betas
+    beta_px = yf.download([s for s, _ in FCI_BETA_ASSETS], period="2y", interval="1d",
+                          auto_adjust=True, progress=False)["Close"].ffill(limit=3)
+    comp_w = comp.resample("W-FRI").last()
+    dcomp = comp_w.diff().dropna()
+    brows = []
+    for sym, name in FCI_BETA_ASSETS:
+        if sym not in beta_px.columns:
+            continue
+        aw = beta_px[sym].dropna().resample("W-FRI").last().pct_change() * 100
+        both = pd.concat([dcomp, aw], axis=1).dropna()
+        if len(both) < 40:
+            continue
+        x, y = both.iloc[:, 0].values, both.iloc[:, 1].values
+        b, a = np.polyfit(x, y, 1)
+        pred = a + b * x
+        ss_tot = float(((y - y.mean()) ** 2).sum())
+        r2 = 1 - float(((y - pred) ** 2).sum()) / ss_tot if ss_tot else 0
+        beta01 = b * 0.1                     # response to +0.1σ tightening
+        lean = -beta01 * (imp / 0.1) if imp else 0
+        sig = "tailwind" if lean > 0.3 else ("headwind" if lean < -0.3 else "neutral")
+        brows.append((f"<b>{name}</b>", f"{beta01:+.2f}%/wk",
+                      f'<span style="color:{GREEN if r2 > 0.3 else MUT}">{r2:.2f}</span>',
+                      cnum(lean, 1),
+                      f'<span style="color:{GREEN if sig=="tailwind" else (RED if sig=="headwind" else MUT)}">{sig}</span>'))
+    body = card(
+        f'<div style="font-size:30px;font-weight:700;color:{scol}">{lvl:+.2f}<span style="font-size:15px">σ</span></div>'
+        f'<div><b style="color:{scol}">{state}</b> → {direction}</div>'
+        f'<div class="muted" style="margin-top:6px">Conditions are {state.lower()} ({lvl:+.2f}σ versus the '
+        f'3-year average) and {direction} ({imp:+.2f}σ over the last month). {dtxt}</div>',
+        "LIVE DAILY COMPOSITE · σ vs 3-YEAR AVERAGE")
+    body += "<h2>The official indices</h2>" + card(off_html)
+    body += "<h2>What's driving conditions</h2>" + card(
+        table(["Input", "Now", "z-score", "1m ago", "Push"], comp_rows) +
+        '<div class="legend">z-scores versus each input\'s trailing 3 years; red = tightening pressure. '
+        '"Push" is how much each input moved the composite over the last month — the red rows are WHERE the '
+        'tightening is coming from, and rates, the dollar, vol, credit and housing each transmit to different '
+        'assets.</div>')
+    if brows:
+        body += f"<h2>Cross-asset response · current 4-week impulse {imp:+.2f}σ</h2>" + card(
+            table(["Asset", "β per +0.1σ tightening", "R²", "Implied lean now", "Signal"], brows) +
+            '<div class="legend">β is each asset\'s measured weekly response to a 0.1σ TIGHTENING of the live '
+            'composite (OLS on weekly changes, trailing 2 years). "Implied lean" applies the current impulse '
+            'to that β. Low R² = a loose relationship; treat it as a lean, not a forecast.</div>')
+    body += card(
+        "Financial conditions are the transmission channel between the Fed and everything you trade. The three "
+        "official indices are authoritative but lag — weekly or monthly, published with a delay. So this page "
+        "also builds a daily composite from the live inputs that actually move: the real cost of money (TIPS), "
+        "the dollar (global funding), equity and bond vol, the price of default risk, mortgage rates, and the "
+        "wealth-effect channel. Watch the DIRECTION more than the level: the impulse is what assets respond to.",
+        "WHY BOTH A LIVE COMPOSITE AND THE OFFICIAL ONES")
+    stance = "bullish" if (lvl < 0 and imp < 0) else ("bearish" if (lvl > 0.5 or imp > 0.15) else "neutral")
     return dict(slug="financial-conditions", title="Financial Conditions",
-                sub="One number for how easy money is across credit, leverage, and risk markets.",
+                sub="A live daily conditions composite with its drivers, the three official Fed indices, and measured cross-asset betas.",
                 body=body, stance=stance,
-                headline=f"NFCI {lvl:+.2f} — {'loose' if lvl<0 else 'tight'} and {'easing' if easing else 'tightening'}")
+                headline=f"{state} ({lvl:+.2f}σ) and {direction}")
+
+PHASE_TILTS = {
+    "Early": ("Growth is re-accelerating off a low base while policy is still easy — the highest-beta phase.",
+              ["Consumer Discretionary", "Financials", "Real Estate", "Industrials"],
+              ["Consumer Staples", "Utilities", "Health Care"]),
+    "Mid": ("Growth is steady, inflation contained, policy neutral. Trends persist and drawdowns stay shallow.",
+            ["Information Technology", "Industrials", "Communication Services"],
+            ["Utilities", "Energy", "Materials"]),
+    "Late": ("Inflation pressure peaks and policy tightens. Hard-asset cyclicals and defensives beat "
+             "high-multiple growth.",
+             ["Energy", "Materials", "Consumer Staples", "Health Care"],
+             ["Consumer Discretionary", "Information Technology", "Real Estate"]),
+    "Recession": ("Growth is contracting and policy is turning. Capital protection first; the turn pays "
+                  "those still solvent.",
+                  ["Consumer Staples", "Utilities", "Health Care", "Long bonds"],
+                  ["Financials", "Industrials", "Energy", "Small caps"]),
+}
+QUADRANTS = {
+    ("up", "up"): ("Overheat", "growth ↑ · inflation ↑", ["Commodities", "Energy", "Value"], AMBER),
+    ("up", "dn"): ("Goldilocks", "growth ↑ · inflation ↓", ["Equities broadly", "Tech", "Small caps"], GREEN),
+    ("dn", "up"): ("Stagflation", "growth ↓ · inflation ↑", ["Cash", "Gold", "Energy"], RED),
+    ("dn", "dn"): ("Disinflation", "growth ↓ · inflation ↓", ["Long bonds", "Quality", "Staples"], BLUE),
+}
+
+def _trend_arrow(s, n=3):
+    if len(s) < n + 1:
+        return "→"
+    d = float(s.iloc[-1] - s.iloc[-1 - n])
+    sd = float(s.diff().std()) or 1
+    return "↗" if d > sd * 0.5 else ("↘" if d < -sd * 0.5 else "→")
 
 def m_business_cycle():
-    unrate = fred("UNRATE", 10)
-    sahm = unrate.rolling(3).mean() - unrate.rolling(3).mean().rolling(12).min()
-    sv = sahm.iloc[-1]
-    indpro = fred("INDPRO", 10)
-    ip_yoy = (indpro.iloc[-1] / indpro.iloc[-13] - 1) * 100
-    t10y3m = fred("T10Y3M", 3).iloc[-1]
-    score = sum([sv < 0.5, ip_yoy > 0, t10y3m > 0])
-    phase = {3: ("Expansion", GREEN, "bullish"), 2: ("Late cycle", AMBER, "neutral"),
-             1: ("Slowdown", AMBER, "bearish"), 0: ("Contraction risk", RED, "bearish")}[score]
+    ind = {}
+    specs = [("GDPC1", "Real GDP (q/q ann.)", "Quarterly", "yoy", "%"),
+             ("CPIAUCSL", "CPI (YoY)", "Monthly", "yoy", "%"),
+             ("UNRATE", "Unemployment rate", "Monthly", "level", "%"),
+             ("INDPRO", "Industrial production (YoY)", "Monthly", "yoy", "%"),
+             ("DFF", "Fed funds rate", "Daily", "level", "%"),
+             ("T10Y2Y", "10y−2y spread", "Daily", "bps", "bps"),
+             ("ICSA", "Initial claims (4w, YoY)", "Weekly", "yoy4", "%"),
+             ("T10YIE", "10y breakeven inflation", "Daily", "level", "%"),
+             ("NFCI", "Financial conditions (NFCI)", "Weekly", "level", "idx"),
+             ("RSAFS", "Retail sales (YoY)", "Monthly", "yoy", "%"),
+             ("HOUST", "Housing starts (YoY)", "Monthly", "yoy", "%")]
+    for sid, name, freq, kind, unit in specs:
+        try:
+            s = fred(sid, 12).dropna()
+            if kind == "yoy":
+                per = {"Quarterly": 4, "Monthly": 12}.get(freq, 12)
+                v = float((s.iloc[-1] / s.iloc[-1 - per] - 1) * 100)
+                hist = (s / s.shift(per) - 1).dropna() * 100
+            elif kind == "yoy4":
+                sm = s.rolling(4).mean().dropna()
+                v = float((sm.iloc[-1] / sm.iloc[-53] - 1) * 100)
+                hist = (sm / sm.shift(52) - 1).dropna() * 100
+            elif kind == "bps":
+                v = float(s.iloc[-1] * 100)
+                hist = s * 100
+            else:
+                v = float(s.iloc[-1])
+                hist = s
+            ind[name] = dict(v=v, arrow=_trend_arrow(hist), freq=freq, unit=unit,
+                             asof=s.index[-1].strftime("%Y-%m"),
+                             age=(pd.Timestamp(NOW.date()) - s.index[-1]).days)
+        except Exception:
+            continue
+    spx = yf.download("^GSPC", period="3y", interval="1d", auto_adjust=True,
+                      progress=False)["Close"].squeeze().dropna()
+    eq_yoy = float((spx.iloc[-1] / spx.iloc[-253] - 1) * 100)
+    ind["Equity momentum (S&P)"] = dict(v=eq_yoy, arrow=_trend_arrow((spx / spx.shift(252) - 1).dropna() * 100),
+                                        freq="Daily", unit="%", asof=NOW.strftime("%Y-%m"), age=0)
+    # phase scoring
+    growth = ind.get("Real GDP (q/q ann.)", {}).get("v", 0)
+    infl = ind.get("CPI (YoY)", {}).get("v", 2)
+    un = ind.get("Unemployment rate", {}).get("v", 4)
+    curve = ind.get("10y−2y spread", {}).get("v", 0)
+    unrate_s = fred("UNRATE", 5)
+    sahm = float((unrate_s.rolling(3).mean() - unrate_s.rolling(3).mean().rolling(12).min()).iloc[-1])
+    if sahm >= 0.5 or growth < 0:
+        phase = "Recession"
+    elif infl > 3 and growth > 0:
+        phase = "Late"
+    elif growth > 2 and infl <= 3:
+        phase = "Mid"
+    else:
+        phase = "Early"
+    pcol = {"Early": GREEN, "Mid": GREEN, "Late": AMBER, "Recession": RED}[phase]
+    score = int(min(95, max(5, 50 + growth * 5 + (infl - 2) * 4 - sahm * 30)))
+    # quadrant
+    cpi_s = fred("CPIAUCSL", 4)
+    cpi_yoy = (cpi_s / cpi_s.shift(12) - 1).dropna() * 100
+    ip_s = fred("INDPRO", 4)
+    ip_yoy = (ip_s / ip_s.shift(12) - 1).dropna() * 100
+    g_dir = "up" if float(ip_yoy.iloc[-1] - ip_yoy.iloc[-4]) > 0 else "dn"
+    i_dir = "up" if float(cpi_yoy.iloc[-1] - cpi_yoy.iloc[-4]) > 0 else "dn"
+    qname, qdesc, qfav, qcol = QUADRANTS[(g_dir, i_dir)]
+    # quadrant svg with 4-quarter trail
+    S = 420
+    trail = []
+    for k in range(4, -1, -1):
+        gi = float(ip_yoy.iloc[-1 - k * 3]) if len(ip_yoy) > k * 3 else 0
+        ii = float(cpi_yoy.iloc[-1 - k * 3]) if len(cpi_yoy) > k * 3 else 0
+        trail.append((gi, ii))
+    gs = [t[0] for t in trail]; iss = [t[1] for t in trail]
+    gspan = max(2.0, max(abs(min(gs)), abs(max(gs))) * 1.4)
+    ispan_lo, ispan_hi = min(iss) - 1, max(iss) + 1
+    X = lambda g: 40 + (S - 80) * (g + gspan) / (2 * gspan)
+    Y = lambda i: S - 40 - (S - 80) * (i - ispan_lo) / ((ispan_hi - ispan_lo) or 1)
+    cx, cy = X(0), Y(2.0)
+    g = (f'<rect x="40" y="40" width="{S-80}" height="{S-80}" fill="none" stroke="#232a3a"/>'
+         f'<line x1="{cx}" x2="{cx}" y1="40" y2="{S-40}" stroke="{MUT}" stroke-width="0.6"/>'
+         f'<line x1="40" x2="{S-40}" y1="{cy}" y2="{cy}" stroke="{MUT}" stroke-width="0.6"/>'
+         f'<text x="46" y="56" fill="{RED}" font-size="10" font-weight="600">STAGFLATION</text>'
+         f'<text x="{S-46}" y="56" text-anchor="end" fill="{AMBER}" font-size="10" font-weight="600">OVERHEAT</text>'
+         f'<text x="46" y="{S-46}" fill="{BLUE}" font-size="10" font-weight="600">DISINFLATION</text>'
+         f'<text x="{S-46}" y="{S-46}" text-anchor="end" fill="{GREEN}" font-size="10" font-weight="600">GOLDILOCKS</text>'
+         f'<text x="{S/2}" y="{S-8}" text-anchor="middle" fill="{MUT}" font-size="10">growth (industrial production YoY) →</text>')
+    pts = " ".join(f"{X(a):.1f},{Y(b):.1f}" for a, b in trail)
+    g += f'<polyline points="{pts}" fill="none" stroke="{GOLD}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.7"/>'
+    for j, (a, b) in enumerate(trail):
+        r = 5 if j == len(trail) - 1 else 2.4
+        g += f'<circle cx="{X(a):.1f}" cy="{Y(b):.1f}" r="{r}" fill="{qcol if j == len(trail)-1 else GOLD}" opacity="{1 if j==len(trail)-1 else 0.5}"/>'
+    quad_svg = f'<svg viewBox="0 0 {S} {S}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:460px;height:auto;display:block;margin:0 auto">{g}</svg>'
+    desc, over, under = PHASE_TILTS[phase]
+    ind_rows = [(f"<b>{n}</b>", f'<span class="muted">{d["freq"]} · {d["asof"]} · {d["age"]}d ago</span>',
+                 f'{d["v"]:+.2f}{d["unit"]}' if d["unit"] != "bps" else f'{d["v"]:+.0f}',
+                 f'<span style="color:{GOLD}">{d["arrow"]}</span>') for n, d in ind.items()]
     body = card(
-        f'<div style="font-size:19px;font-weight:700;color:{phase[1]}">{phase[0]}</div>' +
-        stat_grid([("Unemployment", pct(unrate.iloc[-1]), MUT),
-                   ("Sahm rule gap", f"{sv:+.2f}", col(sv, lambda v: v < 0.5)),
-                   ("Industrial prod. YoY", sgn(ip_yoy), col(ip_yoy, lambda v: v > 0)),
-                   ("Curve (10y−3m)", f"{t10y3m:+.2f}", col(t10y3m, lambda v: v > 0))]) +
-        '<div class="muted" style="margin-top:10px">Three lights: labor (Sahm rule — a 0.50pt rise in the '
-        '3-month average unemployment rate off its low has called every post-war recession), production '
-        '(industrial output growth), and the curve. Three green = expansion; each light that goes out '
-        'moves the cycle clock forward.</div>', "CYCLE DASHBOARD") + card(
-        line_chart([unrate.iloc[-120:].tolist()], [BLUE]) +
-        '<div class="legend">US unemployment rate, last 10 years (FRED UNRATE). Cycle lows in unemployment '
-        'are late-cycle by definition — the turn up, not the level, is the danger signal.</div>')
+        f'<div style="display:flex;gap:14px;align-items:baseline"><div style="font-size:30px;font-weight:700;'
+        f'color:{pcol}">{score}<span style="font-size:14px">/100</span></div>'
+        f'<div><b style="color:{pcol}">{phase} cycle</b> · macro regime '
+        f'<b style="color:{qcol}">{qname}</b></div></div>'
+        f'<div class="muted" style="margin-top:6px">Growth (industrial production) {ip_yoy.iloc[-1]:+.1f}% YoY, '
+        f'inflation {infl:+.1f}% YoY, unemployment {un:.1f}%, curve {curve:+.0f}bps, Sahm gap {sahm:+.2f}. '
+        f'{desc}</div>' +
+        stat_grid([("Sahm rule gap", f"{sahm:+.2f}", col(sahm, lambda v: v < 0.5)),
+                   ("Growth direction", "rising" if g_dir == "up" else "falling", GREEN if g_dir == "up" else RED),
+                   ("Inflation direction", "rising" if i_dir == "up" else "falling", RED if i_dir == "up" else GREEN),
+                   ("Curve (10y−2y)", f"{curve:+.0f} bps", col(curve, lambda v: v > 0))]),
+        "CYCLE PHASE & MACRO REGIME")
+    body += f"<h2>Macro regime quadrant · {qname}</h2>" + card(
+        quad_svg + f'<div class="muted" style="margin-top:6px"><b style="color:{qcol}">{qname}</b> — {qdesc}. '
+        f'Historically favours: {", ".join(qfav)}.</div>'
+        '<div class="legend">Each quadrant is a growth × inflation regime, independent of cycle phase — a '
+        'mid-phase economy can sit in a stagflation regime without being in recession. The gold dashed trail '
+        'is the last four quarter-ends; the large dot is now. Vertical axis crosses at 2% inflation (the target).</div>')
+    body += "<h2>The indicator board</h2>" + card(
+        table(["Indicator", "Source & vintage", "Latest", "Trend"], ind_rows) +
+        '<div class="legend">Every input with its release frequency and how stale it is. Macro data is '
+        'backward-looking by construction — the vintage column is there so you know how much of the present '
+        'each number can actually see.</div>')
+    body += f"<h2>Sector tilts · {phase} cycle</h2>" + card(
+        f'<div class="muted">{desc}</div>'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px">'
+        f'<div><div class="slabel">OVERWEIGHT</div>' +
+        "".join(f'<div style="font-size:13px;color:{GREEN}">▸ {x}</div>' for x in over) + "</div>"
+        f'<div><div class="slabel">UNDERWEIGHT</div>' +
+        "".join(f'<div style="font-size:13px;color:{RED}">▸ {x}</div>' for x in under) + "</div></div>"
+        '<div class="legend">Phase-based tilts are a starting hypothesis, not a mandate — cross-check against '
+        'the Relative Strength tab, which measures what is actually leading right now.</div>')
+    body += card(
+        "The business cycle is the slow clock behind every other regime on this terminal. The phase read "
+        "combines the Sahm rule (a 0.50pt rise in the three-month average unemployment rate off its low has "
+        "called every post-war US recession), growth, inflation and the curve. The quadrant is a separate, "
+        "faster read: which way growth and inflation are MOVING, which is what maps to asset leadership. "
+        "Phase tells you where you are in the cycle; the quadrant tells you what to own this quarter.",
+        "HOW THE TWO READS DIFFER")
+    stance = {"Early": "bullish", "Mid": "bullish", "Late": "neutral", "Recession": "bearish"}[phase]
     return dict(slug="business-cycle", title="Business Cycle",
-                sub="Where the real economy sits — the slow clock behind every market regime.",
-                body=body, stance=phase[2], headline=f"{phase[0]} — {score}/3 lights green")
+                sub="Cycle phase, the growth × inflation regime quadrant, and the full indicator board with data vintages.",
+                body=body, stance=stance,
+                headline=f"{phase} cycle · {qname} regime · Sahm gap {sahm:+.2f}")
 
 MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M", 7: "N", 8: "Q",
               9: "U", 10: "V", 11: "X", 12: "Z"}
