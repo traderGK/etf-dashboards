@@ -734,7 +734,11 @@
   .ho-movers-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4ec994;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
   .ho-movers-loading{font-family:var(--mono);font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:8px;padding:4px 0}
   /* Same grid + container chrome as the Top 10 Holdings table so the two sections align */
-  #hoMoversBody:has(.ho-mover-row){border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--bg-card)}
+  .ho-mover-table{border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--bg-card)}
+  .ho-mover-sec-hdr{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;margin:14px 0 8px;display:flex;align-items:center;gap:5px}
+  .ho-mover-sec-hdr:first-child{margin-top:0}
+  .ho-mover-sec-hdr.up{color:#4ec994}.ho-mover-sec-hdr.dn{color:#e06b6b}
+  .ho-mover-empty{font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:2px 0 4px}
   .ho-mover-row{display:grid;grid-template-columns:18px 46px 1fr 120px 90px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);transition:background .12s}
   .ho-mover-row:last-child{border-bottom:none}
   .ho-mover-row:hover{background:rgba(232,193,74,.035)}
@@ -1104,7 +1108,7 @@
       <div class="ho-table-wrap"></div>
       <div class="ho-note hac-note" style="margin-top:12px;display:none"></div>
       <div class="ho-movers" id="hoMovers" style="display:none">
-        <div class="ho-movers-label">⚡ Top 5 Fast Movers <span style="color:var(--text-faint);font-weight:400;letter-spacing:0;text-transform:none;font-size:10px">· live % change today</span></div>
+        <div class="ho-movers-label">⚡ Fast Movers <span style="color:var(--text-faint);font-weight:400;letter-spacing:0;text-transform:none;font-size:10px">· live % change today</span></div>
         <div id="hoMoversBody"><div class="ho-movers-loading"><span class="spinner-sm" style="border-top-color:#4ec994"></span> Fetching live prices…</div></div>
       </div>
       <div class="ho-tradeidea" id="hoTradeIdea" style="display:none">
@@ -3250,7 +3254,8 @@ async function fetchFastMovers(holdings, etfTicker){
   const results=await Promise.allSettled(tickers.map(tk=>fetchOne(tk)));
   const valid=results.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value);
   window._fmPool=valid.length;
-  return valid.sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg)).slice(0,5);
+  // Return ALL scanned movers — the renderer splits them into top-5 up / top-5 down
+  return valid.sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg));
 }
 
 function openHoldingsPopup(ticker){
@@ -3397,17 +3402,18 @@ function openHoldingsPopup(ticker){
       moversBody.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:4px 0">No data available</div>`;
       return;
     }
-    // Selection upstream is by |chg| (biggest movers either way); display is
-    // sorted by signed chg — most bullish on top, most bearish at the bottom
-    movers=[...movers].sort((a,b)=>(b.chg??-1e9)-(a.chg??-1e9));
+    // Split into gainers and losers — top 5 of each, sorted by magnitude:
+    // UP table most bullish first, DOWN table most bearish first
+    const ups=movers.filter(m=>(m.chg??0)>0).sort((a,b)=>b.chg-a.chg).slice(0,5);
+    const downs=movers.filter(m=>(m.chg??0)<0).sort((a,b)=>a.chg-b.chg).slice(0,5);
     const lbl=moversWrap.querySelector('.ho-movers-label');
-    const scanTxt=pool>movers.length?`· scanned ${pool} holdings`:'';
-    if(lbl) lbl.innerHTML=`⚡ Top 5 Fast Movers <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--text-faint)">${scanTxt} · ${ageLabel}</span>`;
+    const scanTxt=pool>1?`scanned ${pool} holdings · `:'';
+    if(lbl) lbl.innerHTML=`⚡ Fast Movers <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--text-faint)">${scanTxt}${ageLabel}</span>`;
     // Weight bar scale — shared with the holdings table above (barScale from the
     // top-10 render, min 30) so the same stock shows the same bar length in both
-    const maxWt=movers.reduce((m,r)=>Math.max(m,r.w||0),0);
+    const maxWt=[...ups,...downs].reduce((m,r)=>Math.max(m,r.w||0),0);
     const moverScale=Math.max(maxWt,barScale);
-    moversBody.innerHTML=movers.map((m,i)=>{
+    const row=(m,i)=>{
       const cls=m.chg>=0?'up':'dn';
       const w=m.w||0;
       const barPct=w&&moverScale>0?Math.min(100,(w/moverScale)*100).toFixed(1):0;
@@ -3424,7 +3430,13 @@ function openHoldingsPopup(ticker){
         ${wtHtml}
         <span class="ho-mover-today">${m.price!=null?`${fmtPrice(m.price)} `:''}<span class="ho-mover-chg ${cls}">${fmtChg(m.chg)}</span></span>
       </div>`;
-    }).join('');
+    };
+    const table=list=>`<div class="ho-mover-table">${list.map(row).join('')}</div>`;
+    moversBody.innerHTML=
+      `<div class="ho-mover-sec-hdr up">▲ Top 5 Fast Movers Up</div>`+
+      (ups.length?table(ups):`<div class="ho-mover-empty">No gainers today</div>`)+
+      `<div class="ho-mover-sec-hdr dn">▼ Top 5 Fast Movers Down</div>`+
+      (downs.length?table(downs):`<div class="ho-mover-empty">No losers today</div>`);
   }
 
   // Open the overlay
@@ -3454,7 +3466,7 @@ function openHoldingsPopup(ticker){
     if(liveH&&liveH.length&&tp_c&&Object.keys(tp_c).length>10){
       const movers=liveH.map(h=>{const d=tp_c[h.t];return d?{t:h.t,n:h.n,w:wtMap.get(h.t)||h.w||0,chg:d.c,price:d.p}:null;})
         .filter(Boolean).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg));
-      renderMoversRows(movers.slice(0,5),movers.length,`${ageLabel} · full ETF scan`);
+      renderMoversRows(movers,movers.length,`${ageLabel} · full ETF scan`);
       return;
     }
 
@@ -3490,7 +3502,7 @@ function openHoldingsPopup(ticker){
       const movers=merged.map(h=>{const d=tp_c[h.t];return d?{t:h.t,n:h.n,w:wtMap.get(h.t)||h.w||0,chg:d.c,price:d.p}:null;})
         .filter(Boolean).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg));
       const src=yhHoldings.length?`${merged.length} holdings scanned`:'stored holdings';
-      renderMoversRows(movers.slice(0,5),movers.length,`${ageLabel} · ${src}`);
+      renderMoversRows(movers,movers.length,`${ageLabel} · ${src}`);
     } else {
       fetchFastMovers(merged.map(h=>[h.t,h.n,h.w]),ticker).then(movers=>{
         // Attach weights from wtMap
