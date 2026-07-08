@@ -2781,12 +2781,24 @@ MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M", 7: "N", 8: "Q",
 FOMC = ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17", "2026-07-29",
         "2026-09-16", "2026-10-28", "2026-12-09", "2027-01-27", "2027-03-17"]
 
+def _last_close(df):
+    """Last close as a float, whatever shape yfinance hands back.
+
+    Single-ticker downloads return MultiIndex columns on newer yfinance, so
+    df["Close"] can be a DataFrame rather than a Series.
+    """
+    if df is None or not len(df):
+        return None
+    c = df["Close"]
+    if isinstance(c, pd.DataFrame):
+        c = c.iloc[:, 0]
+    c = c.dropna()
+    return float(c.iloc[-1]) if len(c) else None
+
 def _zq_implied(year, month):
     t = f"ZQ{MONTH_CODE[month]}{str(year)[-2:]}.CBT"
-    d = yf.download(t, period="10d", progress=False, auto_adjust=False)
-    if not len(d):
-        return None
-    return 100 - float(d["Close"].dropna().iloc[-1])
+    last = _last_close(yf.download(t, period="10d", progress=False, auto_adjust=False))
+    return None if last is None else 100 - last
 
 def _meeting_probs(effr):
     """CME-style: back out post-meeting rates from ZQ, propagate a 25bp distribution."""
