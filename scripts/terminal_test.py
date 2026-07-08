@@ -1624,33 +1624,132 @@ def m_seasonality(gspc_m):
                 body=body, stance=stance,
                 headline=f"{labels[cur-1]} averages {avg[cur]:+.2f}% since 1950")
 
-def m_calendar(gspc_d):
-    r = gspc_d.pct_change().dropna()
-    r = r[r.index.year >= 2000]
-    dows = r.groupby(r.index.dayofweek).mean() * 100
-    dlab = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-    # turn of month: last trading day + first 3
+CAL_ASSETS = [("^GSPC", "S&P 500"), ("^NDX", "NASDAQ 100"), ("^RUT", "Russell 2000"),
+              ("BTC-USD", "Bitcoin"), ("ETH-USD", "Ethereum"), ("GC=F", "Gold"),
+              ("TLT", "Long bonds"), ("DX-Y.NYB", "US Dollar")]
+
+def _cal_asset(name, s):
+    r = s.pct_change().dropna() * 100
+    r = r[r.index >= r.index[-1] - pd.Timedelta(days=3700)]
+    crypto = len(set(r.index.dayofweek)) > 5
+    # day of week
+    dlab = ["Mon", "Tue", "Wed", "Thu", "Fri"] + (["Sat", "Sun"] if crypto else [])
+    dow_avg = [float(r[r.index.dayofweek == i].mean()) for i in range(len(dlab))]
+    dow_win = [float((r[r.index.dayofweek == i] > 0).mean() * 100) for i in range(len(dlab))]
+    # trading day of month
+    tdi = r.groupby([r.index.year, r.index.month]).cumcount() + 1
+    td_avg = [float(r[tdi == d].mean()) if (tdi == d).sum() >= 5 else 0 for d in range(1, 24)]
+    # monthly grid
+    mr = s.resample("ME").last().pct_change().dropna() * 100
+    cur_m = s[s.index >= s.index[-1].replace(day=1)]
+    mtd = float((cur_m.iloc[-1] / cur_m.iloc[0] - 1) * 100) if len(cur_m) > 1 else None
+    years = sorted(set(mr.index.year), reverse=True)[:11]
+    grid = {}
+    for y in years:
+        grid[y] = {m: None for m in range(1, 13)}
+        for i, v in mr[mr.index.year == y].items():
+            grid[y][i.month] = float(v)
+    if mtd is not None:
+        grid.setdefault(NOW.year, {m: None for m in range(1, 13)})[NOW.month] = mtd
+    full = mr[~((mr.index.year == NOW.year) & (mr.index.month == NOW.month))]
+    win = {m: float((full[full.index.month == m] > 0).mean() * 100) for m in range(1, 13)}
+    # windows
     idx = r.index
-    tom_mask = pd.Series(False, index=idx)
-    months = pd.Series(idx.month, index=idx)
-    starts = months.ne(months.shift(1))
+    months_s = pd.Series(idx.month, index=idx)
+    starts = months_s.ne(months_s.shift(1))
+    tom = pd.Series(False, index=idx)
     for i in range(len(idx)):
         if starts.iloc[i]:
-            for j in range(max(0, i - 1), min(len(idx), i + 3)):
-                tom_mask.iloc[j] = True
-    tom, rest = r[tom_mask].mean() * 100, r[~tom_mask].mean() * 100
-    body = card(bar_chart(dlab, [dows.get(i, 0) for i in range(5)]) +
-                '<div class="legend">Average S&P daily return by weekday since 2000.</div>',
-                "DAY-OF-WEEK DRIFT") + card(
-        f"Turn-of-month window (last session + first three of each month) has averaged "
-        f"<b style='color:{GREEN if tom > rest else RED}'>{tom:+.3f}%/day</b> vs {rest:+.3f}%/day on all other days "
-        "since 2000 — the single most persistent calendar effect, driven by pension and payroll flows. "
-        "These edges are thin and best used for timing entries you already wanted to make, not as trades "
-        "in themselves.", "TURN-OF-MONTH EFFECT")
+            for j in range(max(0, i - 2), min(len(idx), i + 3)):
+                tom.iloc[j] = True
+    third_fri = idx.to_series().apply(
+        lambda d: d.weekday() <= 4 and 15 <= d.day - (d.weekday() - 4) % 7 <= 21 and
+        abs((d.day - 1) // 7 - 2) <= 0 if False else False)
+    # OPEX week = the Mon-Fri containing the 3rd Friday
+    def is_opex(d):
+        fri = d + pd.Timedelta(days=(4 - d.weekday()) % 7)
+        return fri.month == d.month and 15 <= fri.day <= 21
+    opex = idx.to_series().apply(is_opex)
+    lull = (tdi >= 10) & (tdi <= 15)
+    def window_stats(mask):
+        grp = r[mask.values if hasattr(mask, "values") else mask]
+        # per-instance: sum returns per (year, month)
+        inst = grp.groupby([grp.index.year, grp.index.month]).sum()
+        return float(inst.mean()), float((inst > 0).mean() * 100), len(inst)
+    win_rows = [("Turn of month", "Last 2 + first 3 sessions — the documented institutional-flow bid",
+                 *window_stats(tom), bool(tom.iloc[-1])),
+                ("OPEX week", "The week of the 3rd Friday — expiry pinning and hedge flows",
+                 *window_stats(opex), bool(opex.iloc[-1])),
+                ("Mid-month lull", "Trading days 10–15 — historically the flattest stretch",
+                 *window_stats(lull), bool(lull.iloc[-1]))]
+    # today's edge
+    dw = NOW.weekday() if NOW.weekday() < len(dlab) else 0
+    td_now = int(tdi.iloc[-1])
+    active = [w for w in win_rows if w[5]]
+    edge = (f"For {name}: {dlab[dw]}s average {dow_avg[dw]:+.3f}% ({dow_win[dw]:.0f}% up); "
+            f"trading day {td_now} averages {td_avg[min(td_now, 23) - 1]:+.3f}%")
+    if active:
+        w = active[0]
+        edge += f"; currently inside the {w[0]} window (avg {w[2]:+.2f}%/instance, {w[3]:.0f}% positive)"
+    edge += ". A historical tendency, not a promise — size accordingly."
+    # html
+    hh = card(edge, f"TODAY'S EDGE · {name.upper()} ({(r.index[-1] - r.index[0]).days // 365}Y OF DATA)")
+    hh += card(bar_chart(dlab, dow_avg) +
+               '<div class="legend">Average return by day of week' +
+               (" (crypto trades all seven)" if crypto else "") + ".</div>", "DAY OF WEEK")
+    hh += card(bar_chart([str(d) if d % 2 else "" for d in range(1, 24)], td_avg) +
+               '<div class="legend">Average return by trading day of the month — where in the month the '
+               'asset historically finds its bid.</div>', "TRADING DAY OF MONTH")
+    mn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    trs = "<tr><th>Year</th>" + "".join(
+        f'<th style="{"color:#d4af5a" if m == NOW.month else ""}">{mn[m-1]}</th>' for m in range(1, 13)) + "</tr>"
+    trs += "<tr><td class='muted'>Win rate</td>" + "".join(
+        f'<td style="color:{GREEN if win[m] >= 60 else (RED if win[m] < 45 else "var(--tx)")}">{win[m]:.0f}%</td>'
+        for m in range(1, 13)) + "</tr>"
+    for y in sorted(grid, reverse=True):
+        trs += f"<tr><td><b>{y}</b></td>" + "".join(
+            (f'<td style="color:{GREEN if grid[y][m] > 0 else RED}">{grid[y][m]:+.1f}</td>'
+             if grid[y].get(m) is not None else '<td class="muted">–</td>') for m in range(1, 13)) + "</tr>"
+    hh += card(f'<div style="overflow-x:auto"><table style="font-size:11px">{trs}</table></div>'
+               '<div class="legend">Monthly returns, %. Win rate excludes the current partial month; the '
+               'year rows include it as month-to-date. Current month highlighted.</div>',
+               "MONTHLY GRID · 11 YEARS")
+    hh += card(table(["Window", "Avg / instance", "% positive", "n", "Status"],
+                     [(f"<b>{w[0]}</b><div class='muted' style='font-size:11px'>{w[1]}</div>",
+                       cnum(w[2], 2), f"{w[3]:.0f}%", str(w[4]),
+                       f'<span style="color:{GOLD}">active now</span>' if w[5] else "—")
+                      for w in win_rows]), "THE DOCUMENTED WINDOWS")
+    return hh
+
+def m_calendar(gspc_d):
+    hist = yf.download([s for s, _ in CAL_ASSETS], period="10y", interval="1d",
+                       auto_adjust=True, progress=False)["Close"]
+    sections = {}
+    for sym, name in CAL_ASSETS:
+        try:
+            sections[sym] = _cal_asset(name, hist[sym].dropna())
+        except Exception as e:
+            sections[sym] = card(f'<span class="muted">Unavailable this run ({e}).</span>')
+    tabs = "".join(
+        f'<button onclick="calshow(\'{s}\')" id="calb-{s}" style="cursor:pointer;font-size:12px;padding:4px 12px;'
+        f'border-radius:16px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin:0 6px 8px 0">{n}</button>'
+        for s, n in CAL_ASSETS)
+    divs = "".join(f'<div id="cal-{s}" style="display:none">{b}</div>' for s, b in sections.items())
+    js = ("<script>function calshow(t){%s.forEach(x=>{document.getElementById('cal-'+x).style.display=x===t?'block':'none';"
+          "const b=document.getElementById('calb-'+x);b.style.color=x===t?'#d4af5a':'#8891a5';"
+          "b.style.borderColor=x===t?'#d4af5a':'#232a3a';});}calshow('^GSPC');</script>"
+          ) % json.dumps([s for s, _ in CAL_ASSETS])
+    body = f"<div>{tabs}</div>{divs}{js}" + card(
+        "The Seasonality tab answers \"which months favor this asset\"; this one answers the day-trader's "
+        "version: which DAYS. Markets carry documented micro-rhythms — the turn-of-month institutional bid, "
+        "the mid-month lull, expiry-week pinning, persistent weekday tilts (crypto trades all seven days). "
+        "Each is measured from ~10 years of daily bars per asset, with sample sizes shown. These edges are "
+        "small per instance but persistent across hundreds of observations: they're tie-breakers for WHEN "
+        "to execute a decision already made, never the reason for the decision.", "THE 60-SECOND VERSION")
     return dict(slug="calendar", title="Calendar Effects",
-                sub="The micro-seasonality inside the month and week — flow-driven drift patterns.",
+                sub="Day-of-week, day-of-month and named-window rhythms, measured per asset over ~10 years.",
                 body=body, stance="info",
-                headline=f"Turn-of-month drift {tom:+.2f}%/day vs {rest:+.2f}% baseline")
+                headline="Turn-of-month, OPEX week and weekday tilts across 8 assets")
 
 def m_election(gspc_m):
     m = gspc_m.pct_change().dropna()
@@ -1952,36 +2051,146 @@ def m_sentiment(px):
                 headline=f"Equities {eq_score:.0f} ({_mood(eq_score)})" +
                          (f" · Crypto {fng_now:.0f} ({_mood(fng_now)})" if fng_now is not None else ""))
 
+def _okx(path):
+    req = urllib.request.Request("https://www.okx.com" + path,
+                                 headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        j = json.loads(r.read())
+    if j.get("code") not in ("0", 0):
+        raise RuntimeError(j.get("msg", "okx error"))
+    return j["data"]
+
+def _crypto_coin(ccy, spot_series):
+    spot = float(spot_series.iloc[-1])
+    chg7 = float((spot_series.iloc[-1] / spot_series.iloc[-8] - 1) * 100)
+    out = dict(spot=spot, chg7=chg7)
+    # open interest history (USD), daily
+    oi = _okx(f"/api/v5/rubik/stat/contracts/open-interest-volume?ccy={ccy}&period=1D")
+    oi_ser = pd.Series({pd.to_datetime(int(d[0]), unit="ms"): float(d[1]) for d in oi}).sort_index()
+    out["oi_now"] = float(oi_ser.iloc[-1])
+    out["oi_chg7"] = float((oi_ser.iloc[-1] / oi_ser.iloc[-8] - 1) * 100) if len(oi_ser) > 8 else 0.0
+    out["oi_hist"] = oi_ser.iloc[-90:]
+    # funding
+    fr = _okx(f"/api/v5/public/funding-rate?instId={ccy}-USDT-SWAP")
+    out["funding"] = float(fr[0]["fundingRate"]) * 100
+    frh = _okx(f"/api/v5/public/funding-rate-history?instId={ccy}-USDT-SWAP&limit=100")
+    out["fund_hist"] = [float(d["fundingRate"]) * 100 for d in frh][::-1]
+    # long/short account ratio
+    ls = _okx(f"/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy={ccy}&period=1D")
+    ls_ser = pd.Series({pd.to_datetime(int(d[0]), unit="ms"): float(d[1]) for d in ls}).sort_index()
+    out["ls_now"] = float(ls_ser.iloc[-1])
+    out["ls_hist"] = ls_ser.iloc[-90:]
+    return out
+
+def _crypto_card(name, ccy, d, px_hist):
+    spot, fmtn = d["spot"], (lambda v: f"${v:,.0f}" if v > 100 else f"${v:,.2f}")
+    ann = d["funding"] * 3 * 365
+    # OI/price matrix verdict
+    p7, o7 = d["chg7"], d["oi_chg7"]
+    if abs(p7) < 1.5 and abs(o7) < 3:
+        v1 = "OI and price are drifting without a decisive flow signature this week."
+    elif p7 > 0 and o7 > 0:
+        v1 = "Price up + OI up: new longs are funding the move — trend-supported, but crowding builds with it."
+    elif p7 > 0:
+        v1 = "Price up + OI down: a short-covering rally — fades unless open interest turns higher."
+    elif o7 > 0:
+        v1 = "Price down + OI up: new shorts pressing — trend fuel now, squeeze fuel later."
+    else:
+        v1 = "Price down + OI down: longs liquidating — exhaustion behavior, historically closer to lows than tops."
+    v2 = (f"Funding near flat (~{ann:.1f}% ann.): the perp crowd isn't leaning hard either way."
+          if abs(ann) < 15 else
+          f"Funding heavily positive (~{ann:.0f}% ann.): longs crowded — squeeze risk sits below." if ann > 0 else
+          f"Funding negative (~{ann:.0f}% ann.): shorts are paying to stay — squeeze risk sits above.")
+    v3 = (f"Long/short accounts at {d['ls_now']:.2f}: retail positioning unremarkable."
+          if 0.8 < d["ls_now"] < 2.5 else
+          f"Long/short accounts at {d['ls_now']:.2f}: retail piled long — contrarian caution." if d["ls_now"] >= 2.5 else
+          f"Long/short accounts at {d['ls_now']:.2f}: the crowd is net short — squeeze fuel above.")
+    # charts — normalize both indexes to naive dates before aligning
+    def _bydate(s):
+        s = s.copy()
+        idx = pd.DatetimeIndex(s.index)
+        if idx.tz is not None:
+            idx = idx.tz_localize(None)
+        s.index = idx.normalize()
+        return s[~s.index.duplicated(keep="last")]
+    pxn = _bydate(px_hist.iloc[-120:])
+    oin = _bydate(d["oi_hist"])
+    oi_al, px_al = oin.align(pxn, join="inner")
+    if len(px_al) < 5:
+        n = min(len(oin), len(pxn))
+        oi_al, px_al = oin.iloc[-n:], pxn.iloc[-n:]
+    ch_oi = line_chart([(px_al / px_al.iloc[0] * 100).tolist(),
+                        (oi_al / oi_al.iloc[0] * 100).tolist()], [GOLD, BLUE])
+    fh = d["fund_hist"]
+    ch_f = bar_chart(["" for _ in fh], fh)
+    ch_ls = line_chart([d["ls_hist"].tolist()], [GOLD], hlines=[(1.0, MUT, "1.0")])
+    # liquidation ladder
+    tiers = [(5, 0.9), (10, 0.9), (25, 0.9), (50, 0.9), (100, 0.9)]
+    shorts = [(spot * (1 + m / L), L) for L, m in tiers][::-1]
+    longs = [(spot * (1 - m / L), L) for L, m in tiers]
+    fmtk = lambda v: f"${v/1000:,.1f}k" if v > 2000 else f"${v:,.0f}"
+    ladder = "".join(
+        f'<div style="display:flex;gap:10px;font-size:12px;padding:2px 0"><span style="min-width:70px">{fmtk(p)}</span>'
+        f'<span style="color:{RED}">{L}× shorts liquidate</span></div>' for p, L in shorts) + \
+        f'<div style="display:flex;gap:10px;font-size:13px;padding:4px 0;border-top:1px solid var(--line);' \
+        f'border-bottom:1px solid var(--line)"><b style="min-width:70px;color:{GOLD}">{fmtk(spot)}</b><b>spot</b></div>' + \
+        "".join(
+        f'<div style="display:flex;gap:10px;font-size:12px;padding:2px 0"><span style="min-width:70px">{fmtk(p)}</span>'
+        f'<span style="color:{GREEN}">{L}× longs liquidate</span></div>' for p, L in longs)
+    return card(
+        f'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:baseline">'
+        f'<div style="font-size:22px;font-weight:700">{fmtn(spot)} <span style="font-size:13px;color:{GREEN if d["chg7"]>=0 else RED}">{d["chg7"]:+.1f}% 7d</span></div>'
+        f'<div>OI (OKX) <b>${d["oi_now"]/1e9:,.2f}B</b> <span style="color:{GREEN if o7>=0 else RED}">{o7:+.1f}% 7d</span></div>'
+        f'<div>Funding <b>{d["funding"]:+.4f}%/8h</b> <span class="muted">(~{ann:.1f}% ann.)</span></div>'
+        f'<div>Long/short accounts <b>{d["ls_now"]:.2f}</b></div></div>'
+        + "".join(f'<div style="margin-top:6px;font-size:13px">▸ {v}</div>' for v in (v1, v2, v3))
+        + f'<div class="slabel" style="margin-top:12px">OPEN INTEREST vs PRICE · 90D</div>{ch_oi}'
+        f'<div class="legend"><span style="color:{GOLD}">▬</span> price · <span style="color:{BLUE}">▬</span> OI, both indexed</div>'
+        f'<div class="slabel" style="margin-top:12px">FUNDING RATE HISTORY · 8H PRINTS</div>{ch_f}'
+        f'<div class="slabel" style="margin-top:12px">LONG/SHORT ACCOUNT RATIO · 90D</div>{ch_ls}'
+        '<div class="legend">Accounts long per account short. Spikes = retail piling long (contrarian '
+        'caution); below 1 = the crowd is net short.</div>'
+        f'<div class="slabel" style="margin-top:12px">ESTIMATED LIQUIDATION LADDER</div>{ladder}'
+        '<div class="legend">Where leverage opened at the current price would be forced out, by tier. An '
+        'estimate of the magnet zones: price gravitates to dense liquidation clusters because forced closes '
+        'provide the liquidity for the next move.</div>', name.upper())
+
 def m_crypto(px):
     btc = px["BTC-USD"].dropna(); eth = px["ETH-USD"].dropna()
-    def stats(s):
-        return dict(r3=(s.iloc[-1] / s.iloc[-91] - 1) * 100,
-                    a200=s.iloc[-1] > s.rolling(200).mean().iloc[-1],
-                    dd=(s.iloc[-1] / s.max() - 1) * 100)
-    b, e = stats(btc), stats(eth)
-    ratio = (eth / btc).dropna()
-    r3m = (ratio.iloc[-1] / ratio.iloc[-64] - 1) * 100
+    body = ""
+    ok = 0
+    for name, ccy, ser in (("Bitcoin", "BTC", btc), ("Ethereum", "ETH", eth)):
+        try:
+            body += _crypto_card(name, ccy, _crypto_coin(ccy, ser), ser)
+            ok += 1
+        except Exception as e:
+            body += card(f'<span class="muted">{name} derivatives data unavailable this run ({e}).</span>',
+                         name.upper())
     corr = px["BTC-USD"].pct_change().iloc[-63:].corr(px["QQQ"].pct_change().iloc[-63:])
-    stance = "bullish" if b["a200"] else "bearish"
-    body = card(stat_grid([("BTC vs 200-day", "above" if b["a200"] else "below", GREEN if b["a200"] else RED),
-                           ("BTC 3-month", sgn(b["r3"]), col(b["r3"], lambda v: v > 0)),
-                           ("BTC from 5y high", sgn(b["dd"]), MUT),
-                           ("ETH 3-month", sgn(e["r3"]), col(e["r3"], lambda v: v > 0)),
-                           ("ETH/BTC 3m", sgn(r3m), col(r3m, lambda v: v > 0)),
-                           ("BTC–QQQ corr (3m)", f"{corr:+.2f}", MUT)]) +
-                '<div class="muted" style="margin-top:10px">Two regime reads: Bitcoin above/below its 200-day '
-                '(the crypto cycle in one line), and ETH/BTC direction — alts outperforming Bitcoin marks '
-                'risk-seeking inside the asset class, alt-underperformance marks defensive crypto tape. The '
-                'BTC–Nasdaq correlation shows how much crypto is currently just high-beta tech.</div>',
-                "CRYPTO REGIME") + card(
-        line_chart([(btc.iloc[-252:] / btc.iloc[-252] * 100).tolist(),
-                    (eth.iloc[-252:] / eth.iloc[-252] * 100).tolist()], [GOLD, BLUE]) +
-        f'<div class="legend"><span style="color:{GOLD}">▬</span> BTC · <span style="color:{BLUE}">▬</span> ETH, '
-        'indexed to 100, last 12 months.</div>')
-    return dict(slug="crypto", title="Crypto",
-                sub="Bitcoin's trend regime, ETH/BTC risk appetite, and how coupled crypto is to tech.",
-                body=body, stance=stance,
-                headline=f"BTC {'above' if b['a200'] else 'below'} its 200-day, ETH/BTC {sgn(r3m)} over 3m")
+    ratio = (eth / btc).dropna()
+    r3m = float((ratio.iloc[-1] / ratio.iloc[-64] - 1) * 100)
+    a200 = bool(btc.iloc[-1] > btc.rolling(200).mean().iloc[-1])
+    body += card(
+        "<ul class='pb'>"
+        "<li><b>The OI/price matrix is the core read</b> — price and open interest rising together is a "
+        "supported trend; price down with OI up is shorts pressing (and future squeeze fuel); price down "
+        "with OI down is long liquidation, the exhaustion signature that clusters near lows; price up with "
+        "OI down is short-covering, suspect until OI turns.</li>"
+        "<li><b>Funding is the crowd's temperature</b> — what leveraged traders pay to keep their bias. "
+        "Persistently positive = crowded longs, squeezes hit below; negative = crowded shorts, squeezes hit "
+        "above. The history bars separate a regime from a blip.</li>"
+        "<li><b>The ladder is the map of forced flow</b> — the nearest dense band below spot is the magnet "
+        "in a flush; the nearest above is the target in a squeeze.</li></ul>"
+        f"<div style='margin-top:8px'>Context: BTC is <b style='color:{GREEN if a200 else RED}'>"
+        f"{'above' if a200 else 'below'}</b> its 200-day (the cycle line), ETH/BTC {r3m:+.1f}% over 3 months "
+        f"(alt risk appetite), BTC–Nasdaq correlation {corr:+.2f} (how much crypto is just high-beta tech "
+        "right now). Spot price says what happened; these flows say who is positioned for what happens next.</div>",
+        "HOW TO READ THE FLOWS")
+    return dict(slug="crypto", title="Crypto Flows",
+                sub="Derivatives positioning for the majors — open interest, funding, the retail ratio, and the liquidation map.",
+                body=body, stance="bullish" if a200 else "bearish",
+                headline=f"BTC {'above' if a200 else 'below'} its 200-day" +
+                         (" · OKX flows loaded" if ok else " · derivatives feed down"))
 
 COT_MKTS = [
     ("E-MINI S&P 500", "S&P 500", "ES=F", "indices"),
