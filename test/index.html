@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Breadth Monitor — TraderGK test</title>
+<style>
+:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
+        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+* { box-sizing:border-box; margin:0; }
+body { background:var(--bg); color:var(--tx);
+       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:24px 16px 60px; }
+.wrap { max-width:920px; margin:0 auto; }
+h1 { font-size:22px; letter-spacing:.3px; }
+h2 { font-size:15px; margin:34px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+.sub { color:var(--muted); font-size:12px; margin:6px 0 18px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-top:10px; }
+.regime { font-size:19px; font-weight:700; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-top:14px; }
+.slabel { font-size:11px; color:var(--muted); }
+.sval { font-size:19px; font-weight:600; font-variant-numeric:tabular-nums; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+.muted { color:var(--muted); }
+ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:7px 0; }
+.legend { font-size:11px; color:var(--muted); margin-top:6px; }
+.gwrap { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:6px 20px; }
+.gitem { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:13px; }
+.gval { margin-left:auto; font-variant-numeric:tabular-nums; }
+.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Breadth Monitor <span class="muted" style="font-size:13px">· internal test page</span></h1>
+<div class="sub">How many stocks are actually participating in the index move — the structural health
+underneath the tape.<br>
+Snapshot generated <b>08 Jul 2026, 16:24 UTC</b> · Yahoo Finance daily closes · 105-stock mega/large-cap panel
++ 11 sector ETFs + 18 country ETFs · regenerated on demand</div>
+
+<div class="card">
+  <div class="slabel">CURRENT BREADTH REGIME · 105-stock panel</div>
+  <div class="regime" style="color:#4caf7d">Broad advance</div>
+  <div class="muted" style="margin-top:4px">59.0% above 50-day · 63.8% above 200-day ·
+  72% of country ETFs above their 200-day</div>
+  <div class="stats"><div class="stat"><div class="slabel">Above 20-day</div><div class="sval" style="color:#4caf7d">63.8%</div></div><div class="stat"><div class="slabel">Above 50-day</div><div class="sval" style="color:#4caf7d">59.0%</div></div><div class="stat"><div class="slabel">Above 200-day</div><div class="sval" style="color:#4caf7d">63.8%</div></div><div class="stat"><div class="slabel">McClellan osc.</div><div class="sval" style="color:#e05555">-7.7</div></div><div class="stat"><div class="slabel">New 52w highs · lows</div><div class="sval" style="color:#4caf7d">2 · 0</div></div><div class="stat"><div class="slabel">Advancers · decliners</div><div class="sval" style="color:#e05555">24 · 80</div></div><div class="stat"><div class="slabel">Zweig thrust (Neutral)</div><div class="sval" style="color:#e0a94c">0.49</div></div></div>
+</div>
+
+<div class="card">
+  <div class="slabel">PLAYBOOK FOR THIS REGIME</div>
+  <ul class="pb"><li>With this many stocks in uptrends, weakness is participation refreshing, not distribution — pullbacks toward the 20/50-day have historically resolved higher.</li>
+<li>Breadth this wide favors owning more names over levering few: rotation across strong sectors tends to beat concentration here.</li>
+<li>Pre-plan the exit: the regime typically ends when % above the 50-day slips below ~45 while the index itself still looks fine. That gap is the tell.</li></ul>
+</div>
+
+<h2>Divergence check</h2>
+<div class="sub">Do the troops confirm the index? New index highs need the A/D line to make them too.</div>
+<div class="card">
+  <div>No divergence test running — the index sits 2.0% below its 1-year high. The test that matters comes on the next approach of the highs: breadth should lead, not lag.</div>
+  <svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="792" height="152" fill="none" stroke="#2a3040" stroke-width="1"/><polyline points="34.0,186.0 37.2,182.1 40.3,180.3 43.5,182.6 46.6,181.3 49.8,184.1 52.9,182.0 56.1,178.0 59.2,178.4 62.4,177.2 65.6,177.1 68.7,171.5 71.9,171.3 75.0,168.5 78.2,168.7 81.3,170.4 84.5,171.3 87.6,173.8 90.8,184.6 94.0,174.7 97.1,178.0 100.3,173.0 103.4,173.6 106.6,168.4 109.7,169.7 112.9,162.7 116.0,160.4 119.2,160.3 122.4,161.9 125.5,162.0 128.7,165.7 131.8,167.5 135.0,170.1 138.1,159.9 141.3,162.9 144.4,160.1 147.6,158.6 150.7,156.2 153.9,160.2 157.1,165.2 160.2,161.6 163.4,156.0 166.5,157.9 169.7,156.3 172.8,154.7 176.0,152.7 179.1,147.1 182.3,147.3 185.5,143.7 188.6,144.6 191.8,145.5 194.9,142.3 198.1,138.8 201.2,135.6 204.4,139.3 207.5,141.6 210.7,144.7 213.9,140.8 217.0,138.9 220.2,136.2 223.3,133.9 226.5,133.1 229.6,133.1 232.8,130.6 235.9,133.2 239.1,129.0 242.3,131.0 245.4,150.0 248.6,139.5 251.7,140.4 254.9,137.3 258.0,142.0 261.2,138.1 264.3,130.9 267.5,130.9 270.7,134.5 273.8,130.4 277.0,124.7 280.1,116.3 283.3,114.4 286.4,114.0 289.6,122.0 292.7,119.6 295.9,118.3 299.1,126.8 302.2,124.3 305.4,131.9 308.5,131.2 311.7,120.3 314.8,118.6 318.0,118.2 321.1,130.1 324.3,130.2 327.5,136.8 330.6,142.6 333.8,140.0 336.9,150.5 340.1,143.7 343.2,133.6 346.4,127.0 349.5,122.1 352.7,118.2 355.8,121.5 359.0,120.2 362.2,117.7 365.3,117.2 368.5,115.8 371.6,118.0 374.8,118.6 377.9,113.9 381.1,112.2 384.2,119.9 387.4,121.0 390.6,123.0 393.7,130.8 396.9,125.5 400.0,119.1 403.2,114.6 406.3,111.3 409.5,108.8 412.6,108.9 415.8,111.4 419.0,112.3 422.1,117.7 425.3,116.4 428.4,111.6 431.6,107.3 434.7,109.6 437.9,109.7 441.0,104.9 444.2,103.8 447.4,105.2 450.5,108.8 453.7,106.8 456.8,107.4 460.0,122.2 463.1,114.0 466.3,110.3 469.4,110.0 472.6,106.3 475.8,103.4 478.9,103.5 482.1,104.9 485.2,107.1 488.4,103.5 491.5,109.7 494.7,113.2 497.8,122.2 501.0,108.5 504.2,105.0 507.3,107.0 510.5,107.1 513.6,118.3 516.8,117.8 519.9,116.7 523.1,113.1 526.2,115.0 529.4,109.8 532.5,117.2 535.7,112.0 538.9,105.9 542.0,109.9 545.2,113.4 548.3,113.0 551.5,119.3 554.6,114.3 557.8,118.3 560.9,127.7 564.1,121.5 567.3,122.6 570.4,123.5 573.6,134.3 576.7,138.3 579.9,131.2 583.0,129.3 586.2,139.2 589.3,140.9 592.5,150.8 595.7,143.6 598.8,146.0 602.0,142.1 605.1,154.5 608.3,166.0 611.4,168.3 614.6,148.9 617.7,143.8 620.9,143.2 624.1,139.9 627.2,139.6 630.4,121.9 633.5,117.8 636.7,118.3 639.8,111.3 643.0,102.5 646.1,96.7 649.3,94.9 652.5,86.0 655.6,87.5 658.8,92.4 661.9,84.9 665.1,87.8 668.2,82.0 671.4,80.7 674.5,84.4 677.7,84.5 680.9,77.0 684.0,75.0 687.2,77.7 690.3,71.7 693.5,61.1 696.6,63.5 699.8,57.1 702.9,55.3 706.1,56.5 709.3,52.2 712.4,46.0 715.6,55.5 718.7,56.0 721.9,61.2 725.0,53.3 728.2,51.7 731.3,48.7 734.5,43.4 737.6,43.6 740.8,39.2 744.0,37.3 747.1,35.1 750.3,34.0 753.4,39.6 756.6,36.6 759.7,57.2 762.9,55.4 766.0,57.7 769.2,69.9 772.4,57.0 775.5,52.8 778.7,39.0 781.8,43.7 785.0,53.6 788.1,45.5 791.3,48.0 794.4,59.4 797.6,59.7 800.8,58.6 803.9,64.2 807.1,51.5 810.2,45.4 813.4,46.5 816.5,47.5 819.7,40.7 822.8,44.5 826.0,49.8" fill="none" stroke="#d4af5a" stroke-width="1.6"/><polyline points="34.0,174.5 37.2,172.7 40.3,167.2 43.5,175.2 46.6,172.3 49.8,184.5 52.9,180.2 56.1,175.2 59.2,177.0 62.4,178.8 65.6,170.7 68.7,162.2 71.9,165.0 75.0,158.0 78.2,162.8 81.3,162.3 84.5,167.7 87.6,178.2 90.8,186.0 94.0,172.8 97.1,174.7 100.3,171.5 103.4,171.3 106.6,164.0 109.7,167.7 112.9,158.0 116.0,150.2 119.2,150.7 122.4,151.5 125.5,149.3 128.7,146.5 131.8,143.3 135.0,151.3 138.1,140.5 141.3,152.2 144.4,150.3 147.6,146.3 150.7,146.2 153.9,144.0 157.1,150.8 160.2,154.3 163.4,147.5 166.5,148.0 169.7,148.8 172.8,147.0 176.0,152.5 179.1,141.7 182.3,148.5 185.5,149.0 188.6,151.8 191.8,144.7 194.9,142.8 198.1,141.7 201.2,142.8 204.4,141.0 207.5,142.3 210.7,148.5 213.9,137.7 217.0,135.8 220.2,133.7 223.3,134.2 226.5,135.8 229.6,130.3 232.8,130.2 235.9,130.7 239.1,132.7 242.3,139.8 245.4,152.0 248.6,144.5 251.7,137.0 254.9,136.8 258.0,145.0 261.2,135.5 264.3,125.3 267.5,123.8 270.7,129.3 273.8,127.2 277.0,124.2 280.1,116.0 283.3,122.8 286.4,132.0 289.6,132.0 292.7,130.8 295.9,136.3 299.1,140.8 302.2,138.7 305.4,143.5 308.5,137.7 311.7,132.3 314.8,122.5 318.0,114.8 321.1,123.0 324.3,127.8 327.5,138.7 330.6,139.5 333.8,142.5 336.9,153.3 340.1,142.2 343.2,142.7 346.4,129.5 349.5,121.3 352.7,109.2 355.8,118.3 359.0,117.5 362.2,110.0 365.3,108.8 368.5,108.0 371.6,113.5 374.8,115.0 377.9,104.8 381.1,98.3 384.2,97.8 387.4,93.8 390.6,101.7 393.7,104.2 396.9,103.3 400.0,99.2 403.2,90.3 406.3,89.5 409.5,76.8 412.6,77.8 415.8,80.8 419.0,86.3 422.1,101.5 425.3,98.3 428.4,92.8 431.6,84.7 434.7,94.5 437.9,89.0 441.0,88.3 444.2,87.2 447.4,87.7 450.5,84.2 453.7,82.7 456.8,85.2 460.0,95.0 463.1,86.8 466.3,78.7 469.4,81.8 472.6,76.7 475.8,76.2 478.9,81.3 482.1,76.3 485.2,74.8 488.4,67.3 491.5,64.8 494.7,58.3 497.8,62.8 501.0,50.7 504.2,52.2 507.3,52.5 510.5,51.0 513.6,57.2 516.8,52.3 519.9,54.3 523.1,47.3 526.2,50.8 529.4,46.0 532.5,50.5 535.7,44.3 538.9,43.5 542.0,41.3 545.2,37.8 548.3,39.8 551.5,47.0 554.6,41.2 557.8,49.7 560.9,55.8 564.1,56.7 567.3,60.2 570.4,66.0 573.6,77.0 576.7,76.0 579.9,65.2 583.0,63.5 586.2,76.7 589.3,80.5 592.5,88.7 595.7,80.2 598.8,77.3 602.0,70.2 605.1,75.8 608.3,84.7 611.4,81.2 614.6,69.3 617.7,66.2 620.9,63.2 624.1,60.0 627.2,63.8 630.4,52.0 633.5,45.5 636.7,57.3 639.8,49.8 643.0,45.8 646.1,47.7 649.3,44.3 652.5,34.0 655.6,35.8 658.8,43.3 661.9,43.8 665.1,43.7 668.2,49.5 671.4,52.7 674.5,51.3 677.7,56.2 680.9,47.7 684.0,52.2 687.2,60.0 690.3,56.2 693.5,50.3 696.6,55.2 699.8,59.0 702.9,60.5 706.1,55.0 709.3,57.2 712.4,54.0 715.6,60.2 718.7,52.7 721.9,55.2 725.0,49.3 728.2,46.3 731.3,41.2 734.5,45.3 737.6,44.3 740.8,43.3 744.0,45.5 747.1,50.7 750.3,52.8 753.4,56.7 756.6,49.8 759.7,50.0 762.9,54.5 766.0,50.0 769.2,55.2 772.4,50.5 775.5,43.3 778.7,42.5 781.8,40.0 785.0,51.2 788.1,54.0 791.3,54.3 794.4,49.8 797.6,50.5 800.8,49.3 803.9,45.2 807.1,45.5 810.2,50.7 813.4,47.5 816.5,38.0 819.7,40.5 822.8,36.8 826.0,46.2" fill="none" stroke="#4caf7d" stroke-width="1.6"/></svg>
+  <div class="legend"><span style="color:var(--gold)">▬</span> SPY (indexed) &nbsp;·&nbsp;
+  <span style="color:var(--green)">▬</span> cumulative advance/decline line of the panel · last 12 months.
+  Healthy: highs together. Warning: price up while the green line stalls.</div>
+</div>
+
+<h2>McClellan oscillator</h2>
+<div class="sub">EMA19 − EMA39 of ratio-adjusted net advances — the momentum of participation.</div>
+<div class="card">
+  <svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="792" height="152" fill="none" stroke="#2a3040" stroke-width="1"/><line x1="34" x2="826" y1="100.3" y2="100.3" stroke="#8891a5" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="103.31638339046035" fill="#8891a5" font-size="10">0</text><line x1="34" x2="826" y1="34.0" y2="34.0" stroke="#4caf7d" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="37.0" fill="#4caf7d" font-size="10">+70</text><line x1="34" x2="826" y1="166.6" y2="166.6" stroke="#e05555" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="169.6327667809207" fill="#e05555" font-size="10">−70</text><polyline points="34.0,90.9 37.2,92.4 40.3,83.9 43.5,113.4 46.6,109.0 49.8,145.8 52.9,132.3 56.1,118.7 59.2,125.8 62.4,131.6 65.6,109.3 68.7,89.4 71.9,103.0 75.0,87.9 78.2,107.2 81.3,109.2 84.5,126.9 87.6,155.7 90.8,172.8 94.0,130.2 97.1,134.3 100.3,124.1 103.4,123.3 106.6,103.0 109.7,115.6 112.9,89.9 116.0,73.2 119.2,81.6 122.4,89.8 125.5,88.8 128.7,86.1 131.8,83.0 135.0,110.9 138.1,83.5 141.3,121.3 144.4,116.7 147.6,106.8 150.7,108.7 153.9,104.9 157.1,125.9 160.2,134.8 163.4,114.3 166.5,116.5 169.7,119.2 172.8,114.2 176.0,129.7 179.1,98.6 182.3,119.8 185.5,120.7 188.6,127.7 191.8,106.5 194.9,102.8 198.1,101.4 201.2,106.5 204.4,102.7 207.5,108.1 210.7,125.6 213.9,94.5 217.0,92.3 220.2,89.6 223.3,94.5 226.5,102.0 229.6,88.9 232.8,92.2 235.9,96.9 239.1,105.0 242.3,125.8 245.4,157.1 248.6,130.3 251.7,107.2 254.9,107.3 258.0,129.9 261.2,101.2 264.3,74.4 267.5,75.6 270.7,95.6 273.8,92.1 277.0,86.7 280.1,68.3 283.3,93.4 286.4,121.1 289.6,119.9 292.7,115.7 295.9,130.3 299.1,139.6 302.2,129.3 305.4,139.4 308.5,118.9 311.7,102.5 314.8,76.4 318.0,59.9 321.1,89.1 324.3,105.0 327.5,134.9 330.6,133.2 333.8,137.5 336.9,162.1 340.1,123.3 343.2,121.6 346.4,83.0 349.5,63.7 352.7,36.5 355.8,71.3 359.0,74.2 362.2,58.7 365.3,62.8 368.5,67.4 371.6,88.6 374.8,96.0 377.9,70.8 381.1,59.0 384.2,65.6 387.4,61.9 390.6,91.1 393.7,101.6 396.9,101.6 400.0,92.5 403.2,72.2 406.3,76.6 409.5,48.2 412.6,61.4 415.8,78.6 419.0,99.9 422.1,144.3 425.3,132.4 428.4,115.8 431.6,94.3 434.7,124.6 437.9,108.9 441.0,108.6 444.2,106.9 447.4,109.9 450.5,101.6 453.7,99.9 456.8,109.3 460.0,137.1 463.1,112.0 466.3,90.5 469.4,102.8 472.6,90.8 475.8,93.2 478.9,110.6 482.1,97.8 485.2,96.5 488.4,79.1 491.5,77.9 494.7,66.1 497.8,86.0 501.0,58.0 504.2,71.3 507.3,79.6 510.5,81.8 513.6,104.6 516.8,94.3 519.9,104.0 523.1,87.7 526.2,102.7 529.4,92.7 532.5,109.4 535.7,94.8 538.9,96.8 542.0,94.9 545.2,89.7 548.3,100.3 551.5,123.2 554.6,107.6 557.8,132.9 560.9,148.1 564.1,146.4 567.3,152.0 570.4,162.8 573.6,186.0 576.7,172.6 579.9,134.2 583.0,126.0 586.2,159.0 589.3,161.7 592.5,175.4 595.7,141.6 598.8,127.9 602.0,104.3 605.1,119.0 608.3,139.9 611.4,124.1 614.6,88.0 617.7,80.6 620.9,74.8 624.1,69.6 627.2,84.2 630.4,54.4 633.5,43.6 636.7,84.2 639.8,66.7 643.0,61.3 646.1,72.8 649.3,68.6 652.5,46.1 655.6,60.3 658.8,88.0 661.9,92.8 665.1,95.2 668.2,113.4 671.4,121.8 674.5,116.6 677.7,128.8 680.9,103.0 684.0,116.1 687.2,136.2 690.3,121.7 693.5,103.8 696.6,117.3 699.8,126.1 702.9,127.1 706.1,108.9 709.3,114.1 712.4,104.0 715.6,120.6 718.7,97.3 721.9,104.9 725.0,88.8 728.2,82.7 731.3,71.7 734.5,87.8 737.6,87.6 740.8,87.5 744.0,96.0 747.1,111.5 750.3,116.5 753.4,125.3 756.6,103.7 759.7,104.3 762.9,116.4 766.0,102.4 769.2,116.5 772.4,101.8 775.5,82.6 778.7,83.3 781.8,79.6 785.0,113.5 788.1,119.8 791.3,118.4 794.4,104.0 797.6,105.6 800.8,102.1 803.9,90.9 807.1,93.5 810.2,108.9 813.4,99.5 816.5,74.3 819.7,85.5 822.8,78.2 826.0,107.6" fill="none" stroke="#5aa2d4" stroke-width="1.6"/></svg>
+  <div class="legend">Extremes carry the signal: prints at −70 or lower cluster near tradeable lows;
+  a fast sweep from deep negative to firmly positive is a breadth thrust — historically the market's
+  highest-conviction bullish pattern.</div>
+</div>
+
+<h2>% of panel above the 50-day</h2>
+<div class="sub">Share of the panel in short-term uptrends — a mean-reverting oscillator, last 12 months.</div>
+<div class="card">
+  <svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="792" height="152" fill="none" stroke="#2a3040" stroke-width="1"/><line x1="34" x2="826" y1="64.4" y2="64.4" stroke="#4caf7d" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="67.39999999999999" fill="#4caf7d" font-size="10">80</text><line x1="34" x2="826" y1="110.0" y2="110.0" stroke="#8891a5" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="113.0" fill="#8891a5" font-size="10">50</text><line x1="34" x2="826" y1="155.6" y2="155.6" stroke="#e05555" stroke-width="0.7" stroke-dasharray="4 4"/><text x="830" y="158.60000000000002" fill="#e05555" font-size="10">20</text><polyline points="34.0,67.3 37.2,67.3 40.3,70.2 43.5,77.4 46.6,76.0 49.8,83.2 52.9,80.3 56.1,83.2 59.2,86.1 62.4,86.1 65.6,77.4 68.7,71.6 71.9,80.3 75.0,78.9 78.2,81.8 81.3,89.0 84.5,97.7 87.6,104.9 90.8,113.6 94.0,112.2 97.1,107.8 100.3,113.6 103.4,106.4 106.6,96.2 109.7,102.0 112.9,93.4 116.0,87.6 119.2,89.0 122.4,91.9 125.5,89.0 128.7,81.8 131.8,83.2 135.0,87.6 138.1,76.0 141.3,84.7 144.4,84.7 147.6,81.8 150.7,84.7 153.9,84.7 157.1,91.9 160.2,96.2 163.4,96.2 166.5,103.5 169.7,103.5 172.8,99.1 176.0,97.7 179.1,90.5 182.3,93.4 185.5,100.6 188.6,100.6 191.8,94.8 194.9,97.7 198.1,96.2 201.2,99.1 204.4,100.6 207.5,100.6 210.7,107.8 213.9,102.0 217.0,100.6 220.2,100.6 223.3,94.8 226.5,99.1 229.6,91.9 232.8,91.9 235.9,90.5 239.1,94.8 242.3,94.8 245.4,116.5 248.6,112.2 251.7,97.7 254.9,104.9 258.0,122.3 261.2,107.8 264.3,93.4 267.5,87.6 270.7,97.7 273.8,86.1 277.0,89.0 280.1,77.4 283.3,86.1 286.4,97.7 289.6,100.6 292.7,103.5 295.9,113.6 299.1,110.7 302.2,112.2 305.4,116.5 308.5,110.7 311.7,109.3 314.8,97.7 318.0,97.7 321.1,106.4 324.3,106.4 327.5,125.2 330.6,123.8 333.8,126.6 336.9,138.2 340.1,123.8 343.2,120.9 346.4,107.8 349.5,99.1 352.7,97.7 355.8,104.9 359.0,103.5 362.2,100.6 365.3,96.2 368.5,93.4 371.6,102.0 374.8,109.3 377.9,90.5 381.1,84.7 384.2,81.8 387.4,77.4 390.6,84.7 393.7,84.7 396.9,84.7 400.0,86.1 403.2,78.9 406.3,81.8 409.5,77.4 412.6,76.0 415.8,76.0 419.0,80.3 422.1,90.5 425.3,90.5 428.4,83.2 431.6,83.2 434.7,84.7 437.9,77.4 441.0,77.4 444.2,81.8 447.4,91.9 450.5,83.2 453.7,87.6 456.8,86.1 460.0,91.9 463.1,89.0 466.3,86.1 469.4,89.0 472.6,84.7 475.8,90.5 478.9,94.8 482.1,90.5 485.2,86.1 488.4,84.7 491.5,89.0 494.7,84.7 497.8,91.9 501.0,80.3 504.2,86.1 507.3,91.9 510.5,96.2 513.6,102.0 516.8,103.5 519.9,99.1 523.1,91.9 526.2,100.6 529.4,93.4 532.5,103.5 535.7,100.6 538.9,100.6 542.0,96.2 545.2,102.0 548.3,106.4 551.5,109.3 554.6,107.8 557.8,110.7 560.9,119.4 564.1,116.5 567.3,118.0 570.4,119.4 573.6,132.4 576.7,132.4 579.9,129.5 583.0,128.1 586.2,146.9 589.3,148.4 592.5,159.9 595.7,154.2 598.8,152.7 602.0,148.4 605.1,157.0 608.3,161.4 611.4,158.5 614.6,151.3 617.7,148.4 620.9,144.0 624.1,132.4 627.2,145.5 630.4,109.3 633.5,102.0 636.7,115.1 639.8,106.4 643.0,107.8 646.1,115.1 649.3,118.0 652.5,99.1 655.6,99.1 658.8,104.9 661.9,104.9 665.1,110.7 668.2,113.6 671.4,113.6 674.5,112.2 677.7,110.7 680.9,103.5 684.0,104.9 687.2,107.8 690.3,112.2 693.5,102.0 696.6,106.4 699.8,110.7 702.9,109.3 706.1,106.4 709.3,115.1 712.4,110.7 715.6,110.7 718.7,103.5 721.9,109.3 725.0,102.0 728.2,99.1 731.3,89.0 734.5,97.7 737.6,94.8 740.8,93.4 744.0,93.4 747.1,103.5 750.3,106.4 753.4,112.2 756.6,97.7 759.7,103.5 762.9,103.5 766.0,99.1 769.2,109.3 772.4,103.5 775.5,97.7 778.7,86.1 781.8,83.2 785.0,100.6 788.1,107.8 791.3,106.4 794.4,102.0 797.6,99.1 800.8,100.6 803.9,99.1 807.1,99.1 810.2,102.0 813.4,96.2 816.5,90.5 819.7,87.6 822.8,93.4 826.0,96.2" fill="none" stroke="#d4af5a" stroke-width="1.6"/></svg>
+  <div class="legend">Above 80% = stretched but a sign of initiation strength, not an automatic sell.
+  Below 20% = washout territory, which has sat far closer to bottoms than to the start of new bear legs.</div>
+</div>
+
+<h2>Leadership check</h2>
+<div class="sub">Equal-weight vs cap-weight and small vs large — who is doing the lifting.</div>
+<div class="card">
+  <div><b>RSP/SPY</b> 3-month: <b style="color:#e05555">-2.7%</b>
+  &nbsp;·&nbsp; <b>IWM/SPY</b> 3-month: <b style="color:#4caf7d">+2.5%</b></div>
+  <div class="muted" style="margin-top:6px">Split tape — the ratios disagree; watch which one resolves.</div>
+</div>
+
+<h2>Sector participation</h2>
+<div class="sub">Each SPDR sector vs its own trend, plus the breadth of its panel members — sorted by 1-month return.</div>
+<div class="card">
+  <table>
+    <tr><th>Sector</th><th>1m return</th><th>&gt; 50d</th><th>&gt; 200d</th><th>Panel % &gt; 50d</th></tr>
+    <tr><td><b>XLV</b> <span class="muted">Health Care</span></td><td style="color:#4caf7d">+7.2%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>88.2% <span class="muted">(n=17)</span></td></tr>
+<tr><td><b>XLF</b> <span class="muted">Financials</span></td><td style="color:#4caf7d">+5.8%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>88.9% <span class="muted">(n=18)</span></td></tr>
+<tr><td><b>XLU</b> <span class="muted">Utilities</span></td><td style="color:#4caf7d">+3.5%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>66.7% <span class="muted">(n=3)</span></td></tr>
+<tr><td><b>XLI</b> <span class="muted">Industrials</span></td><td style="color:#4caf7d">+3.4%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>64.3% <span class="muted">(n=14)</span></td></tr>
+<tr><td><b>XLP</b> <span class="muted">Staples</span></td><td style="color:#4caf7d">+2.4%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>63.6% <span class="muted">(n=11)</span></td></tr>
+<tr><td><b>XLY</b> <span class="muted">Discretionary</span></td><td style="color:#4caf7d">+0.1%</td><td><span style="color:#e05555">●</span></td><td><span style="color:#e05555">●</span></td><td>30.0% <span class="muted">(n=10)</span></td></tr>
+<tr><td><b>XLRE</b> <span class="muted">Real Estate</span></td><td style="color:#4caf7d">+0.0%</td><td><span style="color:#4caf7d">●</span></td><td><span style="color:#4caf7d">●</span></td><td>50.0% <span class="muted">(n=2)</span></td></tr>
+<tr><td><b>XLK</b> <span class="muted">Technology</span></td><td style="color:#e05555">-0.5%</td><td><span style="color:#e05555">●</span></td><td><span style="color:#4caf7d">●</span></td><td>38.9% <span class="muted">(n=18)</span></td></tr>
+<tr><td><b>XLB</b> <span class="muted">Materials</span></td><td style="color:#e05555">-0.8%</td><td><span style="color:#e05555">●</span></td><td><span style="color:#4caf7d">●</span></td><td>50.0% <span class="muted">(n=2)</span></td></tr>
+<tr><td><b>XLC</b> <span class="muted">Communication</span></td><td style="color:#e05555">-1.4%</td><td><span style="color:#e05555">●</span></td><td><span style="color:#e05555">●</span></td><td>14.3% <span class="muted">(n=7)</span></td></tr>
+<tr><td><b>XLE</b> <span class="muted">Energy</span></td><td style="color:#e05555">-2.8%</td><td><span style="color:#e05555">●</span></td><td><span style="color:#4caf7d">●</span></td><td>0.0% <span class="muted">(n=3)</span></td></tr>
+  </table>
+  <div class="legend">When the regime reads Mixed or Narrowing, this table is the trade list:
+  green on both trend columns with strong member breadth marks the sectors doing the carrying.</div>
+</div>
+
+<h2>Global breadth</h2>
+<div class="sub">Country ETFs vs their 200-day average — is the advance worldwide or a US-only story?</div>
+<div class="card"><div class="gwrap"><div class="gitem"><span style="color:#4caf7d">●</span> <b>South Korea</b> <span class="muted">EWY</span><span class="gval" style="color:#4caf7d">+37.6%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Taiwan</b> <span class="muted">EWT</span><span class="gval" style="color:#4caf7d">+36.4%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Italy</b> <span class="muted">EWI</span><span class="gval" style="color:#4caf7d">+10.7%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Singapore</b> <span class="muted">EWS</span><span class="gval" style="color:#4caf7d">+10.6%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Spain</b> <span class="muted">EWP</span><span class="gval" style="color:#4caf7d">+9.7%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Japan</b> <span class="muted">EWJ</span><span class="gval" style="color:#4caf7d">+8.0%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Switzerland</b> <span class="muted">EWL</span><span class="gval" style="color:#4caf7d">+6.2%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Canada</b> <span class="muted">EWC</span><span class="gval" style="color:#4caf7d">+5.7%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>United Kingdom</b> <span class="muted">EWU</span><span class="gval" style="color:#4caf7d">+4.8%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Mexico</b> <span class="muted">EWW</span><span class="gval" style="color:#4caf7d">+2.8%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Australia</b> <span class="muted">EWA</span><span class="gval" style="color:#4caf7d">+2.1%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>France</b> <span class="muted">EWQ</span><span class="gval" style="color:#4caf7d">+1.6%</span></div>
+<div class="gitem"><span style="color:#4caf7d">●</span> <b>Germany</b> <span class="muted">EWG</span><span class="gval" style="color:#4caf7d">+0.1%</span></div>
+<div class="gitem"><span style="color:#e05555">●</span> <b>Brazil</b> <span class="muted">EWZ</span><span class="gval" style="color:#e05555">-0.2%</span></div>
+<div class="gitem"><span style="color:#e05555">●</span> <b>Hong Kong</b> <span class="muted">EWH</span><span class="gval" style="color:#e05555">-4.1%</span></div>
+<div class="gitem"><span style="color:#e05555">●</span> <b>India</b> <span class="muted">INDA</span><span class="gval" style="color:#e05555">-5.5%</span></div>
+<div class="gitem"><span style="color:#e05555">●</span> <b>South Africa</b> <span class="muted">EZA</span><span class="gval" style="color:#e05555">-6.5%</span></div>
+<div class="gitem"><span style="color:#e05555">●</span> <b>China</b> <span class="muted">FXI</span><span class="gval" style="color:#e05555">-10.7%</span></div></div></div>
+
+<div class="foot">TraderGK research · internal test page, not linked from the site · education only,
+not financial advice. Indicators: SMA participation, cumulative A/D, McClellan (EMA19−EMA39 of
+ratio-adjusted net advances), Zweig breadth thrust (10-day EMA of adv/(adv+dec); armed &lt;0.40,
+fired &ge;0.615 within 10 sessions), 52-week closing highs/lows. Data: Yahoo Finance daily closes.</div>
+
+</div></body></html>
