@@ -3397,6 +3397,9 @@ function openHoldingsPopup(ticker){
       moversBody.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:4px 0">No data available</div>`;
       return;
     }
+    // Selection upstream is by |chg| (biggest movers either way); display is
+    // sorted by signed chg — most bullish on top, most bearish at the bottom
+    movers=[...movers].sort((a,b)=>(b.chg??-1e9)-(a.chg??-1e9));
     const lbl=moversWrap.querySelector('.ho-movers-label');
     const scanTxt=pool>movers.length?`· scanned ${pool} holdings`:'';
     if(lbl) lbl.innerHTML=`⚡ Top 5 Fast Movers <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--text-faint)">${scanTxt} · ${ageLabel}</span>`;
