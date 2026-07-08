@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TraderGK — Trades Access</title>
 <style>
-  :root{--bg:#16191b;--card:#1e2326;--line:#2c3338;--text:#e9edef;--dim:#9aa4ab;--faint:#5a6468;--gold:#e8c14a;--green:#3fd17e}
+  :root{--bg:#0b0b0b;--card:#1e2326;--line:#1c1c1c;--text:#e6e6e6;--dim:#a0a0a0;--faint:#606060;--gold:#d4af37;--green:#4caf7d}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.55}
   .mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
@@ -21,7 +21,7 @@
   li:before{content:"▲";color:var(--green);position:absolute;left:0;font-size:11px;top:11px}
   .btns{display:flex;flex-direction:column;gap:12px;margin-top:24px}
   button{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;letter-spacing:.5px;padding:16px;border-radius:10px;border:none;cursor:pointer;transition:.15s}
-  .pay-card{background:var(--gold);color:#16191b}
+  .pay-card{background:var(--gold);color:#0b0b0b}
   .pay-crypto{background:transparent;color:var(--gold);border:1.5px solid var(--gold)}
   .fields{display:flex;flex-direction:column;gap:10px;margin-top:22px}
   .fields input{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit}
@@ -29,7 +29,7 @@
   .fields input::placeholder{color:var(--faint)}
   button:hover{filter:brightness(1.08)}
   button:disabled{opacity:.5;cursor:default}
-  .msg{min-height:18px;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#ff5c61;text-align:center}
+  .msg{min-height:18px;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e05555;text-align:center}
   .have{margin-top:22px;text-align:center;font-size:13px;color:var(--dim)}
   .have a{color:var(--gold)}
   .disc{margin-top:30px;font-size:11px;color:var(--faint);line-height:1.7}
@@ -76,16 +76,16 @@ const msg=document.getElementById('msg');
 async function go(path,btn){
   const name=document.getElementById('buyerName').value.trim();
   const email=document.getElementById('buyerEmail').value.trim();
-  if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color='#ff5c61'; msg.textContent='Please enter a valid email — your access key is sent there.'; return; }
-  msg.style.color='#9aa4ab'; msg.textContent='Opening secure checkout…';
+  if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg.style.color='#e05555'; msg.textContent='Please enter a valid email — your access key is sent there.'; return; }
+  msg.style.color='#a0a0a0'; msg.textContent='Opening secure checkout…';
   [...document.querySelectorAll('button')].forEach(b=>b.disabled=true);
   try{
     const r=await fetch(API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,email})});
     const d=await r.json().catch(()=>({}));
     if(r.ok && d.url){ location.href=d.url; return; }
-    msg.style.color='#ff5c61';
+    msg.style.color='#e05555';
     msg.textContent = r.status===503 ? 'This payment method isn’t live yet — check back soon.' : (d.detail||'Could not start checkout. Try again.');
-  }catch(e){ msg.style.color='#ff5c61'; msg.textContent='Network error — please try again.'; }
+  }catch(e){ msg.style.color='#e05555'; msg.textContent='Network error — please try again.'; }
   [...document.querySelectorAll('button')].forEach(b=>b.disabled=false);
 }
 document.getElementById('payCard').onclick   =()=>go('/checkout/card');

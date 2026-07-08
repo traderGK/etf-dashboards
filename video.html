@@ -20,7 +20,7 @@
     width: 100vw;
     height: 100vh;
     position: relative;
-    background: #0a0e1a;
+    background: #0b0b0b;
     overflow: hidden;
   }
 
@@ -29,8 +29,8 @@
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(0,200,150,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,200,150,0.04) 1px, transparent 1px);
+      linear-gradient(rgba(76,175,125,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(76,175,125,0.04) 1px, transparent 1px);
     background-size: 60px 60px;
     animation: gridDrift 20s linear infinite;
   }
@@ -57,11 +57,11 @@
     bottom: 0;
     left: 0;
     height: 5px;
-    background: linear-gradient(90deg, #00c896, #00a8ff);
+    background: linear-gradient(90deg, #4caf7d, #5aa2d4);
     width: 0%;
     transition: width 0.3s linear;
     z-index: 100;
-    box-shadow: 0 0 10px #00c896, 0 0 20px rgba(0,200,150,0.4);
+    box-shadow: 0 0 10px #4caf7d, 0 0 20px rgba(76,175,125,0.4);
   }
   #timeline-bar {
     position: absolute;
@@ -89,11 +89,11 @@
   }
   #timeline-fill {
     height: 100%;
-    background: linear-gradient(90deg, #00c896, #00a8ff);
+    background: linear-gradient(90deg, #4caf7d, #5aa2d4);
     border-radius: 2px;
     width: 0%;
     transition: width 0.3s linear;
-    box-shadow: 0 0 6px #00c896;
+    box-shadow: 0 0 6px #4caf7d;
   }
   #timeline-time {
     font-family: monospace;
@@ -106,7 +106,7 @@
   #slide-pip {
     font-family: monospace;
     font-size: 11px;
-    color: rgba(0,200,150,0.8);
+    color: rgba(76,175,125,0.8);
     white-space: nowrap;
   }
 
@@ -116,9 +116,9 @@
     top: 30px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,200,150,0.12);
-    border: 1px solid rgba(0,200,150,0.4);
-    color: #00c896;
+    background: rgba(76,175,125,0.12);
+    border: 1px solid rgba(76,175,125,0.4);
+    color: #4caf7d;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 3px;
@@ -141,7 +141,7 @@
     gap: 12px;
     align-items: center;
     z-index: 200;
-    background: rgba(10,14,26,0.88);
+    background: rgba(11,11,11,0.88);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 40px;
     padding: 8px 20px;
@@ -155,16 +155,16 @@
     pointer-events: auto;
   }
   #controls button {
-    background: rgba(0,200,150,0.15);
-    border: 1px solid rgba(0,200,150,0.3);
-    color: #00c896;
+    background: rgba(76,175,125,0.15);
+    border: 1px solid rgba(76,175,125,0.3);
+    color: #4caf7d;
     padding: 6px 16px;
     border-radius: 20px;
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s;
   }
-  #controls button:hover { background: rgba(0,200,150,0.3); }
+  #controls button:hover { background: rgba(76,175,125,0.3); }
   #slide-counter { color: rgba(255,255,255,0.4); font-size: 12px; }
 
   /* ─── TYPOGRAPHY ─── */
@@ -176,7 +176,7 @@
     margin-bottom: 20px;
     letter-spacing: -1px;
   }
-  .headline span { color: #00c896; }
+  .headline span { color: #4caf7d; }
   .subhead {
     font-size: 20px;
     color: rgba(255,255,255,0.6);
@@ -206,10 +206,10 @@
     stroke-dashoffset: 1200;
     animation: drawLine 2.5s ease forwards;
   }
-  .chart-line.green { stroke: #00c896; }
-  .chart-line.red   { stroke: #ff4466; }
-  .chart-line.blue  { stroke: #00a8ff; }
-  .chart-line.gold  { stroke: #ffd700; }
+  .chart-line.green { stroke: #4caf7d; }
+  .chart-line.red   { stroke: #e05555; }
+  .chart-line.blue  { stroke: #5aa2d4; }
+  .chart-line.gold  { stroke: #d4af37; }
   .chart-line.delay1 { animation-delay: 0.4s; }
   .chart-line.delay2 { animation-delay: 0.8s; }
 
@@ -222,8 +222,8 @@
     animation: fadeIn 1.5s ease forwards;
     opacity: 0;
   }
-  .chart-area.green { fill: #00c896; }
-  .chart-area.red   { fill: #ff4466; }
+  .chart-area.green { fill: #4caf7d; }
+  .chart-area.red   { fill: #e05555; }
 
   @keyframes fadeIn { to { opacity: 1; } }
 
@@ -269,16 +269,16 @@
     text-transform: uppercase;
     margin-bottom: 8px;
   }
-  .sector-label.bull { color: #00c896; }
-  .sector-label.bear { color: #ff4466; }
+  .sector-label.bull { color: #4caf7d; }
+  .sector-label.bear { color: #e05555; }
   .sector-pct {
     font-size: 38px;
     font-weight: 800;
     font-family: monospace;
     margin-bottom: 4px;
   }
-  .sector-pct.up { color: #00c896; }
-  .sector-pct.dn { color: #ff4466; }
+  .sector-pct.up { color: #4caf7d; }
+  .sector-pct.dn { color: #e05555; }
   .counter { display: inline-block; }
 
   /* ─── LEADERBOARD ─── */
@@ -312,9 +312,9 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: rgba(0,200,150,0.15);
-    border: 1px solid rgba(0,200,150,0.3);
-    color: #00c896;
+    background: rgba(76,175,125,0.15);
+    border: 1px solid rgba(76,175,125,0.3);
+    color: #4caf7d;
     font-size: 12px;
     font-weight: 700;
     display: flex;
@@ -334,11 +334,11 @@
   .lb-bar {
     height: 100%;
     border-radius: 3px;
-    background: linear-gradient(90deg, #00c896, #00a8ff);
+    background: linear-gradient(90deg, #4caf7d, #5aa2d4);
     width: 0%;
     transition: width 1.2s ease;
   }
-  .lb-pct { font-family: monospace; color: #00c896; font-size: 14px; font-weight: 700; width: 60px; text-align: right; }
+  .lb-pct { font-family: monospace; color: #4caf7d; font-size: 14px; font-weight: 700; width: 60px; text-align: right; }
 
   /* ─── POOL ANIMATION ─── */
   .pool-wrap {
@@ -350,9 +350,9 @@
   .pool {
     width: 100%;
     height: 100%;
-    border: 2px solid rgba(0,168,255,0.3);
+    border: 2px solid rgba(90,162,212,0.3);
     border-radius: 16px;
-    background: rgba(0,168,255,0.05);
+    background: rgba(90,162,212,0.05);
     position: relative;
     overflow: hidden;
   }
@@ -362,13 +362,13 @@
     left: -100%;
     width: 300%;
     height: 80px;
-    background: rgba(0,168,255,0.12);
+    background: rgba(90,162,212,0.12);
     border-radius: 50%;
     animation: wave 3s ease-in-out infinite;
   }
   .pool-wave.w2 {
     height: 60px;
-    background: rgba(0,200,150,0.08);
+    background: rgba(76,175,125,0.08);
     animation: wave 4s ease-in-out infinite 1s;
   }
   @keyframes wave { 0%,100%{transform:translateX(0) scaleY(1)} 50%{transform:translateX(10%) scaleY(1.1)} }
@@ -378,8 +378,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #00c896;
-    box-shadow: 0 0 6px #00c896;
+    background: #4caf7d;
+    box-shadow: 0 0 6px #4caf7d;
     animation: flow 2.5s ease-in-out infinite;
   }
   @keyframes flow {
@@ -388,9 +388,9 @@
     80% { opacity: 1; }
     100% { transform: translate(450px, 60px); opacity: 0; }
   }
-  .capital-flow:nth-child(3) { animation-delay: 0.5s; background: #00a8ff; box-shadow: 0 0 6px #00a8ff; }
+  .capital-flow:nth-child(3) { animation-delay: 0.5s; background: #5aa2d4; box-shadow: 0 0 6px #5aa2d4; }
   .capital-flow:nth-child(4) { animation-delay: 1s; }
-  .capital-flow:nth-child(5) { animation-delay: 1.5s; background: #00a8ff; box-shadow: 0 0 6px #00a8ff; }
+  .capital-flow:nth-child(5) { animation-delay: 1.5s; background: #5aa2d4; box-shadow: 0 0 6px #5aa2d4; }
 
   .pool-label {
     position: absolute;
@@ -399,8 +399,8 @@
     letter-spacing: 2px;
     text-transform: uppercase;
   }
-  .pool-label.left  { color: #ff4466; left: 20px; top: 10px; }
-  .pool-label.right { color: #00c896; right: 20px; top: 10px; }
+  .pool-label.left  { color: #e05555; left: 20px; top: 10px; }
+  .pool-label.right { color: #4caf7d; right: 20px; top: 10px; }
   .pool-arrow {
     font-size: 20px;
     position: absolute;
@@ -414,7 +414,7 @@
 
   /* ─── HIGHER LOWS MARKERS ─── */
   .hl-dot {
-    fill: #00c896;
+    fill: #4caf7d;
     r: 5;
     opacity: 0;
     animation: popDot 0.3s ease forwards;
@@ -422,7 +422,7 @@
   .hl-dot:nth-of-type(1) { animation-delay: 1.5s; }
   .hl-dot:nth-of-type(2) { animation-delay: 1.9s; }
   .hl-dot:nth-of-type(3) { animation-delay: 2.3s; }
-  .hl-label { fill: #00c896; font-size: 10px; font-family: monospace; opacity: 0; }
+  .hl-label { fill: #4caf7d; font-size: 10px; font-family: monospace; opacity: 0; }
   .hl-label:nth-of-type(1) { animation: popDot 0.3s ease 1.5s forwards; }
   .hl-label:nth-of-type(2) { animation: popDot 0.3s ease 1.9s forwards; }
   .hl-label:nth-of-type(3) { animation: popDot 0.3s ease 2.3s forwards; }
@@ -434,7 +434,7 @@
     width: 600px;
     height: 600px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,200,150,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(76,175,125,0.08) 0%, transparent 70%);
     top: 50%;
     left: 50%;
     transform: translate(-50%,-50%);
@@ -465,8 +465,8 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .ticker-item.up { color: #00c896; }
-  .ticker-item.dn { color: #ff4466; }
+  .ticker-item.up { color: #4caf7d; }
+  .ticker-item.dn { color: #e05555; }
 
   /* ─── GLASS CEILING HIGHLIGHT ─── */
   .ceiling-label {
@@ -479,7 +479,7 @@
     display: inline-block;
     margin-top: 30px;
     padding: 16px 48px;
-    background: linear-gradient(135deg, #00c896, #00a8ff);
+    background: linear-gradient(135deg, #4caf7d, #5aa2d4);
     border-radius: 40px;
     font-size: 18px;
     font-weight: 700;
@@ -488,7 +488,7 @@
     text-transform: uppercase;
     animation: ctaPulse 2s ease-in-out infinite;
   }
-  @keyframes ctaPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,200,150,0.4)} 50%{box-shadow:0 0 30px 10px rgba(0,200,150,0.15)} }
+  @keyframes ctaPulse { 0%,100%{box-shadow:0 0 0 0 rgba(76,175,125,0.4)} 50%{box-shadow:0 0 30px 10px rgba(76,175,125,0.15)} }
 
   .stat-row {
     display: flex;
@@ -507,7 +507,7 @@
   .stat-num {
     font-size: 36px;
     font-weight: 800;
-    color: #00c896;
+    color: #4caf7d;
     font-family: monospace;
   }
   .stat-desc { font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
@@ -519,7 +519,7 @@
     left: 40px;
     font-size: 14px;
     font-weight: 800;
-    color: rgba(0,200,150,0.5);
+    color: rgba(76,175,125,0.5);
     letter-spacing: 3px;
     text-transform: uppercase;
   }
@@ -528,7 +528,7 @@
   #flash {
     position: absolute;
     inset: 0;
-    background: rgba(0,200,150,0.06);
+    background: rgba(76,175,125,0.06);
     opacity: 0;
     pointer-events: none;
     z-index: 90;
@@ -578,7 +578,7 @@
     <!-- Animated mini-dashboard mockup -->
     <div style="width:820px; border:1px solid rgba(255,255,255,0.1); border-radius:14px; background:rgba(255,255,255,0.02); padding:22px; margin-bottom:28px;">
       <div style="display:flex; gap:12px; margin-bottom:18px;">
-        <div style="background:rgba(0,200,150,0.1);border:1px solid rgba(0,200,150,0.25);border-radius:6px;padding:6px 14px;font-size:12px;color:#00c896;font-weight:700;">HOME</div>
+        <div style="background:rgba(76,175,125,0.1);border:1px solid rgba(76,175,125,0.25);border-radius:6px;padding:6px 14px;font-size:12px;color:#4caf7d;font-weight:700;">HOME</div>
         <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:12px;color:rgba(255,255,255,0.4);">TOP PICKER</div>
         <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:12px;color:rgba(255,255,255,0.4);">RATIO CHARTS</div>
         <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 14px;font-size:12px;color:rgba(255,255,255,0.4);">SETTINGS</div>
@@ -644,7 +644,7 @@
     <div class="headline" style="font-size:40px;">Liquidity Doesn't Vanish —<br>It <span>Migrates</span></div>
 
     <div class="dual-chart">
-      <div class="sector-card delay1" style="border-color:rgba(255,68,102,0.25);">
+      <div class="sector-card delay1" style="border-color:rgba(224,85,85,0.25);">
         <div class="sector-label bear">Consumer Staples · XLP</div>
         <div class="sector-pct dn">−8.3%</div>
         <div style="color:rgba(255,255,255,0.35);font-size:12px;margin-bottom:12px;">Institutions rotating OUT</div>
@@ -653,7 +653,7 @@
           <polyline class="chart-area red" points="0,10 30,15 60,12 90,22 120,28 150,35 180,48 210,58 240,70 240,80 0,80"/>
         </svg>
       </div>
-      <div class="sector-card delay2" style="border-color:rgba(0,200,150,0.25);">
+      <div class="sector-card delay2" style="border-color:rgba(76,175,125,0.25);">
         <div class="sector-label bull">Technology · XLK</div>
         <div class="sector-pct up">+19.7%</div>
         <div style="color:rgba(255,255,255,0.35);font-size:12px;margin-bottom:12px;">Institutions rotating IN</div>
@@ -694,8 +694,8 @@
       <svg viewBox="0 0 840 240" style="width:100%;height:100%;">
         <defs>
           <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#00c896" stop-opacity="0.15"/>
-            <stop offset="100%" stop-color="#00c896" stop-opacity="0"/>
+            <stop offset="0%" stop-color="#4caf7d" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#4caf7d" stop-opacity="0"/>
           </linearGradient>
         </defs>
         <!-- grid -->
@@ -741,12 +741,12 @@
         <circle class="hl-dot" cx="120" cy="168" r="6"/>
         <circle class="hl-dot" style="animation-delay:1.9s" cx="360" cy="138" r="6"/>
         <circle class="hl-dot" style="animation-delay:2.3s" cx="600" cy="105" r="6"/>
-        <text class="hl-label" x="128" y="165" font-size="10" font-family="monospace" fill="#00c896">HL 1</text>
-        <text class="hl-label" style="animation:popDot 0.3s ease 1.9s forwards;opacity:0" x="368" y="135" font-size="10" font-family="monospace" fill="#00c896">HL 2</text>
-        <text class="hl-label" style="animation:popDot 0.3s ease 2.3s forwards;opacity:0" x="608" y="102" font-size="10" font-family="monospace" fill="#00c896">HL 3</text>
+        <text class="hl-label" x="128" y="165" font-size="10" font-family="monospace" fill="#4caf7d">HL 1</text>
+        <text class="hl-label" style="animation:popDot 0.3s ease 1.9s forwards;opacity:0" x="368" y="135" font-size="10" font-family="monospace" fill="#4caf7d">HL 2</text>
+        <text class="hl-label" style="animation:popDot 0.3s ease 2.3s forwards;opacity:0" x="608" y="102" font-size="10" font-family="monospace" fill="#4caf7d">HL 3</text>
 
         <!-- upward arrow showing accumulation direction -->
-        <text fill="rgba(0,200,150,0.5)" font-size="11" font-family="monospace" x="4" y="20" style="animation:popDot 0.3s ease 2.8s forwards;opacity:0">Institutions quietly accumulating ↗</text>
+        <text fill="rgba(76,175,125,0.5)" font-size="11" font-family="monospace" x="4" y="20" style="animation:popDot 0.3s ease 2.8s forwards;opacity:0">Institutions quietly accumulating ↗</text>
 
         <!-- y-axis label -->
         <text fill="rgba(255,255,255,0.3)" font-size="10" font-family="monospace" x="4" y="48">1.32</text>
@@ -758,9 +758,9 @@
 
     <div style="display:flex;gap:40px;justify-content:center;margin-top:10px;">
       <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);">
-        <div style="width:20px;height:3px;background:#00c896;border-radius:2px;"></div> XLK/SPY Ratio
+        <div style="width:20px;height:3px;background:#4caf7d;border-radius:2px;"></div> XLK/SPY Ratio
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(0,200,150,0.8);">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(76,175,125,0.8);">
         ● Higher Lows = Quiet Accumulation
       </div>
     </div>
@@ -781,8 +781,8 @@
       <svg viewBox="0 0 840 250" style="width:100%;height:100%;">
         <defs>
           <linearGradient id="breakoutGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#00c896" stop-opacity="0.2"/>
-            <stop offset="100%" stop-color="#00c896" stop-opacity="0"/>
+            <stop offset="0%" stop-color="#4caf7d" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="#4caf7d" stop-opacity="0"/>
           </linearGradient>
         </defs>
         <!-- grid -->
@@ -798,7 +798,7 @@
         <!-- Ceiling label -->
         <g class="ceiling-label">
           <rect x="340" y="72" width="160" height="20" rx="4" fill="rgba(255,180,0,0.12)" stroke="rgba(255,180,0,0.3)" stroke-width="1"/>
-          <text x="420" y="86" fill="#ffd700" font-size="11" font-family="monospace" text-anchor="middle" font-weight="700">GLASS CEILING</text>
+          <text x="420" y="86" fill="#d4af37" font-size="11" font-family="monospace" text-anchor="middle" font-weight="700">GLASS CEILING</text>
         </g>
 
         <!-- ratio oscillating under ceiling -->
@@ -822,13 +822,13 @@
 
         <!-- breakout label -->
         <g class="breakout-arrow">
-          <rect x="710" y="12" width="120" height="22" rx="4" fill="rgba(0,200,150,0.2)" stroke="rgba(0,200,150,0.5)" stroke-width="1"/>
-          <text x="770" y="27" fill="#00c896" font-size="11" font-family="monospace" text-anchor="middle" font-weight="700">BREAKOUT ↑</text>
+          <rect x="710" y="12" width="120" height="22" rx="4" fill="rgba(76,175,125,0.2)" stroke="rgba(76,175,125,0.5)" stroke-width="1"/>
+          <text x="770" y="27" fill="#4caf7d" font-size="11" font-family="monospace" text-anchor="middle" font-weight="700">BREAKOUT ↑</text>
         </g>
 
         <!-- Short squeeze annotation -->
         <g style="opacity:0;animation:popDot 0.3s ease 3.2s forwards;">
-          <text x="660" y="175" fill="rgba(255,68,102,0.8)" font-size="11" font-family="monospace">Shorts trapped ↑</text>
+          <text x="660" y="175" fill="rgba(224,85,85,0.8)" font-size="11" font-family="monospace">Shorts trapped ↑</text>
         </g>
 
         <!-- y labels -->
@@ -844,10 +844,10 @@
       <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,0.5);">
         <div style="width:20px;height:2px;background:rgba(255,180,0,0.6);border-top:1px dashed rgba(255,180,0,0.6);"></div> Resistance Level
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,68,102,0.8);">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(224,85,85,0.8);">
         ● 3 Rejections = Compression
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#00c896;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4caf7d;">
         ● Breakout = Regime Shift
       </div>
     </div>
@@ -867,7 +867,7 @@
     <!-- Tab bar mockup -->
     <div style="display:flex;gap:2px;margin-bottom:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:4px;width:640px;">
       <div style="padding:8px 20px;border-radius:6px;font-size:12px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:1px;">HOME</div>
-      <div style="padding:8px 20px;border-radius:6px;font-size:12px;background:linear-gradient(135deg,rgba(0,200,150,0.2),rgba(0,168,255,0.2));border:1px solid rgba(0,200,150,0.3);color:#00c896;font-weight:700;letter-spacing:1px;">TOP PICKER ★</div>
+      <div style="padding:8px 20px;border-radius:6px;font-size:12px;background:linear-gradient(135deg,rgba(76,175,125,0.2),rgba(90,162,212,0.2));border:1px solid rgba(76,175,125,0.3);color:#4caf7d;font-weight:700;letter-spacing:1px;">TOP PICKER ★</div>
       <div style="padding:8px 20px;border-radius:6px;font-size:12px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:1px;">RATIO CHARTS</div>
     </div>
 
@@ -901,11 +901,11 @@
         <div class="lb-pct">+6.1%</div>
       </div>
       <div class="lb-row">
-        <div class="lb-rank" style="background:rgba(255,68,102,0.1);border-color:rgba(255,68,102,0.3);color:#ff4466;">5</div>
+        <div class="lb-rank" style="background:rgba(224,85,85,0.1);border-color:rgba(224,85,85,0.3);color:#e05555;">5</div>
         <div class="lb-ticker" style="color:rgba(255,255,255,0.5);">XLP</div>
         <div class="lb-name">Consumer Staples (lagging)</div>
-        <div class="lb-bar-wrap"><div class="lb-bar" data-width="18" style="background:linear-gradient(90deg,#ff4466,#ff7744);"></div></div>
-        <div class="lb-pct" style="color:#ff4466;">−2.3%</div>
+        <div class="lb-bar-wrap"><div class="lb-bar" data-width="18" style="background:linear-gradient(90deg,#e05555,#d4af37);"></div></div>
+        <div class="lb-pct" style="color:#e05555;">−2.3%</div>
       </div>
     </div>
 
@@ -936,8 +936,8 @@
     </div>
 
     <div style="font-size:16px;color:rgba(255,255,255,0.5);max-width:660px;line-height:1.7;margin-top:4px;">
-      Use the <strong style="color:#00c896;">Top Picker</strong> to see what's winning right now →
-      dive into <strong style="color:#00a8ff;">ratio charts</strong> to verify the structural breakout →
+      Use the <strong style="color:#4caf7d;">Top Picker</strong> to see what's winning right now →
+      dive into <strong style="color:#5aa2d4;">ratio charts</strong> to verify the structural breakout →
       trade with the <strong style="color:#fff;">macro tide</strong>.
     </div>
 
@@ -945,9 +945,9 @@
 
     <!-- mini replay of all slides as floating cards -->
     <div style="position:absolute;bottom:55px;right:50px;display:flex;gap:8px;">
-      <div style="width:64px;height:40px;border:1px solid rgba(0,200,150,0.2);border-radius:4px;background:rgba(0,200,150,0.05);font-size:8px;color:rgba(0,200,150,0.6);display:flex;align-items:center;justify-content:center;font-family:monospace;">HOME</div>
-      <div style="width:64px;height:40px;border:1px solid rgba(0,200,150,0.4);border-radius:4px;background:rgba(0,200,150,0.1);font-size:8px;color:#00c896;display:flex;align-items:center;justify-content:center;font-family:monospace;font-weight:700;">TOP PICKER</div>
-      <div style="width:64px;height:40px;border:1px solid rgba(0,168,255,0.2);border-radius:4px;background:rgba(0,168,255,0.05);font-size:8px;color:rgba(0,168,255,0.6);display:flex;align-items:center;justify-content:center;font-family:monospace;">RATIO CHARTS</div>
+      <div style="width:64px;height:40px;border:1px solid rgba(76,175,125,0.2);border-radius:4px;background:rgba(76,175,125,0.05);font-size:8px;color:rgba(76,175,125,0.6);display:flex;align-items:center;justify-content:center;font-family:monospace;">HOME</div>
+      <div style="width:64px;height:40px;border:1px solid rgba(76,175,125,0.4);border-radius:4px;background:rgba(76,175,125,0.1);font-size:8px;color:#4caf7d;display:flex;align-items:center;justify-content:center;font-family:monospace;font-weight:700;">TOP PICKER</div>
+      <div style="width:64px;height:40px;border:1px solid rgba(90,162,212,0.2);border-radius:4px;background:rgba(90,162,212,0.05);font-size:8px;color:rgba(90,162,212,0.6);display:flex;align-items:center;justify-content:center;font-family:monospace;">RATIO CHARTS</div>
     </div>
 
     <div class="voiceover">"Stop guessing where the market is going. Explore the dashboard below and start tracking the money flow today."</div>
@@ -1113,7 +1113,7 @@
   const overlay = document.createElement('div');
   overlay.id = 'start-overlay';
   overlay.style.cssText = `
-    position:fixed;inset:0;background:rgba(10,14,26,0.92);
+    position:fixed;inset:0;background:rgba(11,11,11,0.92);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     z-index:999;cursor:pointer;
   `;
@@ -1121,7 +1121,7 @@
     <div style="font-size:48px;margin-bottom:20px;">▶</div>
     <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:10px;">ETF Ratio Dashboard</div>
     <div style="font-size:15px;color:rgba(255,255,255,0.5);margin-bottom:32px;">Click anywhere to start with voiceover</div>
-    <div style="padding:14px 40px;background:linear-gradient(135deg,#00c896,#00a8ff);border-radius:40px;font-size:16px;font-weight:700;color:#000;">START PRESENTATION</div>
+    <div style="padding:14px 40px;background:linear-gradient(135deg,#4caf7d,#5aa2d4);border-radius:40px;font-size:16px;font-weight:700;color:#000;">START PRESENTATION</div>
   `;
   document.getElementById('presentation').appendChild(overlay);
 
