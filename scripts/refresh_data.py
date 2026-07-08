@@ -159,6 +159,10 @@ _TK_RE = re.compile(r'^[A-Z]{1,6}(\.[AB])?$')
 def valid_tk(t):
     return bool(_TK_RE.match(str(t).strip()))
 
+# Tickers NOT tradeable on GK broker -> kept out of the entire setups system
+# (universe scan, watchlist, alerts, website) AND the deep holdings lists.
+EXCLUDE_TICKERS = {"XEL", "HASI", "XBOX"}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # STEP 1 — Fetch real ETF holdings from Yahoo Finance (funds_data.top_holdings)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -204,6 +208,59 @@ for etf in ETF_TICKERS:
     time.sleep(0.15)  # gentle rate limiting — Yahoo is free but don't hammer it
 
 print(f"\nTotal unique holding tickers discovered: {len(all_holding_tks)}")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# STEP 1.6 — FULL holdings for SSGA/SPDR funds (daily XLSX feed). Powers the
+# website's deep Fast-Movers scan + the expandable holdings table. Fail-safe by
+# design: any per-fund error → that fund simply has no deep list and the site
+# falls back to the top-10 behaviour. Does NOT touch stock_parent / the setups
+# universe — that still derives from etf_holdings_map (top 10) only.
+# ──────────────────────────────────────────────────────────────────────────────
+SSGA_FULL_FUNDS = ['XLK','XLF','XLE','XLV','XLI','XLC','XLU','XLY','XLP','XLRE','XLB','SPY','XBI']
+etf_full_map = {}
+print("Fetching full SSGA holdings (deep scan)...")
+try:
+    import io as _io, requests as _rq
+    try:
+        import openpyxl  # noqa: F401 — pandas needs it for .xlsx; not in the workflow's pip line
+    except ImportError:
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet', 'openpyxl'],
+                       check=True, timeout=120)
+    for _etf in SSGA_FULL_FUNDS:
+        try:
+            _url = (f"https://www.ssga.com/us/en/intermediary/library-content/"
+                    f"products/fund-data/etfs/us/holdings-daily-us-en-{_etf.lower()}.xlsx")
+            _r = _rq.get(_url, timeout=25, headers={'User-Agent': 'Mozilla/5.0'})
+            if _r.status_code != 200 or len(_r.content) < 5000:
+                continue
+            _df = pd.read_excel(_io.BytesIO(_r.content), header=4)  # row 4 = Name/Ticker/…/Weight
+            _cols = {str(c).strip().lower(): c for c in _df.columns}
+            if not all(k in _cols for k in ('name', 'ticker', 'weight')):
+                continue
+            _rows = []
+            for _, _rr in _df.iterrows():
+                _t = str(_rr[_cols['ticker']]).strip().upper()
+                if not valid_tk(_t) or _t == _etf or _t in EXCLUDE_TICKERS:
+                    continue
+                try:
+                    _w = float(_rr[_cols['weight']])
+                except (TypeError, ValueError):
+                    continue
+                if not (_w == _w) or _w <= 0:   # NaN / cash lines
+                    continue
+                _n = str(_rr[_cols['name']]).strip().title().replace("'S", "'s")
+                _rows.append({'t': _t, 'n': _n, 'w': round(_w, 2)})
+            _rows.sort(key=lambda x: -x['w'])
+            if len(_rows) >= 15:                # only publish genuinely deep lists
+                etf_full_map[_etf] = _rows[:120]
+                for _h in etf_full_map[_etf]:
+                    all_holding_tks.add(_h['t'])  # ensure they get prices in STEP 3
+        except Exception as _e:
+            print(f"  full holdings {_etf} FAILED (fallback to top-10): {_e}")
+except Exception as _e:
+    print(f"  full-holdings step skipped entirely: {_e}")
+print(f"Full SSGA holdings: {len(etf_full_map)} funds, "
+      f"{sum(len(v) for v in etf_full_map.values())} rows")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # STEP 2 — Ratio signal computation (1-year data for SMA-20 / SMA-50)
@@ -473,9 +530,7 @@ for etf in SECTOR_ETFS + THEME_ETFS:
     for h in etf_holdings_map.get(etf, []):
         stock_parent.setdefault(h['t'], etf)
 
-# Tickers NOT tradeable on GK broker -> kept out of the entire setups system
-# (universe scan, watchlist, alerts, website). Add more here as needed.
-EXCLUDE_TICKERS = {"XEL", "HASI", "XBOX"}
+# EXCLUDE_TICKERS (untradeable on GK broker) is defined near the top of the file.
 stock_tks = sorted(set(stock_parent) - set(ETF_TICKERS) - set(LEVERAGED_TICKERS) - EXCLUDE_TICKERS)
 print(f"\nSetups scan: {len(stock_tks)} stocks across {len(set(stock_parent.values()))} parent ETFs")
 
@@ -1118,6 +1173,7 @@ output = {
     "data":          results,
     "ticker_prices": ticker_prices,
     "etf_holdings":  etf_holdings_map,
+    "etf_full":      etf_full_map,      # SSGA deep holdings — Fast Movers full scan + expandable table
     "bp_scores":     bp_scores,          # pre-computed ETF/SPY relative strength — no CORS needed
     # NOTE: "setups" is intentionally NOT in the public data.json. Today's Setups /
     # alerts are protected: they are pushed to a private Cloudflare KV store below

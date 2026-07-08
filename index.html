@@ -734,6 +734,9 @@
   .ho-movers-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4ec994;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
   .ho-movers-loading{font-family:var(--mono);font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:8px;padding:4px 0}
   /* Same grid + container chrome as the Top 10 Holdings table so the two sections align */
+  .h-expand-btn{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);text-align:center;padding:8px 10px;cursor:pointer;border-top:1px solid var(--line);transition:background .12s,color .12s;user-select:none}
+  .h-expand-btn:hover{background:rgba(232,193,74,.06);color:#fff}
+  .h-expand-rows .h-row:first-child{border-top:1px solid var(--line)}
   .ho-mover-table{border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--bg-card)}
   .ho-mover-sec-hdr{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;margin:14px 0 8px;display:flex;align-items:center;gap:5px}
   .ho-mover-sec-hdr:first-child{margin-top:0}
@@ -2582,6 +2585,9 @@ async function loadDataJson(){
     if(json.etf_holdings && typeof json.etf_holdings==='object'){
       window.etfHoldings=json.etf_holdings;
     }
+    if(json.etf_full && typeof json.etf_full==='object'){
+      window.etfFull=json.etf_full;   // SSGA deep holdings — optional, absent on old caches
+    }
     if(json.bp_scores && typeof json.bp_scores==='object'){
       window._bpScores=json.bp_scores; // pre-computed ETF/SPY relative strength
       saveBPCache(json.bp_scores, json.ts||Date.now()); // persist for instant first paint
@@ -3332,12 +3338,39 @@ function openHoldingsPopup(ticker){
     </div>`;
   }).join('');
 
+  // Expandable rows 11–25 from the SSGA deep holdings list (when available).
+  // Rendered collapsed; missing deep data → no expander, exactly the old look.
+  const fullH=window.etfFull&&window.etfFull[ticker];
+  const shownTks=new Set(dispH.slice(0,10).map(r=>r[0]));
+  const extraH=Array.isArray(fullH)?fullH.filter(h=>h&&h.t&&!shownTks.has(h.t)).slice(0,15):[];
+  const extraRows=extraH.map((h,i)=>{
+    const w=+h.w||0;
+    const barPct=barScale>0?Math.min(100,(w/barScale)*100).toFixed(1):0;
+    const stp=tp_cache&&tp_cache[h.t];
+    const todayHtml=stp
+      ?`<span style="color:var(--text-dim)">${fmtPrice(stp.p)}</span> ${fmtChg(stp.c)}`
+      :`<span style="color:var(--text-faint)">—</span>`;
+    return `<div class="h-row">
+      <span class="h-rank">${i+11}</span>
+      <span class="h-tk">${h.t}</span>
+      <span class="h-co-wrap"><span class="h-co" title="${h.n}">${h.n}</span></span>
+      <span class="h-wt-group">
+        <span class="h-wt-bar-outer"><span class="h-wt-bar-fill" style="width:${barPct}%"></span></span>
+        <span class="h-wt-num">${w?w.toFixed(1)+'%':'—'}</span>
+      </span>
+      <span class="h-today">${todayHtml}</span>
+    </div>`;
+  }).join('');
+  const expandHtml=extraH.length?`
+    <div class="h-expand-rows" style="display:none">${extraRows}</div>
+    <div class="h-expand-btn" onclick="toggleHoldingsMore(this)" data-more="▼ Show ${extraH.length} more holdings" data-less="▲ Show less">▼ Show ${extraH.length} more holdings</div>`:'';
+
   overlay.querySelector('.ho-ticker').textContent=e.t;
   overlay.querySelector('.ho-name').textContent=e.n;
   overlay.querySelector('.ho-cat').textContent=e.cat+' · '+e.group;
   overlay.querySelector('.ho-table-wrap').innerHTML=`<div class="h-list">
     <div class="h-list-hdr"><span>#</span><span>Ticker</span><span>Company</span><span>Wt %</span><span style="text-align:right">Today</span></div>
-    ${rows}</div>`;
+    ${rows}${expandHtml}</div>`;
   const noteEl=overlay.querySelector('.ho-note');
   noteEl.textContent=e.note||'';
   noteEl.style.display=e.note?'block':'none';
@@ -3461,12 +3494,17 @@ function openHoldingsPopup(ticker){
     e.h.forEach(r=>wtMap.set(r[0],parseFloat(r[2])||0));
     const liveH=window.etfHoldings&&window.etfHoldings[ticker];
     if(liveH) liveH.forEach(h=>{if(h.w>0)wtMap.set(h.t,h.w);});
+    const deepH=window.etfFull&&window.etfFull[ticker];
+    if(Array.isArray(deepH)) deepH.forEach(h=>{if(h.w>0)wtMap.set(h.t,h.w);});
 
-    // PATH 1: workflow-supplied full holdings × cached prices
-    if(liveH&&liveH.length&&tp_c&&Object.keys(tp_c).length>10){
-      const movers=liveH.map(h=>{const d=tp_c[h.t];return d?{t:h.t,n:h.n,w:wtMap.get(h.t)||h.w||0,chg:d.c,price:d.p}:null;})
+    // PATH 1: workflow-supplied holdings × cached prices. Prefer the SSGA deep
+    // list (whole ETF); fall back to the top-10 list when no deep data exists.
+    const scanH=Array.isArray(deepH)&&deepH.length>(liveH?liveH.length:0)?deepH:liveH;
+    if(scanH&&scanH.length&&tp_c&&Object.keys(tp_c).length>10){
+      const movers=scanH.map(h=>{const d=tp_c[h.t];return d?{t:h.t,n:h.n,w:wtMap.get(h.t)||h.w||0,chg:d.c,price:d.p}:null;})
         .filter(Boolean).sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg));
-      renderMoversRows(movers,movers.length,`${ageLabel} · full ETF scan`);
+      const scanLbl=scanH===deepH?'full ETF scan':'top holdings scan';
+      renderMoversRows(movers,movers.length,`${ageLabel} · ${scanLbl}`);
       return;
     }
 
@@ -3514,6 +3552,14 @@ function openHoldingsPopup(ticker){
       });
     }
   })();
+}
+
+function toggleHoldingsMore(btn){
+  const rows=btn.parentElement.querySelector('.h-expand-rows');
+  if(!rows)return;
+  const open=rows.style.display!=='none';
+  rows.style.display=open?'none':'block';
+  btn.textContent=open?btn.dataset.more:btn.dataset.less;
 }
 
 function closeHoldingsPopup(){
