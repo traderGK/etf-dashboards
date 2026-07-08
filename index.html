@@ -497,6 +497,10 @@
     .h-list-hdr{font-size:8px !important;padding:5px 8px !important}
     .h-row{padding:6px 8px}
     /* Fast movers + trade idea */
+    .ho-mover-row{grid-template-columns:14px 38px 1fr 90px 70px;padding:6px 8px}
+    .ho-mover-tk{font-size:11px}
+    .ho-mover-today{font-size:10px}
+    .ho-mover-chg{font-size:11px}
     .ho-movers-label{font-size:10px}
     .ho-lev-card{min-width:0;flex:1}
 
@@ -729,14 +733,17 @@
   .ho-movers{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
   .ho-movers-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#4ec994;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
   .ho-movers-loading{font-family:var(--mono);font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:8px;padding:4px 0}
-  .ho-mover-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+  /* Same grid + container chrome as the Top 10 Holdings table so the two sections align */
+  #hoMoversBody:has(.ho-mover-row){border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--bg-card)}
+  .ho-mover-row{display:grid;grid-template-columns:18px 46px 1fr 120px 90px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);transition:background .12s}
   .ho-mover-row:last-child{border-bottom:none}
-  .ho-mover-rank{font-family:var(--mono);font-size:10px;color:var(--text-faint);width:14px;flex-shrink:0;text-align:center}
-  .ho-mover-tk{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);min-width:44px;flex-shrink:0}
-  .ho-mover-co{font-size:11px;color:var(--text-dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ho-mover-wt{display:flex;align-items:center;gap:4px;flex-shrink:0}
-  .ho-mover-price{font-family:var(--mono);font-size:11px;color:var(--text-faint);min-width:52px;text-align:right;flex-shrink:0}
-  .ho-mover-chg{font-family:var(--mono);font-size:13px;font-weight:700;min-width:62px;text-align:right;flex-shrink:0}
+  .ho-mover-row:hover{background:rgba(232,193,74,.035)}
+  .ho-mover-rank{font-family:var(--mono);font-size:10px;color:var(--text-faint)}
+  .ho-mover-tk{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text)}
+  .ho-mover-co{font-size:11px;color:var(--text-dim);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px}
+  .ho-mover-wt{display:flex;align-items:center;gap:5px}
+  .ho-mover-today{text-align:right;font-family:var(--mono);font-size:11px;white-space:nowrap;color:var(--text-dim)}
+  .ho-mover-chg{font-family:var(--mono);font-size:13px;font-weight:700}
   .ho-mover-chg.up{color:#4ec994}.ho-mover-chg.dn{color:#e06b6b}
   .ho-scroll-body{max-height:72vh;overflow-y:auto;padding-right:2px}
   .pulse-card{cursor:pointer}
@@ -3393,26 +3400,26 @@ function openHoldingsPopup(ticker){
     const lbl=moversWrap.querySelector('.ho-movers-label');
     const scanTxt=pool>movers.length?`· scanned ${pool} holdings`:'';
     if(lbl) lbl.innerHTML=`⚡ Top 5 Fast Movers <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:10px;color:var(--text-faint)">${scanTxt} · ${ageLabel}</span>`;
-    // Weight bar scale — same logic as holdings table
+    // Weight bar scale — shared with the holdings table above (barScale from the
+    // top-10 render, min 30) so the same stock shows the same bar length in both
     const maxWt=movers.reduce((m,r)=>Math.max(m,r.w||0),0);
-    const barScale=Math.max(maxWt,30);
+    const moverScale=Math.max(maxWt,barScale);
     moversBody.innerHTML=movers.map((m,i)=>{
       const cls=m.chg>=0?'up':'dn';
       const w=m.w||0;
-      const barPct=w&&barScale>0?Math.min(100,(w/barScale)*100).toFixed(1):0;
+      const barPct=w&&moverScale>0?Math.min(100,(w/moverScale)*100).toFixed(1):0;
       const wtHtml=w>0
         ?`<span class="ho-mover-wt">
-            <span class="h-wt-bar-outer" style="width:44px"><span class="h-wt-bar-fill" style="width:${barPct}%"></span></span>
+            <span class="h-wt-bar-outer"><span class="h-wt-bar-fill" style="width:${barPct}%"></span></span>
             <span class="h-wt-num">${w.toFixed(1)}%</span>
           </span>`
         :`<span class="ho-mover-wt"><span class="h-wt-num" style="color:var(--line-bright)">—</span></span>`;
       return `<div class="ho-mover-row">
         <span class="ho-mover-rank">${i+1}</span>
         <span class="ho-mover-tk">${m.t}</span>
-        <span class="ho-mover-co">${m.n}</span>
+        <span class="ho-mover-co" title="${m.n}">${m.n}</span>
         ${wtHtml}
-        ${m.price!=null?`<span class="ho-mover-price">${fmtPrice(m.price)}</span>`:''}
-        <span class="ho-mover-chg ${cls}">${fmtChg(m.chg)}</span>
+        <span class="ho-mover-today">${m.price!=null?`${fmtPrice(m.price)} `:''}<span class="ho-mover-chg ${cls}">${fmtChg(m.chg)}</span></span>
       </div>`;
     }).join('');
   }
