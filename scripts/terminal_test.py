@@ -359,41 +359,192 @@ def m_breadth(px):
                 body=body, stance=stance,
                 headline=f"{regime} — {pct(a50)} of the panel above its 50-day")
 
+VOL_IDX = [("^VIX", "VIX", "S&P 500 30d"), ("^VIX9D", "VIX9D", "S&P 500 9d"),
+           ("^VIX3M", "VIX3M", "S&P 500 3m"), ("^VVIX", "VVIX", "Vol of VIX"),
+           ("^SKEW", "SKEW", "Tail-risk pricing"), ("^MOVE", "MOVE", "Treasury vol"),
+           ("^OVX", "OVX", "Crude oil vol"), ("^GVZ", "GVZ", "Gold vol")]
+
+def _spy_gex():
+    """Net dealer gamma from SPY option chains (Black-Scholes gamma x OI)."""
+    import numpy as np
+    tk = yf.Ticker("SPY")
+    spot = float(tk.fast_info["last_price"])
+    r = 0.04
+    exps = [e for e in tk.options
+            if (pd.Timestamp(e) - pd.Timestamp.now()).days <= 90][:8]
+    per_strike = {}
+    tot = 0.0
+    pc_oi = [0, 0]
+    exp_move = None
+    for ei, e in enumerate(exps):
+        ch = tk.option_chain(e)
+        T = max((pd.Timestamp(e) - pd.Timestamp.now()).days, 0.5) / 365
+        for df, sign, slot in ((ch.calls, 1, 0), (ch.puts, -1, 1)):
+            iv = df["impliedVolatility"].clip(0.01, 3).values
+            K = df["strike"].values
+            oi = df["openInterest"].fillna(0).values
+            d1 = (np.log(spot / K) + (r + iv ** 2 / 2) * T) / (iv * np.sqrt(T))
+            gamma = np.exp(-d1 ** 2 / 2) / np.sqrt(2 * np.pi) / (spot * iv * np.sqrt(T))
+            # dollar gamma per 1% move, in $bn
+            dg = gamma * oi * 100 * spot ** 2 * 0.01 / 1e9
+            pc_oi[slot] += oi.sum()
+            for k, g in zip(K, dg * sign):
+                per_strike[k] = per_strike.get(k, 0.0) + g
+            tot += float((dg * sign).sum())
+        if ei == 0:
+            atm_i = (ch.calls["strike"] - spot).abs().idxmin()
+            atm_k = ch.calls.loc[atm_i, "strike"]
+            call_m = ch.calls.loc[atm_i, "lastPrice"]
+            put_r = ch.puts[ch.puts["strike"] == atm_k]
+            if len(put_r):
+                exp_move = (call_m + float(put_r["lastPrice"].iloc[0])) / spot * 100
+                exp_date = e
+    ks = sorted(per_strike)
+    cum, flip = 0.0, None
+    for k in ks:
+        prev = cum
+        cum += per_strike[k]
+        if prev < 0 <= cum and abs(k - spot) / spot < 0.15:
+            flip = k
+    calls_w = sorted((k for k in ks if per_strike[k] > 0 and k >= spot * 0.97),
+                     key=lambda k: -per_strike[k])[:3]
+    puts_w = sorted((k for k in ks if per_strike[k] < 0 and k <= spot * 1.03),
+                    key=lambda k: per_strike[k])[:3]
+    return dict(tot=tot, flip=flip, spot=spot, exp_move=exp_move,
+                exp_date=exp_date if exp_move else None,
+                pc=pc_oi[1] / pc_oi[0] if pc_oi[0] else None,
+                calls=sorted(calls_w), puts=sorted(puts_w, reverse=True))
+
 def m_volatility(px):
-    vix = px["^VIX"].dropna(); v3m = px["^VIX3M"].dropna()
-    spy = px["SPY"].dropna()
-    lvl = vix.iloc[-1]
-    p5y = pctile(vix, lvl)
-    ratio = v3m.iloc[-1] / vix.iloc[-1]
-    rv20 = spy.pct_change().rolling(20).std().iloc[-1] * math.sqrt(252) * 100
-    vrp = lvl - rv20
-    if ratio < 1.0:
-        regime, rc, stance = "Stress (backwardation)", RED, "bearish"
-        note = ("Near-term vol is priced above 3-month vol — the market is paying up for immediate protection. "
-                "Historically this happens inside corrections; it also marks where bottoms eventually form.")
-    elif lvl < 17 and ratio > 1.1:
-        regime, rc, stance = "Calm carry", GREEN, "bullish"
-        note = ("Low spot VIX with a steep term structure — the classic risk-on configuration. "
-                "Trend-following and short-vol style behavior get paid until the structure flattens.")
+    hist = yf.download([t for t, *_ in VOL_IDX], period="2y", interval="1d",
+                       auto_adjust=True, progress=False)["Close"].ffill(limit=3)
+    old = yf.download(["^GSPC", "^VIX"], period="max", interval="1d",
+                      auto_adjust=True, progress=False)["Close"].dropna()
+    old = old[old.index.year >= 1990]
+    vix = hist["^VIX"].dropna()
+    lvl = float(vix.iloc[-1])
+    p10y = pctile(old["^VIX"], lvl)
+    v9d = hist["^VIX9D"].dropna().iloc[-1]
+    v3m = hist["^VIX3M"].dropna().iloc[-1]
+    ts = v9d / v3m  # <1 contango (calm), >1 inverted (stress)
+    skew = float(hist["^SKEW"].dropna().iloc[-1])
+    rv21 = float(px["SPY"].dropna().pct_change().rolling(21).std().iloc[-1] * math.sqrt(252) * 100)
+    vrp = lvl - rv21
+
+    # --- regime + playbook (rule-based, own wording)
+    if ts >= 1.0 or lvl >= 30:
+        regime, rc, stance = "Stress", RED, "bearish"
+        pb = ["The near curve is inverted — the market pays a premium for protection RIGHT NOW. Trend day "
+              "risk is elevated in both directions; fade nothing.",
+              "Reduce size before adjusting direction: realized moves cluster far above average in this state.",
+              "Watch the 9D/3M ratio for the exit — it re-steepens below 1.0 before price bottoms convincingly."]
+    elif lvl < 20 and ts < 0.9:
+        regime, rc, stance = "Calm", GREEN, "neutral"
+        pb = ["Mean-reversion tape: moves toward range extremes tend to fail, breakouts have a poor hit rate.",
+              "Premium-selling and theta approaches are being paid — but always against a tail hedge; "
+              "this regime ends abruptly, not gradually.",
+              "The early warning is the 9D/3M ratio climbing toward 1.0 while price still looks fine."]
     else:
         regime, rc, stance = "Transitional", AMBER, "neutral"
-        note = ("Vol is neither cheap-and-steep nor inverted — an in-between tape. The ratio direction is "
-                "the tell: flattening toward 1.0 = de-risk; re-steepening = all-clear.")
+        pb = ["Between regimes — neither the calm-pin nor the stress-trend playbook is reliable here.",
+              "Trade smaller and let the term structure pick the side: back under 0.9 = calm resumes; "
+              "through 1.0 = stress rules apply.",
+              "Divergences across the vol complex (MOVE or OVX waking up first) usually resolve the direction."]
+
+    # --- vol complex table
+    vrows = []
+    for sym, name, meas in VOL_IDX:
+        s = hist[sym].dropna()
+        if len(s) < 60:
+            continue
+        d5 = float(s.iloc[-1] - s.iloc[-6])
+        p1y = pctile(s.iloc[-252:], float(s.iloc[-1]))
+        vrows.append((name, meas, float(s.iloc[-1]), d5, p1y))
+    vol_tbl = table(["Index", "Measures", "Level", "5d Δ", "1y pctile"],
+                    [(f"<b>{n}</b>", f'<span class="muted">{m}</span>', f"{l:,.2f}",
+                      f'<span style="color:{RED if d > 0 else GREEN}">{d:+.2f}</span>',
+                      f"{p:.0f}%") for n, m, l, d, p in vrows])
+
+    # --- VIX bucket forward returns since 1990
+    fwd = old["^GSPC"].shift(-21) / old["^GSPC"] - 1
+    buckets = [("VIX < 15", old["^VIX"] < 15), ("15–20", (old["^VIX"] >= 15) & (old["^VIX"] < 20)),
+               ("20–25", (old["^VIX"] >= 20) & (old["^VIX"] < 25)),
+               ("25–30", (old["^VIX"] >= 25) & (old["^VIX"] < 30)), ("VIX ≥ 30", old["^VIX"] >= 30)]
+    cur_b = 0 if lvl < 15 else 1 if lvl < 20 else 2 if lvl < 25 else 3 if lvl < 30 else 4
+    brows = []
+    for i, (bname, mask) in enumerate(buckets):
+        f = fwd[mask].dropna() * 100
+        now_tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a">now</span>' if i == cur_b else ""
+        brows.append((f"<b>{bname}</b>{now_tag}", cnum(f.mean(), 2), cnum(f.median(), 2),
+                      f"{(f > 0).mean() * 100:.0f}%", f"{len(f):,}"))
+    bucket_tbl = table(["VIX bucket", "Avg fwd 21d", "Median", "Win rate", "n"], brows)
+
+    # --- implied vs realized chart
+    rv_series = (px["SPY"].dropna().pct_change().rolling(21).std() * math.sqrt(252) * 100).iloc[-252:]
+    chart_ivrv = line_chart([vix.iloc[-252:].tolist(), rv_series.tolist()], [GOLD, GREEN])
+
     body = card(
-        f'<div style="font-size:19px;font-weight:700;color:{rc}">{regime}</div>' +
+        f'<div style="font-size:19px;font-weight:700;color:{rc}">{regime}</div>'
+        f'<div class="muted" style="margin-top:3px">VIX {lvl:.1f} ({p10y:.0f}th 10-year percentile) · '
+        f'9D/3M {ts:.2f} ({"inverted — stress" if ts >= 1 else "contango — normal"}) · '
+        f'SKEW {skew:.0f} · implied − realized {vrp:+.1f} pts</div>' +
         stat_grid([("VIX", f"{lvl:.1f}", col(lvl, lambda v: v < 18, lambda v: v > 25)),
-                   ("VIX 5y percentile", pct(p5y, 0), col(p5y, lambda v: v < 50, lambda v: v > 80)),
-                   ("VIX3M / VIX", f"{ratio:.2f}", col(ratio, lambda v: v > 1.05, lambda v: v < 1.0)),
-                   ("SPY realized vol (20d)", pct(rv20), MUT),
-                   ("Implied − realized", f"{vrp:+.1f} pts", col(vrp, lambda v: v > 0))]) +
-        f'<div class="muted" style="margin-top:10px">{note}</div>', "VOLATILITY REGIME")
-    body += card(line_chart([vix.iloc[-252:].tolist()], [BLUE],
-                            hlines=[(20, MUT, "20"), (30, RED, "30")]) +
-                 '<div class="legend">VIX, last 12 months. Spikes &gt;30 mark panic; sub-15 marks complacency. '
-                 'The term-structure ratio flags regime change earlier than the level itself.</div>')
+                   ("10y percentile", f"{p10y:.0f}th", col(p10y, lambda v: v < 60, lambda v: v > 85)),
+                   ("9D / 3M ratio", f"{ts:.2f}", col(ts, lambda v: v < 0.9, lambda v: v >= 1.0)),
+                   ("SKEW", f"{skew:.0f}", col(skew, lambda v: v < 140, lambda v: v > 155)),
+                   ("Realized 21d", pct(rv21), MUT),
+                   ("Vol premium", f"{vrp:+.1f} pts", col(vrp, lambda v: v > 0))]),
+        "VOLATILITY REGIME") + card(
+        "<ul class='pb'>" + "".join(f"<li>{p}</li>" for p in pb) + "</ul>", "PLAYBOOK FOR THIS REGIME")
+    body += "<h2>The vol complex</h2>" + card(
+        vol_tbl + '<div class="legend">Every liquid volatility index with its 5-session change and 1-year '
+        'percentile. Rising vol prints red because for these indices up usually means risk-off. The '
+        'cross-asset divergences carry the most information — Treasury vol (MOVE) waking up while VIX '
+        'sleeps has preceded equity stress repeatedly.</div>')
+    body += "<h2>Term structure</h2>" + card(
+        f'<div><b style="color:{RED if ts >= 1 else GREEN}">{("Inverted" if ts >= 1 else "Contango")}</b> — '
+        f'9-day vol at {v9d:.1f} vs 3-month at {v3m:.1f} (ratio {ts:.2f})</div>'
+        '<div class="muted" style="margin-top:6px">An upward-sloping curve is the normal state: near-term '
+        'calm priced below far-dated uncertainty. The inversion of this ratio through 1.0 is the single '
+        'cleanest "regime is breaking" signal in the vol space — it usually flips before price confirms.</div>')
+    body += "<h2>Implied vs realized</h2>" + card(
+        chart_ivrv +
+        f'<div class="legend"><span style="color:{GOLD}">▬</span> VIX (what options price) · '
+        f'<span style="color:{GREEN}">▬</span> 21-day realized vol (what the market delivered) · 12 months. '
+        'The gap is the variance risk premium — persistently positive because insurance costs money. '
+        'Extremes are the signal: a huge gap = fear is overpaid; realized ABOVE implied = the market is '
+        'under-hedged for what is already happening.</div>')
+    # --- dealer gamma (best effort)
+    try:
+        g = _spy_gex()
+        flip_txt = f"{g['flip']:,.0f}" if g["flip"] else "—"
+        em_txt = (f"±{g['exp_move']:.2f}% → {g['exp_date']}" if g["exp_move"] else "—")
+        body += "<h2>Dealer gamma (SPY)</h2>" + card(
+            stat_grid([("Net dealer gamma", f"${g['tot']:+.2f}bn / 1%",
+                        col(g["tot"], lambda v: v > 0)),
+                       ("Gamma flip", flip_txt, MUT),
+                       ("Spot", f"{g['spot']:,.1f}", MUT),
+                       ("Expected move", em_txt, MUT),
+                       ("Put/Call OI", f"{g['pc']:.2f}" if g["pc"] else "—", MUT)]) +
+            f'<div style="margin-top:8px">Call walls (pin/resistance): <b>{" · ".join(f"{k:,.0f}" for k in g["calls"])}</b>'
+            f' &nbsp;·&nbsp; Put walls (support→accelerant): <b>{" · ".join(f"{k:,.0f}" for k in g["puts"])}</b></div>'
+            '<div class="muted" style="margin-top:8px">Computed from the SPY option chain (Black-Scholes '
+            'gamma × open interest, calls positive / puts negative, expiries ≤ 90 days). Positive net gamma: '
+            'dealer hedging leans AGAINST price — moves get suppressed and pinned near the big strikes. '
+            'Negative: the same hedging chases price and moves accelerate; most trend days and crashes live '
+            'there. The flip strike is where the tape changes character.</div>')
+    except Exception:
+        body += "<h2>Dealer gamma (SPY)</h2>" + card(
+            '<span class="muted">Option-chain data unavailable this run — section skipped.</span>')
+    body += "<h2>What VIX levels have meant</h2>" + card(
+        bucket_tbl + '<div class="legend">S&P 500 forward 21-session returns grouped by the VIX level on '
+        'entry day, daily observations since 1990. The famous asymmetry: the highest-VIX bucket has the '
+        'BEST average forward return (panic gets bought) but also the widest spread of outcomes — the 2008 '
+        'tail lives inside it. Low VIX earns less, far more reliably.</div>')
     return dict(slug="volatility", title="Volatility Regime",
-                sub="What the options market charges for risk — level, term structure, and the premium over realized.",
-                body=body, stance=stance, headline=f"{regime} — VIX {lvl:.1f}, 3m/spot {ratio:.2f}")
+                sub="The price of risk read three ways: what options price, what the market delivers, and how dealers are positioned.",
+                body=body, stance=stance,
+                headline=f"{regime} — VIX {lvl:.1f} ({p10y:.0f}th pctile), 9D/3M {ts:.2f}")
 
 def m_relative_strength(px):
     rows = []
@@ -974,43 +1125,188 @@ def m_crypto(px):
                 body=body, stance=stance,
                 headline=f"BTC {'above' if b['a200'] else 'below'} its 200-day, ETH/BTC {sgn(r3m)} over 3m")
 
+COT_MKTS = [
+    ("E-MINI S&P 500", "S&P 500", "ES=F", "indices"),
+    ("NASDAQ MINI", "Nasdaq 100", "NQ=F", "indices"),
+    ("DJIA", "Dow", "YM=F", "indices"),
+    ("RUSSELL E-MINI", "Russell 2000", "RTY=F", "indices"),
+    ("VIX FUTURES", "VIX Futures", "^VIX", "other"),
+    ("EURO FX", "Euro FX", "EURUSD=X", "currencies"),
+    ("JAPANESE YEN", "Japanese Yen", "JPY=X", "currencies"),
+    ("BRITISH POUND", "British Pound", "GBPUSD=X", "currencies"),
+    ("CANADIAN DOLLAR", "Canadian Dollar", "CADUSD=X", "currencies"),
+    ("AUSTRALIAN DOLLAR", "Australian Dollar", "AUDUSD=X", "currencies"),
+    ("SWISS FRANC", "Swiss Franc", "CHFUSD=X", "currencies"),
+    ("MEXICAN PESO", "Mexican Peso", "MXNUSD=X", "currencies"),
+    ("DOLLAR INDEX", "Dollar Index", "DX-Y.NYB", "currencies"),
+    ("CRUDE OIL", "Crude Oil (WTI)", "CL=F", "energy"),
+    ("NATURAL GAS", "Natural Gas", "NG=F", "energy"),
+    ("GOLD", "Gold", "GC=F", "metals"),
+    ("SILVER", "Silver", "SI=F", "metals"),
+    ("PLATINUM", "Platinum", "PL=F", "metals"),
+    ("PALLADIUM", "Palladium", "PA=F", "metals"),
+    ("CORN", "Corn", "ZC=F", "grains"),
+    ("WHEAT-SRW", "Wheat", "ZW=F", "grains"),
+    ("SOYBEANS", "Soybeans", "ZS=F", "grains"),
+    ("SOYBEAN OIL", "Soybean Oil", "ZL=F", "grains"),
+    ("SOYBEAN MEAL", "Soybean Meal", "ZM=F", "grains"),
+    ("SUGAR NO. 11", "Sugar", "SB=F", "softs"),
+    ("COFFEE C", "Coffee", "KC=F", "softs"),
+    ("COCOA", "Cocoa", "CC=F", "softs"),
+    ("COTTON NO. 2", "Cotton", "CT=F", "softs"),
+    ("ORANGE JUICE", "Orange Juice", "OJ=F", "softs"),
+    ("LIVE CATTLE", "Live Cattle", "LE=F", "meats"),
+    ("FEEDER CATTLE", "Feeder Cattle", "GF=F", "meats"),
+    ("LEAN HOGS", "Lean Hogs", "HE=F", "meats"),
+    ("BITCOIN", "Bitcoin", "BTC-USD", "crypto"),
+    ("ETHER", "Ether", "ETH-USD", "crypto"),
+]
+
+def _cot_fetch(key):
+    q = ("https://publicreporting.cftc.gov/resource/6dca-aqww.json?"
+         f"$where=upper(market_and_exchange_names)%20like%20%27%25{urllib.request.quote(key)}%25%27"
+         "&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=600"
+         "&$select=market_and_exchange_names,report_date_as_yyyy_mm_dd,open_interest_all,"
+         "comm_positions_long_all,comm_positions_short_all,noncomm_positions_long_all,"
+         "noncomm_positions_short_all,nonrept_positions_long_all,nonrept_positions_short_all")
+    with urllib.request.urlopen(q, timeout=40) as r:
+        data = json.loads(r.read())
+    if not data:
+        return None
+    latest = data[0]["report_date_as_yyyy_mm_dd"]
+    fresh = [d for d in data if d["report_date_as_yyyy_mm_dd"] == latest]
+    name = max(fresh, key=lambda d: int(d["open_interest_all"]))["market_and_exchange_names"]
+    rows = [d for d in data if d["market_and_exchange_names"] == name][:27]
+    if len(rows) < 10:
+        return None
+    rows.reverse()  # chronological
+    def net(d, side):
+        return int(d[f"{side}_positions_long_all"]) - int(d[f"{side}_positions_short_all"])
+    comm = [net(d, "comm") for d in rows]
+    spec = [net(d, "noncomm") for d in rows]
+    small = [net(d, "nonrept") for d in rows]
+    oi = int(rows[-1]["open_interest_all"])
+    def idx(series):
+        w = series[-26:]
+        lo, hi = min(w), max(w)
+        return None if hi == lo else round((w[-1] - lo) / (hi - lo) * 100)
+    return dict(date=rows[-1]["report_date_as_yyyy_mm_dd"][:10], oi=oi,
+                cn=comm[-1], cw=comm[-1] - comm[-2],
+                cp=round(comm[-1] / oi * 100, 1) if oi else 0,
+                sn=spec[-1], sp=round(spec[-1] / oi * 100, 1) if oi else 0,
+                rn=small[-1], idx=idx(comm), sidx=idx(spec), spark=comm[-26:])
+
+COT_JS = r"""
+(function(){
+const R=__ROWS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+let cat='all',sortk='idx',sdesc=true;
+const wrap=document.getElementById('cotw');
+const CATS=['indices','currencies','energy','metals','grains','softs','meats','crypto','other'];
+function fmt(v){return (v>=0?'+':'−')+Math.abs(v).toLocaleString();}
+function spark(a){const w=78,h=20,lo=Math.min(...a),hi=Math.max(...a),rg=(hi-lo)||1;
+ const pts=a.map((v,i)=>((i/(a.length-1))*w).toFixed(1)+','+(h-2-(v-lo)/rg*(h-4)).toFixed(1)).join(' ');
+ const c=a[a.length-1]>=a[0]?GRN:RED;
+ return '<svg width="'+w+'" height="'+h+'"><polyline points="'+pts+'" fill="none" stroke="'+c+'" stroke-width="1.2"/></svg>';}
+function flagof(r){if(r.star)return '<span title="commercials and large specs at opposite extremes" style="color:'+GOLDC+'">★</span>';
+ if(r.ext)return '<span title="COT index at an extreme (≥80 or ≤20)" style="color:'+GOLDC+'">⚡</span>';return '<span class="muted">—</span>';}
+function render(){
+ let rows=R.filter(r=>cat==='all'||(cat==='ext'?r.ext:cat==='star'?r.star:r.cat===cat));
+ rows.sort((a,b)=>{let x=a[sortk],y=b[sortk];if(x==null)return 1;if(y==null)return -1;
+  if(typeof x==='string')return sdesc?y.localeCompare(x):x.localeCompare(y);return sdesc?y-x:x-y;});
+ const nc=k=>R.filter(r=>r.cat===k).length;
+ let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+
+  [['all','All ('+R.length+')'],...CATS.map(c=>[c,c[0].toUpperCase()+c.slice(1)+' ('+nc(c)+')']),
+   ['ext','⚡ Extremes ('+R.filter(r=>r.ext).length+')'],['star','★ Divergences ('+R.filter(r=>r.star).length+')']]
+  .map(([k,l])=>'<button data-c="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 10px;border-radius:14px;border:1px solid '+
+   (k===cat?GOLDC:'#232a3a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
+ h+='<div style="overflow-x:auto"><table><tr>'+
+  [['flag','Flag'],['n','Instrument'],['px','Price'],['ch','Δ 1w'],['oi','OI'],['cn','Comm net'],['cp','% of OI'],['cw','Δ WoW'],
+   ['sn','Specs net'],['sp','% of OI'],['rn','Small net'],['idx','COT idx'],['spark','26w trend']]
+  .map(([k,l])=>'<th style="cursor:pointer;white-space:nowrap" data-s="'+k+'">'+l+(k===sortk?(sdesc?' ↓':' ↑'):'')+'</th>').join('')+'</tr>';
+ rows.forEach(r=>{
+  h+='<tr><td>'+flagof(r)+'</td><td style="white-space:nowrap"><b>'+r.n+'</b> <span class="muted" style="font-size:10px">'+r.cat+'</span></td>'+
+   '<td>'+(r.px!=null?r.px.toLocaleString():'—')+'</td>'+
+   '<td style="color:'+(r.ch>=0?GRN:RED)+'">'+(r.ch!=null?(r.ch>=0?'+':'')+r.ch+'%':'—')+'</td>'+
+   '<td>'+r.oi.toLocaleString()+'</td>'+
+   '<td style="color:'+(r.cn>=0?GRN:RED)+'">'+fmt(r.cn)+'</td><td>'+r.cp+'%</td>'+
+   '<td style="color:'+(r.cw>=0?GRN:RED)+'">'+fmt(r.cw)+'</td>'+
+   '<td style="color:'+(r.sn>=0?GRN:RED)+'">'+fmt(r.sn)+'</td><td>'+r.sp+'%</td>'+
+   '<td style="color:'+(r.rn>=0?GRN:RED)+'">'+fmt(r.rn)+'</td>'+
+   '<td style="font-weight:600;color:'+(r.idx==null?MUT:(r.idx>=80||r.idx<=20?GOLDC:'#d6dae3'))+'">'+(r.idx==null?'—':r.idx)+'</td>'+
+   '<td>'+spark(r.spark)+'</td></tr>';});
+ h+='</table></div>';
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>{cat=b.dataset.c;render();});
+ wrap.querySelectorAll('th').forEach(t=>t.onclick=()=>{const k=t.dataset.s;
+  if(k==='spark'||k==='flag')return;if(k===sortk)sdesc=!sdesc;else{sortk=k;sdesc=true;}render();});
+}
+render();
+})();
+"""
+
 def m_cot():
-    MKTS = [("E-MINI S&P 500", "S&P 500 e-mini"), ("NASDAQ MINI", "Nasdaq mini"),
-            ("GOLD", "Gold"), ("WTI", "WTI crude"), ("EURO FX", "Euro FX"),
-            ("UST 10Y NOTE", "10y T-Note")]
-    rows = []
-    for key, label in MKTS:
-        try:
-            q = ("https://publicreporting.cftc.gov/resource/6dca-aqww.json?"
-                 f"$where=upper(market_and_exchange_names)%20like%20%27%25{urllib.request.quote(key)}%25%27"
-                 "&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=156")
-            with urllib.request.urlopen(q, timeout=30) as r:
-                data = json.loads(r.read())
-            if not data:
+    import concurrent.futures as cf
+    packs = {}
+    with cf.ThreadPoolExecutor(8) as ex:
+        futs = {ex.submit(_cot_fetch, key): key for key, *_ in COT_MKTS}
+        for f in cf.as_completed(futs):
+            try:
+                p = f.result()
+                if p:
+                    packs[futs[f]] = p
+            except Exception:
                 continue
-            name0 = data[0]["market_and_exchange_names"]
-            data = [d for d in data if d["market_and_exchange_names"] == name0]
-            nets = [int(d["noncomm_positions_long_all"]) - int(d["noncomm_positions_short_all"]) for d in data]
-            cur = nets[0]
-            p = float(pd.Series(nets[::-1]).rank(pct=True).iloc[-1] * 100)
-            rows.append((label, cur, p, data[0]["report_date_as_yyyy_mm_dd"][:10]))
-        except Exception:
+    if len(packs) < 10:
+        raise RuntimeError(f"CFTC API returned only {len(packs)} markets")
+    syms = sorted(set(y for k, n, y, c in COT_MKTS if k in packs))
+    try:
+        pxx = yf.download(syms, period="1mo", interval="1d",
+                          auto_adjust=True, progress=False)["Close"].ffill()
+    except Exception:
+        pxx = pd.DataFrame()
+    rows, missing = [], []
+    for key, name, ysym, catg in COT_MKTS:
+        if key not in packs:
+            missing.append(name)
             continue
-    if not rows:
-        raise RuntimeError("CFTC API unavailable")
-    body = card(table(["Market", "Large-spec net position", "3y percentile", "Report date"],
-                      [(f"<b>{l}</b>", f"{n:+,.0f}",
-                        f'<span style="color:{RED if p>90 or p<10 else "var(--tx)"}">{p:.0f}%</span>', d)
-                       for l, n, p, d in rows]), "NON-COMMERCIAL (SPECULATOR) POSITIONING") + card(
-        "Speculator positioning is a contrarian signal only at extremes: when large specs are at a 3-year "
-        "high in net length (&gt;90th percentile), the buying that drove the trend is already done — and vice "
-        "versa at the lows. Mid-range readings carry no signal. Commercials are the other side of this table "
-        "by construction. Data: CFTC legacy COT report, updated Fridays.", "HOW TO READ IT")
-    ext = [r for r in rows if r[2] > 90 or r[2] < 10]
+        p = packs[key]
+        px_last = chg = None
+        if ysym in getattr(pxx, "columns", []):
+            s = pxx[ysym].dropna()
+            if len(s) > 5:
+                px_last = round(float(s.iloc[-1]), 2 if s.iloc[-1] < 100 else 1)
+                chg = round(float((s.iloc[-1] / s.iloc[-6] - 1) * 100), 1)
+        ext = p["idx"] is not None and (p["idx"] >= 80 or p["idx"] <= 20)
+        star = (p["idx"] is not None and p["sidx"] is not None and
+                ((p["idx"] >= 80 and p["sidx"] <= 20) or (p["idx"] <= 20 and p["sidx"] >= 80)))
+        rows.append(dict(n=name, cat=catg, px=px_last, ch=chg, ext=ext, star=star, **{
+            k: p[k] for k in ("oi", "cn", "cp", "cw", "sn", "sp", "rn", "idx", "spark")}))
+    rep_date = max(p["date"] for p in packs.values())
+    payload = json.dumps(rows, separators=(",", ":"))
+    body = card(
+        f'<div class="muted" style="font-size:12px;margin-bottom:8px">Latest CFTC report: <b>{rep_date}</b> '
+        '— positions as of that Tuesday\'s close, published each Friday afternoon (US time). '
+        f'{len(rows)} markets loaded.'
+        + (f' <span style="color:{AMBER}">Unavailable this run: {", ".join(missing)}.</span>' if missing else "")
+        + '</div><div id="cotw">loading…</div>'
+        "<script>" + COT_JS.replace("__ROWS__", payload) + "</script>",
+        "POSITIONING BY TRADER CLASS · CLICK HEADERS TO SORT, PILLS TO FILTER") + card(
+        "<ul class='pb'>"
+        "<li><b>Commercials</b> — producers and hedgers offsetting real-world exposure. They fade trends "
+        "(sell strength, buy weakness) and tend to be early. Treat them as the informed side.</li>"
+        "<li><b>Large speculators</b> — funds and managed money, trend-followers. Their extremes mark "
+        "crowded trades where the fuel is already spent.</li>"
+        "<li><b>Small traders</b> — below reporting size; historically most wrong at turning points.</li>"
+        "<li><b>COT index</b> — where the commercials' net sits inside its 26-week range: ≥80 means they're "
+        "as long as they've been in six months (⚡ contrarian-bullish zone), ≤20 the opposite. The ★ flag "
+        "marks the strongest setup: commercials at one extreme while large specs sit at the other.</li>"
+        "<li><b>26w trend</b> — sparkline of the commercials' net position; the slope matters more than "
+        "the level.</li></ul>", "HOW TO READ IT")
+    ext_names = [r["n"] for r in rows if r["star"]][:4] or [r["n"] for r in rows if r["ext"]][:4]
     return dict(slug="cot", title="COT Positioning",
-                sub="What the big speculators hold in the futures market — crowding as a contrarian tell.",
+                sub="Weekly CFTC positioning across the major futures markets, split by trader class — the market's positioning X-ray.",
                 body=body, stance="info",
-                headline=("Extremes: " + ", ".join(r[0] for r in ext)) if ext else "No positioning extremes")
+                headline=("Setups: " + ", ".join(ext_names)) if ext_names else "No positioning extremes")
 
 def m_astrology():
     # moon phase from a known new-moon epoch; approximate but fine for display
