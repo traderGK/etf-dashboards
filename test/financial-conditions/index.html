@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Financial Conditions — TraderGK terminal test</title><style>
+:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
+        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+* { box-sizing:border-box; margin:0; }
+body { background:var(--bg); color:var(--tx);
+       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+a { color:inherit; text-decoration:none; }
+.layout { display:flex; min-height:100vh; }
+nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
+nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
+nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
+nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
+nav a:hover { color:var(--tx); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
+main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
+h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
+h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
+.slabel { font-size:11px; color:var(--muted); }
+.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+.muted { color:var(--muted); }
+ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
+.legend { font-size:11px; color:var(--muted); margin-top:6px; }
+.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+.ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
+.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
+             padding:6px 9px; width:110px; font-size:13px; }
+label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+  white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+</style></head>
+<body><div class="layout"><nav><div class="brand">TraderGK <small>research terminal · test</small></div><div class="g">Overview</div><a href="/test/">Overview</a><a href="/test/confluence/">Confluence</a><div class="g">Trend & structure</div><a href="/test/key-levels/">Key Levels</a><a href="/test/valuation/">Valuation</a><a href="/test/relative-strength/">Relative Strength</a><a href="/test/breadth/">Market Breadth</a><a href="/test/volatility/">Volatility Regime</a><a href="/test/correlation/">Correlation Matrix</a><div class="g">Cycles & positioning</div><a href="/test/momentum/">Momentum</a><a href="/test/cot/">COT Positioning</a><a href="/test/seasonality/">Seasonality</a><a href="/test/sentiment/">Sentiment</a><a href="/test/crypto/">Crypto</a><a href="/test/calendar/">Calendar Effects</a><div class="g">Macro</div><a href="/test/fed-path/">Fed Path</a><a href="/test/business-cycle/">Business Cycle</a><a href="/test/yield-curve/">Yield Curve</a><a href="/test/credit-spreads/">Credit Spreads</a><a href="/test/liquidity/">Global Liquidity</a><a href="/test/financial-conditions/" class="on">Financial Conditions</a><a href="/test/election-cycle/">Election Cycle</a><a href="/test/astrology/">Market Astrology</a><div class="g">Tools</div><a href="/test/screener/">Screener</a><a href="/test/calculators/">Calculators</a><a href="/test/glossary/">Glossary</a></nav><main>
+<h1>Financial Conditions <span class="tag">· internal test</span></h1>
+<div class="sub">One number for how easy money is across credit, leverage, and risk markets.<br>Snapshot generated <b>08 Jul 2026, 16:42 UTC</b> · free public data
+(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
+<div class="card"><div class="slabel">FINANCIAL CONDITIONS</div><div class="stats"><div><div class="slabel">Chicago Fed NFCI</div><div class="sval" style="color:#4caf7d">-0.52</div></div><div><div class="slabel">3-month direction</div><div class="sval" style="color:#4caf7d">easing</div></div></div><div class="muted" style="margin-top:10px">Negative NFCI = conditions looser than average (cheap money, easy credit, calm vol) — the environment where drawdowns stay shallow. Crossings above zero have coincided with every major risk-off episode. Watch the direction more than the level.</div></div><div class="card"><svg viewBox="0 0 820 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="752" height="142" fill="none" stroke="#2a3040"/><line x1="34" x2="786" y1="34.0" y2="34.0" stroke="#e05555" stroke-width="0.7" stroke-dasharray="4 4"/><text x="789" y="37.0" fill="#e05555" font-size="10">0</text><polyline points="34.0,176.0 36.9,174.7 39.8,173.4 42.7,172.6 45.6,172.0 48.5,171.5 51.4,171.7 54.3,172.0 57.2,172.4 60.1,172.8 63.0,173.0 65.9,173.2 68.8,172.8 71.7,171.5 74.6,169.4 77.6,166.4 80.5,162.6 83.4,158.5 86.3,154.7 89.2,151.3 92.1,149.0 95.0,148.5 97.9,149.2 100.8,150.7 103.7,152.4 106.6,153.6 109.5,153.6 112.4,152.2 115.3,149.2 118.2,145.1 121.1,139.8 124.0,133.6 126.9,127.5 129.8,121.7 132.7,117.2 135.6,114.7 138.5,113.6 141.4,113.0 144.3,112.3 147.2,111.1 150.1,108.7 153.0,105.5 155.9,101.9 158.8,97.9 161.8,93.8 164.7,89.1 167.6,84.2 170.5,79.1 173.4,74.0 176.3,70.6 179.2,69.3 182.1,70.2 185.0,73.0 187.9,77.0 190.8,80.8 193.7,83.6 196.6,85.1 199.5,84.7 202.4,81.9 205.3,77.6 208.2,72.1 211.1,66.4 214.0,60.8 216.9,56.8 219.8,55.3 222.7,55.5 225.6,57.6 228.5,60.8 231.4,64.7 234.3,68.1 237.2,70.8 240.1,72.5 243.1,73.6 246.0,74.2 248.9,75.7 251.8,77.9 254.7,81.7 257.6,86.4 260.5,91.5 263.4,96.0 266.3,99.6 269.2,101.1 272.1,100.2 275.0,97.0 277.9,91.7 280.8,85.1 283.7,78.3 286.6,71.5 289.5,67.6 292.4,66.8 295.3,67.4 298.2,69.8 301.1,72.5 304.0,74.9 306.9,76.8 309.8,78.3 312.7,79.1 315.6,79.8 318.5,80.0 321.4,80.2 324.3,80.6 327.3,81.5 330.2,82.8 333.1,84.7 336.0,87.4 338.9,90.4 341.8,93.8 344.7,97.4 347.6,100.8 350.5,103.4 353.4,105.3 356.3,106.4 359.2,106.4 362.1,105.3 365.0,103.4 367.9,100.8 370.8,98.5 373.7,96.6 376.6,95.3 379.5,95.1 382.4,96.2 385.3,97.9 388.2,100.2 391.1,102.6 394.0,104.7 396.9,106.6 399.8,108.5 402.7,110.4 405.6,112.1 408.5,114.0 411.5,115.8 414.4,117.2 417.3,118.5 420.2,120.0 423.1,121.5 426.0,123.2 428.9,124.9 431.8,126.2 434.7,127.0 437.6,127.2 440.5,127.0 443.4,126.0 446.3,124.7 449.2,123.6 452.1,122.4 455.0,121.9 457.9,121.9 460.8,121.9 463.7,122.1 466.6,121.9 469.5,121.1 472.4,119.8 475.3,118.3 478.2,116.6 481.1,115.1 484.0,113.8 486.9,112.8 489.8,111.7 492.7,110.9 495.7,110.6 498.6,110.9 501.5,112.8 504.4,114.9 507.3,117.5 510.2,119.8 513.1,121.9 516.0,123.6 518.9,125.1 521.8,126.0 524.7,126.8 527.6,127.7 530.5,128.7 533.4,130.0 536.3,131.7 539.2,133.4 542.1,134.5 545.0,135.1 547.9,135.6 550.8,136.0 553.7,136.2 556.6,137.0 559.5,138.1 562.4,139.4 565.3,140.4 568.2,141.5 571.1,142.1 574.0,141.9 576.9,140.9 579.9,139.0 582.8,136.2 585.7,132.6 588.6,128.5 591.5,124.7 594.4,121.3 597.3,118.1 600.2,115.8 603.1,115.8 606.0,117.2 608.9,120.2 611.8,123.8 614.7,127.7 617.6,130.7 620.5,133.2 623.4,135.3 626.3,136.8 629.2,138.1 632.1,139.6 635.0,140.9 637.9,142.4 640.8,143.4 643.7,144.3 646.6,144.9 649.5,145.1 652.4,145.8 655.3,146.0 658.2,146.2 661.2,146.2 664.1,146.2 667.0,146.0 669.9,145.8 672.8,145.6 675.7,145.1 678.6,144.5 681.5,143.9 684.4,143.0 687.3,142.4 690.2,141.9 693.1,141.7 696.0,142.1 698.9,142.8 701.8,143.9 704.7,145.6 707.6,148.1 710.5,150.5 713.4,152.8 716.3,154.3 719.2,154.7 722.1,153.9 725.0,152.2 727.9,149.4 730.8,145.8 733.7,141.7 736.6,137.7 739.5,134.3 742.4,132.1 745.4,131.3 748.3,132.4 751.2,134.3 754.1,136.6 757.0,138.7 759.9,140.2 762.8,140.9 765.7,140.9 768.6,140.2 771.5,139.8 774.4,139.4 777.3,139.4 780.2,140.2 783.1,141.5 786.0,143.6" fill="none" stroke="#5aa2d4" stroke-width="1.6"/></svg><div class="legend">Chicago Fed National Financial Conditions Index, weekly, ~5 years. Above 0 = tight.</div></div>
+<div class="foot">TraderGK research · unlinked test area · education only, not financial advice.
+Data may be delayed or approximate; nothing here is a recommendation.</div>
+</main></div></body></html>

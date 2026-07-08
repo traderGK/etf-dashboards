@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Global Liquidity — TraderGK terminal test</title><style>
+:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
+        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+* { box-sizing:border-box; margin:0; }
+body { background:var(--bg); color:var(--tx);
+       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+a { color:inherit; text-decoration:none; }
+.layout { display:flex; min-height:100vh; }
+nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
+nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
+nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
+nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
+nav a:hover { color:var(--tx); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
+main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
+h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
+h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
+.slabel { font-size:11px; color:var(--muted); }
+.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+.muted { color:var(--muted); }
+ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
+.legend { font-size:11px; color:var(--muted); margin-top:6px; }
+.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+.ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
+.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
+             padding:6px 9px; width:110px; font-size:13px; }
+label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+  white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+</style></head>
+<body><div class="layout"><nav><div class="brand">TraderGK <small>research terminal · test</small></div><div class="g">Overview</div><a href="/test/">Overview</a><a href="/test/confluence/">Confluence</a><div class="g">Trend & structure</div><a href="/test/key-levels/">Key Levels</a><a href="/test/valuation/">Valuation</a><a href="/test/relative-strength/">Relative Strength</a><a href="/test/breadth/">Market Breadth</a><a href="/test/volatility/">Volatility Regime</a><a href="/test/correlation/">Correlation Matrix</a><div class="g">Cycles & positioning</div><a href="/test/momentum/">Momentum</a><a href="/test/cot/">COT Positioning</a><a href="/test/seasonality/">Seasonality</a><a href="/test/sentiment/">Sentiment</a><a href="/test/crypto/">Crypto</a><a href="/test/calendar/">Calendar Effects</a><div class="g">Macro</div><a href="/test/fed-path/">Fed Path</a><a href="/test/business-cycle/">Business Cycle</a><a href="/test/yield-curve/">Yield Curve</a><a href="/test/credit-spreads/">Credit Spreads</a><a href="/test/liquidity/" class="on">Global Liquidity</a><a href="/test/financial-conditions/">Financial Conditions</a><a href="/test/election-cycle/">Election Cycle</a><a href="/test/astrology/">Market Astrology</a><div class="g">Tools</div><a href="/test/screener/">Screener</a><a href="/test/calculators/">Calculators</a><a href="/test/glossary/">Glossary</a></nav><main>
+<h1>Global Liquidity <span class="tag">· internal test</span></h1>
+<div class="sub">The money actually available to markets — the tide that lifts or strands all boats.<br>Snapshot generated <b>08 Jul 2026, 16:42 UTC</b> · free public data
+(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
+<div class="card"><div class="slabel">US NET LIQUIDITY</div><div class="stats"><div><div class="slabel">Fed balance sheet</div><div class="sval" style="color:#8891a5">$6.72T</div></div><div><div class="slabel">Reverse repo (drain)</div><div class="sval" style="color:#8891a5">$4B</div></div><div><div class="slabel">Treasury account (drain)</div><div class="sval" style="color:#8891a5">$880B</div></div><div><div class="slabel">Net liquidity</div><div class="sval" style="color:#8891a5">$5.84T</div></div><div><div class="slabel">3-month change</div><div class="sval" style="color:#e05555">$-103B</div></div></div><div class="muted" style="margin-top:10px">Net liquidity = Fed balance sheet − reverse repo − Treasury general account: the dollars actually available to the financial system. Risk assets have tracked its direction closely since 2020 — expanding liquidity is a tailwind for everything with duration, led by tech and crypto.</div></div><div class="card"><svg viewBox="0 0 820 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="752" height="142" fill="none" stroke="#2a3040"/><polyline points="34.0,95.6 38.9,107.6 43.7,108.1 48.6,120.9 53.4,104.5 58.3,121.8 63.1,96.3 68.0,89.6 72.8,84.7 77.7,72.4 82.5,110.4 87.4,143.8 92.2,102.1 97.1,87.1 101.9,96.9 106.8,106.0 111.6,107.2 116.5,93.3 121.3,78.5 126.2,61.5 131.0,52.9 135.9,62.4 140.7,34.0 145.6,64.8 150.4,109.3 155.3,63.4 160.1,44.7 165.0,51.0 169.8,49.7 174.7,55.2 179.5,57.9 184.4,57.2 189.3,55.1 194.1,43.9 199.0,46.4 203.8,40.6 208.7,63.7 213.5,87.6 218.4,62.6 223.2,46.5 228.1,66.2 232.9,103.5 237.8,103.7 242.6,100.2 247.5,91.1 252.3,78.1 257.2,78.6 262.0,76.9 266.9,68.5 271.7,84.1 276.6,137.3 281.4,90.8 286.3,88.8 291.1,89.5 296.0,94.2 300.8,93.6 305.7,86.9 310.5,93.6 315.4,87.2 320.2,112.5 325.1,89.1 329.9,90.0 334.8,103.1 339.7,131.1 344.5,116.9 349.4,117.9 354.2,105.0 359.1,107.6 363.9,98.9 368.8,104.8 373.6,109.3 378.5,108.5 383.3,114.6 388.2,106.9 393.0,105.2 397.9,98.9 402.7,128.4 407.6,121.0 412.4,99.0 417.3,90.0 422.1,94.3 427.0,129.5 431.8,118.4 436.7,115.5 441.5,116.1 446.4,128.7 451.2,90.4 456.1,82.0 460.9,82.2 465.8,86.7 470.6,63.8 475.5,47.0 480.3,60.4 485.2,98.3 490.1,108.8 494.9,105.5 499.8,102.7 504.6,97.5 509.5,121.8 514.3,77.8 519.2,72.5 524.0,67.4 528.9,100.8 533.7,88.1 538.6,75.1 543.4,74.5 548.3,71.0 553.1,72.6 558.0,78.7 562.8,84.6 567.7,92.0 572.5,114.0 577.4,105.7 582.2,117.3 587.1,130.4 591.9,145.2 596.8,145.0 601.6,141.0 606.5,140.4 611.3,158.4 616.2,176.0 621.0,167.4 625.9,167.7 630.7,170.2 635.6,164.9 640.5,172.6 645.3,158.3 650.2,151.2 655.0,150.6 659.9,137.9 664.7,141.9 669.6,137.2 674.4,152.3 679.3,162.6 684.1,155.8 689.0,153.6 693.8,154.7 698.7,153.1 703.5,138.3 708.4,136.1 713.2,137.1 718.1,140.6 722.9,132.7 727.8,112.4 732.6,110.8 737.5,154.5 742.3,151.7 747.2,132.1 752.0,122.0 756.9,114.7 761.7,126.7 766.6,131.4 771.4,120.7 776.3,127.9 781.1,135.6 786.0,130.2" fill="none" stroke="#d4af5a" stroke-width="1.6"/></svg><div class="legend">Net liquidity in $T, weekly, last ~3 years (FRED WALCL − RRPONTSYD − WTREGEN).</div></div>
+<div class="foot">TraderGK research · unlinked test area · education only, not financial advice.
+Data may be delayed or approximate; nothing here is a recommendation.</div>
+</main></div></body></html>

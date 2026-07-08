@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Volatility Regime — TraderGK terminal test</title><style>
+:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
+        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+* { box-sizing:border-box; margin:0; }
+body { background:var(--bg); color:var(--tx);
+       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+a { color:inherit; text-decoration:none; }
+.layout { display:flex; min-height:100vh; }
+nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
+nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
+nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
+nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
+nav a:hover { color:var(--tx); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
+main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
+h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
+h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
+.slabel { font-size:11px; color:var(--muted); }
+.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+.muted { color:var(--muted); }
+ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
+.legend { font-size:11px; color:var(--muted); margin-top:6px; }
+.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+.ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
+.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
+             padding:6px 9px; width:110px; font-size:13px; }
+label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+  white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+</style></head>
+<body><div class="layout"><nav><div class="brand">TraderGK <small>research terminal · test</small></div><div class="g">Overview</div><a href="/test/">Overview</a><a href="/test/confluence/">Confluence</a><div class="g">Trend & structure</div><a href="/test/key-levels/">Key Levels</a><a href="/test/valuation/">Valuation</a><a href="/test/relative-strength/">Relative Strength</a><a href="/test/breadth/">Market Breadth</a><a href="/test/volatility/" class="on">Volatility Regime</a><a href="/test/correlation/">Correlation Matrix</a><div class="g">Cycles & positioning</div><a href="/test/momentum/">Momentum</a><a href="/test/cot/">COT Positioning</a><a href="/test/seasonality/">Seasonality</a><a href="/test/sentiment/">Sentiment</a><a href="/test/crypto/">Crypto</a><a href="/test/calendar/">Calendar Effects</a><div class="g">Macro</div><a href="/test/fed-path/">Fed Path</a><a href="/test/business-cycle/">Business Cycle</a><a href="/test/yield-curve/">Yield Curve</a><a href="/test/credit-spreads/">Credit Spreads</a><a href="/test/liquidity/">Global Liquidity</a><a href="/test/financial-conditions/">Financial Conditions</a><a href="/test/election-cycle/">Election Cycle</a><a href="/test/astrology/">Market Astrology</a><div class="g">Tools</div><a href="/test/screener/">Screener</a><a href="/test/calculators/">Calculators</a><a href="/test/glossary/">Glossary</a></nav><main>
+<h1>Volatility Regime <span class="tag">· internal test</span></h1>
+<div class="sub">What the options market charges for risk — level, term structure, and the premium over realized.<br>Snapshot generated <b>08 Jul 2026, 16:42 UTC</b> · free public data
+(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
+<div class="card"><div class="slabel">VOLATILITY REGIME</div><div style="font-size:19px;font-weight:700;color:#e0a94c">Transitional</div><div class="stats"><div><div class="slabel">VIX</div><div class="sval" style="color:#4caf7d">17.5</div></div><div><div class="slabel">VIX 5y percentile</div><div class="sval" style="color:#4caf7d">48%</div></div><div><div class="slabel">VIX3M / VIX</div><div class="sval" style="color:#4caf7d">1.13</div></div><div><div class="slabel">SPY realized vol (20d)</div><div class="sval" style="color:#8891a5">9.9%</div></div><div><div class="slabel">Implied − realized</div><div class="sval" style="color:#4caf7d">+7.7 pts</div></div></div><div class="muted" style="margin-top:10px">Vol is neither cheap-and-steep nor inverted — an in-between tape. The ratio direction is the tell: flattening toward 1.0 = de-risk; re-steepening = all-clear.</div></div><div class="card"><svg viewBox="0 0 820 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block"><rect x="34" y="34" width="752" height="142" fill="none" stroke="#2a3040"/><line x1="34" x2="786" y1="123.3" y2="123.3" stroke="#8891a5" stroke-width="0.7" stroke-dasharray="4 4"/><text x="789" y="126.3" fill="#8891a5" font-size="10">20</text><line x1="34" x2="786" y1="42.5" y2="42.5" stroke="#e05555" stroke-width="0.7" stroke-dasharray="4 4"/><text x="789" y="45.5" fill="#e05555" font-size="10">30</text><polyline points="34.0,148.2 37.0,143.9 40.0,143.9 43.0,143.9 46.0,146.1 49.0,131.3 52.0,139.3 55.0,127.3 58.0,130.7 61.0,130.7 64.0,130.7 67.0,142.6 70.0,145.2 72.9,143.4 75.9,123.3 78.9,124.6 81.9,124.6 84.9,124.6 87.9,104.0 90.9,85.4 93.9,93.7 96.9,71.4 99.9,95.5 102.9,95.5 105.9,95.5 108.9,119.1 111.9,134.9 114.9,146.0 117.9,146.0 120.9,152.7 123.9,152.7 126.9,152.7 129.9,145.5 132.9,150.8 135.9,154.9 138.9,157.3 141.9,160.3 144.9,160.3 147.8,160.3 150.8,150.2 153.8,148.1 156.8,157.4 159.8,164.9 162.8,157.7 165.8,157.7 168.8,157.7 171.8,151.5 174.8,151.7 177.8,142.5 180.8,148.5 183.8,164.4 186.8,164.4 189.8,164.4 192.8,171.1 195.8,171.7 198.8,176.0 201.8,176.0 204.8,174.9 207.8,174.9 210.8,174.9 213.8,170.1 216.8,169.1 219.8,164.0 222.7,164.0 225.7,167.6 228.7,167.6 231.7,167.6 234.7,164.4 237.7,165.7 240.7,160.6 243.7,160.0 246.7,167.8 249.7,167.8 252.7,167.8 255.7,162.7 258.7,155.7 261.7,149.5 264.7,156.9 267.7,156.7 270.7,156.7 273.7,156.7 276.7,156.7 279.7,122.5 282.7,148.3 285.7,158.5 288.7,154.8 291.7,154.8 294.7,154.8 297.6,154.4 300.6,152.7 303.6,152.7 306.6,148.5 309.6,143.9 312.6,143.9 315.6,143.9 318.6,152.8 321.6,139.4 324.6,134.2 327.6,109.0 330.6,120.3 333.6,120.3 336.6,120.3 339.6,144.6 342.6,141.1 345.6,142.2 348.6,116.6 351.6,118.4 354.6,118.4 357.6,118.4 360.6,118.4 363.6,120.9 366.6,126.3 369.6,121.4 372.5,130.6 375.5,130.6 378.5,130.6 381.5,115.1 384.5,126.9 387.5,140.0 390.5,134.3 393.5,124.4 396.5,124.4 399.5,124.4 402.5,111.6 405.5,94.4 408.5,114.0 411.5,93.0 414.5,46.6 417.5,46.6 420.5,46.6 423.5,78.8 426.5,83.4 429.5,89.1 432.5,64.4 435.5,65.2 438.5,65.2 441.5,65.2 444.5,94.9 447.5,104.1 450.4,82.1 453.4,90.5 456.4,68.5 459.4,68.5 462.4,68.5 465.4,73.6 468.4,67.1 471.4,80.2 474.4,63.2 477.4,34.0 480.4,34.0 483.4,34.0 486.4,37.6 489.4,80.8 492.4,86.6 495.4,92.0 498.4,92.0 501.4,92.0 504.4,92.0 507.4,89.6 510.4,76.6 513.4,114.9 516.4,127.4 519.4,129.5 522.4,129.5 525.3,129.5 528.3,130.4 531.3,136.5 534.3,138.0 537.3,139.9 540.3,143.6 543.3,143.6 546.3,143.6 549.3,132.4 552.3,127.3 555.3,132.0 558.3,128.8 561.3,133.7 564.3,133.7 567.3,133.7 570.3,139.2 573.3,140.8 576.3,132.9 579.3,148.4 582.3,147.6 585.3,147.6 588.3,147.6 591.3,137.1 594.3,144.4 597.3,144.3 600.2,146.8 603.2,146.0 606.2,146.0 609.2,146.0 612.2,136.3 615.2,139.5 618.2,140.5 621.2,145.4 624.2,135.9 627.2,135.9 630.2,135.9 633.2,140.9 636.2,138.9 639.2,143.9 642.2,149.4 645.2,149.9 648.2,149.9 651.2,149.9 654.2,150.8 657.2,147.4 660.2,153.2 663.2,157.7 666.2,161.1 669.2,161.1 672.2,161.1 675.1,155.2 678.1,157.4 681.1,155.1 684.1,160.4 687.1,111.1 690.1,111.1 693.1,111.1 696.1,132.0 699.1,124.3 702.1,105.3 705.1,127.8 708.1,142.0 711.1,142.0 714.1,142.0 717.1,153.9 720.1,152.3 723.1,135.9 726.1,152.3 729.1,152.3 732.1,152.3 735.1,152.3 738.1,145.2 741.1,127.4 744.1,134.3 747.1,132.2 750.0,136.1 753.0,136.1 756.0,136.1 759.0,142.2 762.0,151.9 765.0,150.8 768.0,154.4 771.0,154.4 774.0,154.4 777.0,154.4 780.0,159.0 783.0,154.5 786.0,143.0" fill="none" stroke="#5aa2d4" stroke-width="1.6"/></svg><div class="legend">VIX, last 12 months. Spikes &gt;30 mark panic; sub-15 marks complacency. The term-structure ratio flags regime change earlier than the level itself.</div></div>
+<div class="foot">TraderGK research · unlinked test area · education only, not financial advice.
+Data may be delayed or approximate; nothing here is a recommendation.</div>
+</main></div></body></html>
