@@ -1090,15 +1090,24 @@ def m_key_levels(px):
                 body=body, stance="info",
                 headline=f"SPY {spy.iloc[-1]:,.0f} — ladder built from volume, VWAPs, swings, MAs and options")
 
-def _multpl(page, fallback=None):
+def _multpl(page, fallback=None, lo=3.0, hi=100.0):
+    """Scrape a single ratio from multpl.com.
+
+    The page reads 'Current S&P 500 PE Ratio is 32.28' — a naive "first number
+    after Current" grabs the 500 out of 'S&P 500'. Anchor on the literal
+    ' is <number>' instead, then bounds-check: a P/E of 500 silently wrecks
+    every earnings-based fair-value model downstream.
+    """
     try:
         req = urllib.request.Request(f"https://www.multpl.com/{page}",
                                      headers={"User-Agent": "Mozilla/5.0"})
         import re as _re
         html = urllib.request.urlopen(req, timeout=20).read().decode()
-        m = _re.search(r"Current[^:]*:\s*<b>?\s*([\d.]+)", html) or \
-            _re.search(r'id="current"[^>]*>[^0-9]*([\d.]+)', html)
-        return float(m.group(1)) if m else fallback
+        m = _re.search(r"Current\s+[^<>\"]{0,70}?\bis\s+(\d+\.?\d*)", html)
+        if not m:
+            return fallback
+        v = float(m.group(1))
+        return v if lo <= v <= hi else fallback
     except Exception:
         return fallback
 
