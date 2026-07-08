@@ -2,62 +2,119 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Financial Conditions — TraderGK terminal</title><style>
-:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
-        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+<title>Financial Conditions — TraderGK terminal</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><style>
+:root { --background:#0b0b0b; --surface:#141414; --surface-raised:#1c1c1c; --border:#2a2a2a;
+        --text-primary:#ffffff; --text-secondary:#a0a0a0; --text-muted:#606060;
+        --gold:#d4af37; --gold-dim:#8b7020; --positive:#4caf7d; --negative:#e05555;
+        --neutral:#a0a0a0;
+        --font-sans:'Inter',system-ui,-apple-system,sans-serif;
+        --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
+        /* legacy aliases used inline */
+        --bg:var(--background); --card:var(--surface); --line:var(--border);
+        --tx:var(--text-secondary); --muted:var(--text-muted);
+        --green:var(--positive); --red:var(--negative); }
 * { box-sizing:border-box; margin:0; }
-body { background:var(--bg); color:var(--tx);
-       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+body { background:var(--background); color:var(--text-secondary);
+       font:14px/1.6 var(--font-sans); -webkit-font-smoothing:antialiased; }
 a { color:inherit; text-decoration:none; }
+b, strong { color:var(--text-primary); font-weight:600; }
 .layout { display:flex; min-height:100vh; }
-nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
-nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
-nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
-nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
-nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
-nav a:hover { color:var(--tx); }
-nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
-main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
-h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
-h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
-.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
-.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
-.slabel { font-size:11px; color:var(--muted); }
-.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+nav { width:216px; flex:none; border-right:1px solid var(--border); padding:22px 0 40px; }
+nav .brand { padding:0 16px 16px; font-weight:700; color:var(--text-primary); letter-spacing:-.02em; font-size:15px; }
+nav .brand small { display:block; color:var(--text-muted); font-weight:400; font-size:9.5px;
+                   letter-spacing:.18em; text-transform:uppercase; margin-top:3px; }
+nav .g { padding:16px 16px 5px; font-size:9.5px; text-transform:uppercase; letter-spacing:.4em;
+         color:var(--text-muted); font-weight:500; }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--text-secondary);
+        border-left:2px solid transparent; transition:color .12s; }
+nav a:hover { color:var(--text-primary); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,55,.06); }
+main { flex:1; min-width:0; padding:28px 28px 72px; max-width:980px; }
+h1 { font-size:2.25rem; color:var(--text-primary); font-weight:700; letter-spacing:-.035em; line-height:1.15; }
+h1 .tag { font-size:12px; color:var(--text-muted); font-weight:400; letter-spacing:0; }
+h2 { font-size:10.5px; margin:32px 0 4px; color:var(--text-muted); text-transform:uppercase;
+     letter-spacing:.22em; font-weight:600; }
+.sub { color:var(--text-secondary); font-size:13px; margin:8px 0 6px; max-width:70ch; }
+.stamp { display:inline-flex; align-items:center; gap:8px; margin:12px 0 4px; padding:5px 12px;
+         border:1px solid var(--border); border-radius:9999px; background:var(--surface);
+         font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); letter-spacing:.02em; }
+.stamp .dot { width:6px; height:6px; border-radius:9999px; background:var(--positive);
+              box-shadow:0 0 6px var(--positive); }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+        padding:16px 18px; margin-top:10px; }
+.card:hover { background:var(--surface-raised); }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin-top:12px; }
+.slabel { font-size:9.5px; color:var(--text-muted); text-transform:uppercase;
+          letter-spacing:.16em; font-weight:500; }
+.sval { font-size:1.5rem; font-weight:600; color:var(--text-primary);
+        font-family:var(--font-mono); font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
 table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
-th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
-.muted { color:var(--muted); }
-ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
-.legend { font-size:11px; color:var(--muted); margin-top:6px; }
-.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); font-size:12.5px; }
+td { font-family:var(--font-mono); color:var(--text-secondary); }
+td b, td strong { font-family:var(--font-sans); }
+th { color:var(--text-muted); font-weight:500; font-size:9.5px; text-transform:uppercase;
+     letter-spacing:.14em; font-family:var(--font-sans); }
+.muted { color:var(--text-muted); }
+ul.pb { margin:8px 0 0 0; padding:0; list-style:none; }
+ul.pb li { margin:7px 0; padding-left:18px; position:relative; }
+ul.pb li:before { content:"\25B8"; position:absolute; left:0; color:var(--gold); }
+.legend { font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.55; }
+.pill { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:10.5px;
+        font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
 .ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
 .ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
-.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
-input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
-             padding:6px 9px; width:110px; font-size:13px; }
-label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
-@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+.foot { margin-top:48px; font-size:10.5px; color:var(--text-muted); border-top:1px solid var(--border);
+        padding-top:16px; line-height:1.6; }
+input.calc, select { background:var(--background); border:1px solid var(--border); border-radius:4px;
+             color:var(--text-primary); padding:7px 9px; width:110px; font-size:13px;
+             font-family:var(--font-mono); }
+input.calc:focus, select:focus { outline:none; border-color:var(--gold-dim); }
+label.cl { display:inline-block; font-size:9.5px; color:var(--text-muted); margin:6px 14px 2px 0;
+           text-transform:uppercase; letter-spacing:.14em; }
+button { font-family:var(--font-sans); }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--border);
   white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
-  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px}
+  main{padding:20px 16px 60px} h1{font-size:1.875rem} }
 </style></head>
 <body><div class="layout"><nav><div class="brand">TraderGK <small>research terminal</small></div><div class="g">Overview</div><a href="/terminal/">Overview</a><a href="/terminal/confluence/">Confluence</a><div class="g">Trend & structure</div><a href="/terminal/key-levels/">Key Levels</a><a href="/terminal/valuation/">Valuation</a><a href="/terminal/relative-strength/">Relative Strength</a><a href="/terminal/breadth/">Market Breadth</a><a href="/terminal/volatility/">Volatility Regime</a><a href="/terminal/correlation/">Correlation Matrix</a><div class="g">Cycles & positioning</div><a href="/terminal/momentum/">Momentum</a><a href="/terminal/cot/">COT Positioning</a><a href="/terminal/seasonality/">Seasonality</a><a href="/terminal/sentiment/">Sentiment</a><a href="/terminal/crypto/">Crypto</a><a href="/terminal/calendar/">Calendar Effects</a><div class="g">Macro</div><a href="/terminal/fed-path/">Fed Path</a><a href="/terminal/business-cycle/">Business Cycle</a><a href="/terminal/yield-curve/">Yield Curve</a><a href="/terminal/credit-spreads/">Credit Spreads</a><a href="/terminal/liquidity/">Global Liquidity</a><a href="/terminal/financial-conditions/" class="on">Financial Conditions</a><a href="/terminal/election-cycle/">Election Cycle</a><a href="/terminal/astrology/">Market Astrology</a><div class="g">Tools</div><a href="/terminal/screener/">Screener</a><a href="/terminal/calculators/">Calculators</a><a href="/terminal/glossary/">Glossary</a></nav><main>
+<div class="muted" style="font-size:11px;letter-spacing:.06em">TraderGK <span style="color:var(--gold)">›</span> Financial Conditions</div>
 <h1>Financial Conditions <span class="tag">· private</span></h1>
-<div class="sub">A live daily conditions composite with its drivers, the three official Fed indices, and measured cross-asset betas.<br>Snapshot generated <b>08 Jul 2026, 19:31 UTC</b> · free public data
-(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
-<div class="card"><div class="slabel">LIVE DAILY COMPOSITE · σ vs 3-YEAR AVERAGE</div><div style="font-size:30px;font-weight:700;color:#e0a94c">-0.37<span style="font-size:15px">σ</span></div><div><b style="color:#e0a94c">Neutral</b> → loosening</div><div class="muted" style="margin-top:6px">Conditions are neutral (-0.37σ versus the 3-year average) and loosening (-0.36σ over the last month). A loosening impulse is the classic risk-asset tailwind — the cross-asset table shows who historically benefits most.</div></div><h2>The official indices</h2><div class="card"><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>Chicago Fed NFCI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>-0.515</b></div><div class="muted" style="font-size:11px">36th percentile of its history · loosening (-0.044 / 3m) · weekly · broadest (100+ inputs)</div></div><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>St. Louis Fed FSI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>-0.725</b></div><div class="muted" style="font-size:11px">13th percentile of its history · loosening (-0.082 / 3m) · weekly · financial stress</div></div><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>Kansas City Fed FSI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>-0.763</b></div><div class="muted" style="font-size:11px">8th percentile of its history · loosening (-0.146 / 3m) · monthly · financial stress</div></div></div><h2>What's driving conditions</h2><div class="card"><table><tr><th>Input</th><th>Now</th><th>z-score</th><th>1m ago</th><th>Push</th></tr><tr><td><b>Real 10y yield</b><div class='muted' style='font-size:11px'>TIPS — the true cost of money</div></td><td>2.24%</td><td><span style="color:#e05555">+1.46</span></td><td>+1.31</td><td><span style="color:#e05555">↑ +0.02</span></td></tr>
-<tr><td><b>Broad dollar</b><div class='muted' style='font-size:11px'>global funding pressure</div></td><td>120.69idx</td><td><span style="color:#4caf7d">-0.48</span></td><td>-0.73</td><td><span style="color:#e05555">↑ +0.04</span></td></tr>
-<tr><td><b>Equity vol (VIX)</b><div class='muted' style='font-size:11px'>risk-appetite thermometer</div></td><td>16.85</td><td><span style="color:#4caf7d">-0.11</span></td><td>+0.58</td><td><span style="color:#4caf7d">↓ -0.10</span></td></tr>
-<tr><td><b>Bond vol (MOVE)</b><div class='muted' style='font-size:11px'>rates-market stress</div></td><td>65.40</td><td><span style="color:#4caf7d">-1.53</span></td><td>-0.99</td><td><span style="color:#4caf7d">↓ -0.08</span></td></tr>
-<tr><td><b>HY credit spread</b><div class='muted' style='font-size:11px'>the price of default risk</div></td><td>2.67%</td><td><span style="color:#4caf7d">-1.15</span></td><td>-0.94</td><td><span style="color:#4caf7d">↓ -0.03</span></td></tr>
-<tr><td><b>30y mortgage rate</b><div class='muted' style='font-size:11px'>household credit cost</div></td><td>6.43%</td><td><span style="color:#4caf7d">-0.63</span></td><td>-0.53</td><td><span style="color:#4caf7d">↓ -0.01</span></td></tr>
-<tr><td><b>S&P drawdown</b><div class='muted' style='font-size:11px'>wealth-effect channel (deeper = tighter)</div></td><td>-1.75%</td><td><span style="color:#4caf7d">-0.14</span></td><td>+0.26</td><td><span style="color:#4caf7d">↓ -0.06</span></td></tr></table><div class="legend">z-scores versus each input's trailing 3 years; red = tightening pressure. "Push" is how much each input moved the composite over the last month — the red rows are WHERE the tightening is coming from, and rates, the dollar, vol, credit and housing each transmit to different assets.</div></div><h2>Cross-asset response · current 4-week impulse -0.36σ</h2><div class="card"><table><tr><th>Asset</th><th>β per +0.1σ tightening</th><th>R²</th><th>Implied lean now</th><th>Signal</th></tr><tr><td><b>S&P 500</b></td><td>-0.47%/wk</td><td><span style="color:#4caf7d">0.75</span></td><td><b style="color:#e05555">-1.7%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
-<tr><td><b>NASDAQ 100</b></td><td>-0.59%/wk</td><td><span style="color:#4caf7d">0.67</span></td><td><b style="color:#e05555">-2.1%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
-<tr><td><b>Small caps</b></td><td>-0.57%/wk</td><td><span style="color:#4caf7d">0.63</span></td><td><b style="color:#e05555">-2.0%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
-<tr><td><b>Gold</b></td><td>-0.15%/wk</td><td><span style="color:#8891a5">0.05</span></td><td><b style="color:#e05555">-0.5%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
-<tr><td><b>Bitcoin</b></td><td>-0.50%/wk</td><td><span style="color:#8891a5">0.11</span></td><td><b style="color:#e05555">-1.8%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
-<tr><td><b>Long bonds</b></td><td>-0.01%/wk</td><td><span style="color:#8891a5">0.00</span></td><td><b style="color:#e05555">-0.1%</b></td><td><span style="color:#8891a5">neutral</span></td></tr></table><div class="legend">β is each asset's measured weekly response to a 0.1σ TIGHTENING of the live composite (OLS on weekly changes, trailing 2 years). "Implied lean" applies the current impulse to that β. Low R² = a loose relationship; treat it as a lean, not a forecast.</div></div><div class="card"><div class="slabel">WHY BOTH A LIVE COMPOSITE AND THE OFFICIAL ONES</div>Financial conditions are the transmission channel between the Fed and everything you trade. The three official indices are authoritative but lag — weekly or monthly, published with a delay. So this page also builds a daily composite from the live inputs that actually move: the real cost of money (TIPS), the dollar (global funding), equity and bond vol, the price of default risk, mortgage rates, and the wealth-effect channel. Watch the DIRECTION more than the level: the impulse is what assets respond to.</div>
+<div class="sub">A live daily conditions composite with its drivers, the three official Fed indices, and measured cross-asset betas.</div>
+<div class="stamp"><span class="dot"></span>LIVE DATA · 08 JUL 2026, 20:30 UTC · YAHOO FINANCE · FRED · CFTC · HOURLY REBUILD</div>
+<div class="card"><div class="slabel">LIVE DAILY COMPOSITE · σ vs 3-YEAR AVERAGE</div><div style="font-size:30px;font-weight:700;color:#e0a94c">−0.29<span style="font-size:15px">σ</span></div><div><b style="color:#e0a94c">Neutral</b> → loosening</div><div class="muted" style="margin-top:6px">Conditions are neutral (−0.29σ versus the 3-year average) and loosening (−0.28σ over the last month). A loosening impulse is the classic risk-asset tailwind — the cross-asset table shows who historically benefits most.</div></div><h2>The official indices</h2><div class="card"><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>Chicago Fed NFCI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>−0.515</b></div><div class="muted" style="font-size:11px">36th percentile of its history · loosening (−0.044 / 3m) · weekly · broadest (100+ inputs)</div></div><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>St. Louis Fed FSI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>−0.725</b></div><div class="muted" style="font-size:11px">13th percentile of its history · loosening (−0.082 / 3m) · weekly · financial stress</div></div><div style="padding:7px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><span><b>Kansas City Fed FSI</b> <span class="pill" style="background:#4caf7d22;color:#4caf7d;font-size:10px">Loose</span></span><b>−0.763</b></div><div class="muted" style="font-size:11px">8th percentile of its history · loosening (−0.146 / 3m) · monthly · financial stress</div></div></div><h2>What's driving conditions</h2><div class="card"><table><tr><th>Input</th><th>Now</th><th>z-score</th><th>1m ago</th><th>Push</th></tr><tr><td><b>Real 10y yield</b><div class='muted' style='font-size:11px'>TIPS — the true cost of money</div></td><td>2.30%</td><td><span style="color:#e05555">+1.79</span></td><td>+1.31</td><td><span style="color:#e05555">↑ +0.07</span></td></tr>
+<tr><td><b>Broad dollar</b><div class='muted' style='font-size:11px'>global funding pressure</div></td><td>120.69idx</td><td><span style="color:#4caf7d">−0.48</span></td><td>−0.73</td><td><span style="color:#e05555">↑ +0.04</span></td></tr>
+<tr><td><b>Equity vol (VIX)</b><div class='muted' style='font-size:11px'>risk-appetite thermometer</div></td><td>16.90</td><td><span style="color:#4caf7d">−0.10</span></td><td>+0.58</td><td><span style="color:#4caf7d">↓ −0.10</span></td></tr>
+<tr><td><b>Bond vol (MOVE)</b><div class='muted' style='font-size:11px'>rates-market stress</div></td><td>70.25</td><td><span style="color:#4caf7d">−1.27</span></td><td>−0.99</td><td><span style="color:#4caf7d">↓ −0.04</span></td></tr>
+<tr><td><b>HY credit spread</b><div class='muted' style='font-size:11px'>the price of default risk</div></td><td>2.67%</td><td><span style="color:#4caf7d">−1.15</span></td><td>−0.94</td><td><span style="color:#4caf7d">↓ −0.03</span></td></tr>
+<tr><td><b>30y mortgage rate</b><div class='muted' style='font-size:11px'>household credit cost</div></td><td>6.43%</td><td><span style="color:#4caf7d">−0.63</span></td><td>−0.53</td><td><span style="color:#4caf7d">↓ −0.01</span></td></tr>
+<tr><td><b>S&P drawdown</b><div class='muted' style='font-size:11px'>wealth-effect channel (deeper = tighter)</div></td><td>−1.67%</td><td><span style="color:#4caf7d">−0.17</span></td><td>+0.26</td><td><span style="color:#4caf7d">↓ −0.06</span></td></tr></table><div class="legend">z-scores versus each input's trailing 3 years; red = tightening pressure. "Push" is how much each input moved the composite over the last month — the red rows are WHERE the tightening is coming from, and rates, the dollar, vol, credit and housing each transmit to different assets.</div></div><h2>Cross-asset response · current 4-week impulse −0.28σ</h2><div class="card"><table><tr><th>Asset</th><th>β per +0.1σ tightening</th><th>R²</th><th>Implied lean now</th><th>Signal</th></tr><tr><td><b>S&P 500</b></td><td>−0.47%/wk</td><td><span style="color:#4caf7d">0.75</span></td><td><b style="color:#e05555">−1.3%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
+<tr><td><b>NASDAQ 100</b></td><td>−0.59%/wk</td><td><span style="color:#4caf7d">0.67</span></td><td><b style="color:#e05555">−1.6%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
+<tr><td><b>Small caps</b></td><td>−0.57%/wk</td><td><span style="color:#4caf7d">0.63</span></td><td><b style="color:#e05555">−1.6%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
+<tr><td><b>Gold</b></td><td>−0.15%/wk</td><td><span style="color:#606060">0.05</span></td><td><b style="color:#e05555">−0.4%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
+<tr><td><b>Bitcoin</b></td><td>−0.50%/wk</td><td><span style="color:#606060">0.11</span></td><td><b style="color:#e05555">−1.4%</b></td><td><span style="color:#e05555">headwind</span></td></tr>
+<tr><td><b>Long bonds</b></td><td>−0.02%/wk</td><td><span style="color:#606060">0.00</span></td><td><b style="color:#e05555">−0.0%</b></td><td><span style="color:#606060">neutral</span></td></tr></table><div class="legend">β is each asset's measured weekly response to a 0.1σ TIGHTENING of the live composite (OLS on weekly changes, trailing 2 years). "Implied lean" applies the current impulse to that β. Low R² = a loose relationship; treat it as a lean, not a forecast.</div></div><div class="card"><div class="slabel">WHY BOTH A LIVE COMPOSITE AND THE OFFICIAL ONES</div>Financial conditions are the transmission channel between the Fed and everything you trade. The three official indices are authoritative but lag — weekly or monthly, published with a delay. So this page also builds a daily composite from the live inputs that actually move: the real cost of money (TIPS), the dollar (global funding), equity and bond vol, the price of default risk, mortgage rates, and the wealth-effect channel. Watch the DIRECTION more than the level: the impulse is what assets respond to.</div>
 <div class="foot">TraderGK research · private page — reachable by direct link only · education only, not financial advice.
 Data may be delayed or approximate; nothing here is a recommendation.</div>
-</main></div></body></html>
+</main></div>
+<script>
+// Interactive tables re-render on click, so sweep text nodes for hyphen-minus each time.
+(function(){
+  var RE = /(^|[^A-Za-z0-9])-(?=[0-9.])/g;
+  function sweep(root){
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = w.nextNode())) {
+      var p = n.parentNode && n.parentNode.nodeName;
+      if (p === 'SCRIPT' || p === 'STYLE') continue;
+      if (n.nodeValue.indexOf('-') < 0) continue;
+      var r = n.nodeValue.replace(RE, '$1\u2212');
+      if (r !== n.nodeValue) n.nodeValue = r;
+    }
+  }
+  sweep(document.body);
+  document.addEventListener('click', function(){ setTimeout(function(){ sweep(document.body); }, 0); }, true);
+  document.addEventListener('input', function(){ setTimeout(function(){ sweep(document.body); }, 0); }, true);
+})();
+</script>
+</body></html>

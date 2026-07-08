@@ -2,53 +2,89 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Valuation — TraderGK terminal</title><style>
-:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
-        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+<title>Valuation — TraderGK terminal</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><style>
+:root { --background:#0b0b0b; --surface:#141414; --surface-raised:#1c1c1c; --border:#2a2a2a;
+        --text-primary:#ffffff; --text-secondary:#a0a0a0; --text-muted:#606060;
+        --gold:#d4af37; --gold-dim:#8b7020; --positive:#4caf7d; --negative:#e05555;
+        --neutral:#a0a0a0;
+        --font-sans:'Inter',system-ui,-apple-system,sans-serif;
+        --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
+        /* legacy aliases used inline */
+        --bg:var(--background); --card:var(--surface); --line:var(--border);
+        --tx:var(--text-secondary); --muted:var(--text-muted);
+        --green:var(--positive); --red:var(--negative); }
 * { box-sizing:border-box; margin:0; }
-body { background:var(--bg); color:var(--tx);
-       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+body { background:var(--background); color:var(--text-secondary);
+       font:14px/1.6 var(--font-sans); -webkit-font-smoothing:antialiased; }
 a { color:inherit; text-decoration:none; }
+b, strong { color:var(--text-primary); font-weight:600; }
 .layout { display:flex; min-height:100vh; }
-nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
-nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
-nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
-nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
-nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
-nav a:hover { color:var(--tx); }
-nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
-main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
-h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
-h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
-.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
-.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
-.slabel { font-size:11px; color:var(--muted); }
-.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+nav { width:216px; flex:none; border-right:1px solid var(--border); padding:22px 0 40px; }
+nav .brand { padding:0 16px 16px; font-weight:700; color:var(--text-primary); letter-spacing:-.02em; font-size:15px; }
+nav .brand small { display:block; color:var(--text-muted); font-weight:400; font-size:9.5px;
+                   letter-spacing:.18em; text-transform:uppercase; margin-top:3px; }
+nav .g { padding:16px 16px 5px; font-size:9.5px; text-transform:uppercase; letter-spacing:.4em;
+         color:var(--text-muted); font-weight:500; }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--text-secondary);
+        border-left:2px solid transparent; transition:color .12s; }
+nav a:hover { color:var(--text-primary); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,55,.06); }
+main { flex:1; min-width:0; padding:28px 28px 72px; max-width:980px; }
+h1 { font-size:2.25rem; color:var(--text-primary); font-weight:700; letter-spacing:-.035em; line-height:1.15; }
+h1 .tag { font-size:12px; color:var(--text-muted); font-weight:400; letter-spacing:0; }
+h2 { font-size:10.5px; margin:32px 0 4px; color:var(--text-muted); text-transform:uppercase;
+     letter-spacing:.22em; font-weight:600; }
+.sub { color:var(--text-secondary); font-size:13px; margin:8px 0 6px; max-width:70ch; }
+.stamp { display:inline-flex; align-items:center; gap:8px; margin:12px 0 4px; padding:5px 12px;
+         border:1px solid var(--border); border-radius:9999px; background:var(--surface);
+         font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); letter-spacing:.02em; }
+.stamp .dot { width:6px; height:6px; border-radius:9999px; background:var(--positive);
+              box-shadow:0 0 6px var(--positive); }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+        padding:16px 18px; margin-top:10px; }
+.card:hover { background:var(--surface-raised); }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin-top:12px; }
+.slabel { font-size:9.5px; color:var(--text-muted); text-transform:uppercase;
+          letter-spacing:.16em; font-weight:500; }
+.sval { font-size:1.5rem; font-weight:600; color:var(--text-primary);
+        font-family:var(--font-mono); font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
 table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
-th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
-.muted { color:var(--muted); }
-ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
-.legend { font-size:11px; color:var(--muted); margin-top:6px; }
-.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); font-size:12.5px; }
+td { font-family:var(--font-mono); color:var(--text-secondary); }
+td b, td strong { font-family:var(--font-sans); }
+th { color:var(--text-muted); font-weight:500; font-size:9.5px; text-transform:uppercase;
+     letter-spacing:.14em; font-family:var(--font-sans); }
+.muted { color:var(--text-muted); }
+ul.pb { margin:8px 0 0 0; padding:0; list-style:none; }
+ul.pb li { margin:7px 0; padding-left:18px; position:relative; }
+ul.pb li:before { content:"\25B8"; position:absolute; left:0; color:var(--gold); }
+.legend { font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.55; }
+.pill { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:10.5px;
+        font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
 .ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
 .ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
-.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
-input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
-             padding:6px 9px; width:110px; font-size:13px; }
-label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
-@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+.foot { margin-top:48px; font-size:10.5px; color:var(--text-muted); border-top:1px solid var(--border);
+        padding-top:16px; line-height:1.6; }
+input.calc, select { background:var(--background); border:1px solid var(--border); border-radius:4px;
+             color:var(--text-primary); padding:7px 9px; width:110px; font-size:13px;
+             font-family:var(--font-mono); }
+input.calc:focus, select:focus { outline:none; border-color:var(--gold-dim); }
+label.cl { display:inline-block; font-size:9.5px; color:var(--text-muted); margin:6px 14px 2px 0;
+           text-transform:uppercase; letter-spacing:.14em; }
+button { font-family:var(--font-sans); }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--border);
   white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
-  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px}
+  main{padding:20px 16px 60px} h1{font-size:1.875rem} }
 </style></head>
 <body><div class="layout"><nav><div class="brand">TraderGK <small>research terminal</small></div><div class="g">Overview</div><a href="/terminal/">Overview</a><a href="/terminal/confluence/">Confluence</a><div class="g">Trend & structure</div><a href="/terminal/key-levels/">Key Levels</a><a href="/terminal/valuation/" class="on">Valuation</a><a href="/terminal/relative-strength/">Relative Strength</a><a href="/terminal/breadth/">Market Breadth</a><a href="/terminal/volatility/">Volatility Regime</a><a href="/terminal/correlation/">Correlation Matrix</a><div class="g">Cycles & positioning</div><a href="/terminal/momentum/">Momentum</a><a href="/terminal/cot/">COT Positioning</a><a href="/terminal/seasonality/">Seasonality</a><a href="/terminal/sentiment/">Sentiment</a><a href="/terminal/crypto/">Crypto</a><a href="/terminal/calendar/">Calendar Effects</a><div class="g">Macro</div><a href="/terminal/fed-path/">Fed Path</a><a href="/terminal/business-cycle/">Business Cycle</a><a href="/terminal/yield-curve/">Yield Curve</a><a href="/terminal/credit-spreads/">Credit Spreads</a><a href="/terminal/liquidity/">Global Liquidity</a><a href="/terminal/financial-conditions/">Financial Conditions</a><a href="/terminal/election-cycle/">Election Cycle</a><a href="/terminal/astrology/">Market Astrology</a><div class="g">Tools</div><a href="/terminal/screener/">Screener</a><a href="/terminal/calculators/">Calculators</a><a href="/terminal/glossary/">Glossary</a></nav><main>
+<div class="muted" style="font-size:11px;letter-spacing:.06em">TraderGK <span style="color:var(--gold)">›</span> Valuation</div>
 <h1>Valuation <span class="tag">· private</span></h1>
-<div class="sub">A panel of independent fair-value models per asset — composite, median, range, and every formula shown.<br>Snapshot generated <b>08 Jul 2026, 19:31 UTC</b> · free public data
-(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
+<div class="sub">A panel of independent fair-value models per asset — composite, median, range, and every formula shown.</div>
+<div class="stamp"><span class="dot"></span>LIVE DATA · 08 JUL 2026, 20:30 UTC · YAHOO FINANCE · FRED · CFTC · HOURLY REBUILD</div>
 <div class="card"><div class="slabel">MULTI-MODEL FAIR VALUE · TOGGLE ANY MODEL AND EVERYTHING RECOMPUTES</div><div id="valw">loading…</div><script>
 (function(){
-const D={"spx":{"name":"S&P 500","price":7478.0,"models":[{"name":"Rule of 20","fv":235.26,"f":"EPS ($15) \u00d7 (20 \u2212 CPI inflation 4.3%)","note":"The old desk heuristic: fair P/E plus inflation sums to 20. Simple, venerable, blind to rates and margins."},{"name":"Fed model","fv":327.34,"f":"EPS \u00f7 10-year Treasury yield (4.57%)","note":"Sets the earnings yield equal to the 10-year. Famous and flawed \u2014 implies infinite value at zero rates; use as a rates-sensitivity bound."},{"name":"Equity risk premium","fv":211.57,"f":"EPS \u00f7 (10y 4.57% + 2.5% required premium)","note":"Demands stocks out-yield bonds by 2.5pts \u2014 near the post-2000 norm. The premium assumption IS the model."},{"name":"CAPE reversion","fv":4654.73,"f":"Price \u00d7 (post-1990 median CAPE 26 \u00f7 current 41.8)","note":"Shiller's cyclically-adjusted P/E pulled to its modern-era median. CAPE has read 'expensive' for 30 years \u2014 reversion can take a decade."},{"name":"Log-price trend","fv":5270.82,"f":"Exponential fit of log price since 1985 \u00b7 growth 7.6%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":6870.0,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."}]},"ndx":{"name":"Nasdaq 100","price":29181.482421875,"models":[{"name":"Log-price trend","fv":16350.24,"f":"Exponential fit of log price since 1995 \u00b7 growth 10.9%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":26529.86,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"S&P-relative reversion","fv":23856.01,"f":"S&P price \u00d7 10-year median Nasdaq 100/S&P ratio (3.190)","note":"Relative-value anchor: assumes the index reverts to its decade-normal weight vs the S&P."}]},"rut":{"name":"Russell 2000","price":2952.108154296875,"models":[{"name":"Log-price trend","fv":2406.38,"f":"Exponential fit of log price since 1995 \u00b7 growth 6.9%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":2328.95,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"S&P-relative reversion","fv":3527.63,"f":"S&P price \u00d7 10-year median Russell 2000/S&P ratio (0.472)","note":"Relative-value anchor: assumes the index reverts to its decade-normal weight vs the S&P."}]},"btc":{"name":"Bitcoin","price":62193.55078125,"models":[{"name":"Log-price trend","fv":207519.35,"f":"Exponential fit of log price since 2015 \u00b7 growth 43.4%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":104292.67,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"Power law","fv":137628.0,"f":"log(price) = -39.4 + 5.85\u00b7log(days since genesis)","note":"Bitcoin's price has tracked a power law of its own age for a decade \u2014 descriptive, not causal."}],"unit":"$"},"eth":{"name":"Ethereum","price":1738.6300048828125,"models":[{"name":"Log-price trend","fv":4844.48,"f":"Exponential fit of log price since 2017 \u00b7 growth 27.1%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":3062.33,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"BTC-relative reversion","fv":2220.0,"f":"BTC price \u00d7 4-year median ETH/BTC ratio (0.0357)","note":"Anchors ETH to its habitual weight against Bitcoin \u2014 a pair-trade view of fair value."}],"unit":"$"},"gold":{"name":"Gold","price":4097.7001953125,"models":[{"name":"Log-price trend","fv":3212.42,"f":"Exponential fit of log price since 2000 \u00b7 growth 9.0%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":3454.82,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"Real-yield model","fv":2443.0,"f":"Regression of log gold on the 10y real yield \u00b7 today's real yield 2.24%","note":"Gold's classic driver is the real rate: high real yields raise the cost of holding it. Breaks down when central-bank buying dominates \u2014 as it has recently."}],"unit":"$"},"eqbond":{"name":"Equities vs Bonds","price":8.828840748733866,"models":[{"name":"Ratio trend","fv":4.7,"f":"Log-trend of SPY/TLT since 2004 \u00b7 6.5%/yr","note":"Where the stocks-vs-bonds pendulum sits against its long swing."},{"name":"200-week anchor","fv":8.6,"f":"200-week average of the ratio \u00d7 median deviation since 2020","note":"The medium-term habit of the pair."}]}},GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+const D={"spx":{"name":"S&P 500","price":7482.7099609375,"models":[{"name":"Rule of 20","fv":235.41,"f":"EPS ($15) \u00d7 (20 \u2212 CPI inflation 4.3%)","note":"The old desk heuristic: fair P/E plus inflation sums to 20. Simple, venerable, blind to rates and margins."},{"name":"Fed model","fv":327.54,"f":"EPS \u00f7 10-year Treasury yield (4.57%)","note":"Sets the earnings yield equal to the 10-year. Famous and flawed \u2014 implies infinite value at zero rates; use as a rates-sensitivity bound."},{"name":"Equity risk premium","fv":211.7,"f":"EPS \u00f7 (10y 4.57% + 2.5% required premium)","note":"Demands stocks out-yield bonds by 2.5pts \u2014 near the post-2000 norm. The premium assumption IS the model."},{"name":"CAPE reversion","fv":4657.66,"f":"Price \u00d7 (post-1990 median CAPE 26 \u00f7 current 41.8)","note":"Shiller's cyclically-adjusted P/E pulled to its modern-era median. CAPE has read 'expensive' for 30 years \u2014 reversion can take a decade."},{"name":"Log-price trend","fv":5270.82,"f":"Exponential fit of log price since 1985 \u00b7 growth 7.6%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":6870.03,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."}]},"ndx":{"name":"Nasdaq 100","price":29252.5625,"models":[{"name":"Log-price trend","fv":16350.26,"f":"Exponential fit of log price since 1995 \u00b7 growth 10.9%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":26530.35,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"S&P-relative reversion","fv":23871.04,"f":"S&P price \u00d7 10-year median Nasdaq 100/S&P ratio (3.190)","note":"Relative-value anchor: assumes the index reverts to its decade-normal weight vs the S&P."}]},"rut":{"name":"Russell 2000","price":2956.388671875,"models":[{"name":"Log-price trend","fv":2406.38,"f":"Exponential fit of log price since 1995 \u00b7 growth 6.9%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":2328.97,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"S&P-relative reversion","fv":3529.85,"f":"S&P price \u00d7 10-year median Russell 2000/S&P ratio (0.472)","note":"Relative-value anchor: assumes the index reverts to its decade-normal weight vs the S&P."}]},"btc":{"name":"Bitcoin","price":62196.48046875,"models":[{"name":"Log-price trend","fv":207519.35,"f":"Exponential fit of log price since 2015 \u00b7 growth 43.4%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":104292.69,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"Power law","fv":137628.0,"f":"log(price) = -39.4 + 5.85\u00b7log(days since genesis)","note":"Bitcoin's price has tracked a power law of its own age for a decade \u2014 descriptive, not causal."}],"unit":"$"},"eth":{"name":"Ethereum","price":1737.1199951171875,"models":[{"name":"Log-price trend","fv":4844.47,"f":"Exponential fit of log price since 2017 \u00b7 growth 27.1%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":3062.32,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"BTC-relative reversion","fv":2220.0,"f":"BTC price \u00d7 4-year median ETH/BTC ratio (0.0357)","note":"Anchors ETH to its habitual weight against Bitcoin \u2014 a pair-trade view of fair value."}],"unit":"$"},"gold":{"name":"Gold","price":4085.800048828125,"models":[{"name":"Log-price trend","fv":3212.42,"f":"Exponential fit of log price since 2000 \u00b7 growth 9.0%/yr","note":"Pure time-series gravity \u2014 ignores valuation entirely; assumes the historical growth rate persists."},{"name":"200-week anchor","fv":3454.75,"f":"200-week average \u00d7 the median price/average ratio since 2020","note":"A trader's fair value, not an economist's \u2014 where price sits vs its own 4-year habit."},{"name":"Real-yield model","fv":2472.0,"f":"Regression of log gold on the 10y real yield \u00b7 today's real yield 2.30%","note":"Gold's classic driver is the real rate: high real yields raise the cost of holding it. Breaks down when central-bank buying dominates \u2014 as it has recently."}],"unit":"$"},"eqbond":{"name":"Equities vs Bonds","price":8.835941429836792,"models":[{"name":"Ratio trend","fv":4.7,"f":"Log-trend of SPY/TLT since 2004 \u00b7 6.5%/yr","note":"Where the stocks-vs-bonds pendulum sits against its long swing."},{"name":"200-week anchor","fv":8.6,"f":"200-week average of the ratio \u00d7 median deviation since 2020","note":"The medium-term habit of the pair."}]}},GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',MUT='#606060';
 let asset=Object.keys(D)[0];const off={};
 const wrap=document.getElementById('valw');
 function fmtp(v,p){return (p>2000?v.toLocaleString(undefined,{maximumFractionDigits:0}):v.toLocaleString(undefined,{maximumFractionDigits:2}));}
@@ -60,7 +96,7 @@ function render(){
  let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+Object.keys(D).map(k=>{
   const dd=D[k],allfv=dd.models.map(m=>m.fv),cc=allfv.reduce((x,y)=>x+y,0)/allfv.length,dv=(cc/dd.price-1)*100;
   return '<button data-a="'+k+'" style="cursor:pointer;font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid '+
-   (k===asset?GOLDC:'#232a3a')+';background:'+(k===asset?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+
+   (k===asset?GOLDC:'#2a2a2a')+';background:'+(k===asset?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+
    dd.name+' <b style="color:'+(dv>=0?GRN:RED)+'">'+(dv>=0?'+':'')+dv.toFixed(1)+'%</b></button>';}).join('')+'</div>';
  if(comp!=null){const dv=(comp/a.price-1)*100;
   h+='<div style="font-size:20px;font-weight:700">'+(a.unit||'')+fmtp(comp,a.price)+
@@ -72,7 +108,7 @@ function render(){
    ' · active range '+(a.unit||'')+fmtp(Math.min(...fvs),a.price)+' – '+(a.unit||'')+fmtp(Math.max(...fvs),a.price)+'</div>';}
  a.models.forEach(m=>{const on=!off[asset+m.name],dv=(m.fv/a.price-1)*100;
   h+='<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);opacity:'+(on?1:.4)+'">'+
-   '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#232a3a')+'"></button>'+
+   '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#2a2a2a')+'"></button>'+
    '<div style="flex:1"><b>'+m.name+'</b> <span style="color:'+(dv>=0?GRN:RED)+'">'+(a.unit||'')+fmtp(m.fv,a.price)+' ('+(dv>=0?'+':'')+dv.toFixed(1)+'%)</span>'+
    '<div class="muted" style="font-size:12px">'+m.f+'</div>'+
    '<div class="muted" style="font-size:11px;font-style:italic">'+m.note+'</div></div></div>';});
@@ -82,7 +118,28 @@ function render(){
 }
 render();
 })();
-</script></div><div class="card"><div class="slabel">LIVE MODEL INPUTS</div><div class="stats"><div><div class="slabel">S&P trailing P/E</div><div class="sval" style="color:#8891a5">500.0</div></div><div><div class="slabel">Shiller CAPE</div><div class="sval" style="color:#8891a5">41.8</div></div><div><div class="slabel">10y Treasury</div><div class="sval" style="color:#8891a5">4.57%</div></div><div><div class="slabel">10y real (TIPS)</div><div class="sval" style="color:#8891a5">2.24%</div></div><div><div class="slabel">CPI inflation</div><div class="sval" style="color:#8891a5">4.3%</div></div><div><div class="slabel">HY OAS</div><div class="sval" style="color:#8891a5">267 bps</div></div></div></div><div class="card"><div class="slabel">HOW TO USE FAIR VALUE</div>No single valuation model is right, but a panel of independent ones is hard to fool — each attacks fair value from a different direction (earnings, rates, history, trend, relative value), each shows its formula and its main weakness, and the composite is simply the average of whatever you leave switched on. Use it as a return forecast for YEARS, not a signal for Tuesday: a 30% overvaluation historically means thin forward returns, not an imminent crash — expensive markets get more expensive all the time. Size positions with it; time entries with the other tabs.</div>
+</script></div><div class="card"><div class="slabel">LIVE MODEL INPUTS</div><div class="stats"><div><div class="slabel">S&P trailing P/E</div><div class="sval" style="color:#606060">500.0</div></div><div><div class="slabel">Shiller CAPE</div><div class="sval" style="color:#606060">41.8</div></div><div><div class="slabel">10y Treasury</div><div class="sval" style="color:#606060">4.57%</div></div><div><div class="slabel">10y real (TIPS)</div><div class="sval" style="color:#606060">2.30%</div></div><div><div class="slabel">CPI inflation</div><div class="sval" style="color:#606060">4.3%</div></div><div><div class="slabel">HY OAS</div><div class="sval" style="color:#606060">267 bps</div></div></div></div><div class="card"><div class="slabel">HOW TO USE FAIR VALUE</div>No single valuation model is right, but a panel of independent ones is hard to fool — each attacks fair value from a different direction (earnings, rates, history, trend, relative value), each shows its formula and its main weakness, and the composite is simply the average of whatever you leave switched on. Use it as a return forecast for YEARS, not a signal for Tuesday: a 30% overvaluation historically means thin forward returns, not an imminent crash — expensive markets get more expensive all the time. Size positions with it; time entries with the other tabs.</div>
 <div class="foot">TraderGK research · private page — reachable by direct link only · education only, not financial advice.
 Data may be delayed or approximate; nothing here is a recommendation.</div>
-</main></div></body></html>
+</main></div>
+<script>
+// Interactive tables re-render on click, so sweep text nodes for hyphen-minus each time.
+(function(){
+  var RE = /(^|[^A-Za-z0-9])-(?=[0-9.])/g;
+  function sweep(root){
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = w.nextNode())) {
+      var p = n.parentNode && n.parentNode.nodeName;
+      if (p === 'SCRIPT' || p === 'STYLE') continue;
+      if (n.nodeValue.indexOf('-') < 0) continue;
+      var r = n.nodeValue.replace(RE, '$1\u2212');
+      if (r !== n.nodeValue) n.nodeValue = r;
+    }
+  }
+  sweep(document.body);
+  document.addEventListener('click', function(){ setTimeout(function(){ sweep(document.body); }, 0); }, true);
+  document.addEventListener('input', function(){ setTimeout(function(){ sweep(document.body); }, 0); }, true);
+})();
+</script>
+</body></html>

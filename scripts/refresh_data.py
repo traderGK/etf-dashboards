@@ -1281,3 +1281,87 @@ print(f"\n✅ data.json written")
 print(f"   Ratios:        {ok}/{len(results)} OK")
 print(f"   ETF holdings:  {live_h}/{len(ETF_TICKERS)} from Yahoo Finance live")
 print(f"   Ticker prices: {len(ticker_prices)} tickers")
+
+
+# ==========================================================================
+# Hourly research-terminal rebuild (tradergk.com/terminal)
+# --------------------------------------------------------------------------
+# The terminal is a static build produced by scripts/terminal_test.py. It is
+# regenerated here rather than in its own workflow because the deploy token
+# cannot create .github/workflows/* (no `workflow` scope). This block is a
+# no-op unless the last build is older than TERMINAL_MAX_AGE_MIN.
+#
+# To move this into a proper workflow later, promote ops/refresh-terminal.yml.txt
+# via the GitHub web UI and delete this block.
+# ==========================================================================
+def _rebuild_terminal():
+    import os as _os, subprocess as _sp, datetime as _dt, sys as _sys
+
+    if _os.environ.get("TERMINAL_REBUILD", "1") != "1":
+        return
+    max_age = int(_os.environ.get("TERMINAL_MAX_AGE_MIN", "55"))
+    repo = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    stamp_f = _os.path.join(repo, "terminal", ".built")
+
+    age_min = 1e9
+    try:
+        with open(stamp_f) as fh:
+            last = _dt.datetime.strptime(fh.read().strip(), "%Y-%m-%dT%H:%M:%SZ")
+        age_min = (_dt.datetime.utcnow() - last).total_seconds() / 60
+    except Exception:
+        pass  # no stamp / unparseable -> treat as stale
+
+    if age_min < max_age:
+        print(f"   Terminal: fresh ({age_min:.0f} min old, limit {max_age}) — skipping rebuild")
+        return
+
+    print(f"   Terminal: stale ({age_min:.0f} min) — rebuilding…", flush=True)
+    try:
+        r = _sp.run([_sys.executable, _os.path.join(repo, "scripts", "terminal_test.py")],
+                    cwd=repo, capture_output=True, text=True, timeout=1500)
+    except _sp.TimeoutExpired:
+        print("   Terminal: rebuild timed out (25 min) — keeping previous build", file=_sys.stderr)
+        return
+    tail = (r.stdout or "").strip().splitlines()[-3:]
+    for line in tail:
+        print("     " + line)
+    if r.returncode != 0:
+        print(f"   Terminal: rebuild returned {r.returncode} — keeping previous build",
+              file=_sys.stderr)
+        if r.stderr:
+            print("     " + r.stderr.strip().splitlines()[-1], file=_sys.stderr)
+        return
+
+    if _os.environ.get("CI") != "true":
+        print("   Terminal: rebuilt (local run — not committing)")
+        return
+
+    def _git(*args, check=True):
+        return _sp.run(["git", "-c", "user.name=github-actions[bot]",
+                        "-c", "user.email=github-actions[bot]@users.noreply.github.com",
+                        *args], cwd=repo, capture_output=True, text=True, check=check)
+    try:
+        _git("add", "terminal")
+        if _sp.run(["git", "diff", "--staged", "--quiet", "--", "terminal"],
+                   cwd=repo).returncode == 0:
+            print("   Terminal: no content change — nothing to push")
+            return
+        _git("commit", "-m", "terminal: hourly rebuild [skip ci]")
+        for attempt in range(3):
+            # autoStash: refresh_data.py has already rewritten data.json in the working
+            # tree, and `git pull --rebase` refuses to run with unstaged changes.
+            _git("-c", "rebase.autoStash=true", "pull", "--rebase", "origin", "main",
+                 check=False)
+            if _git("push", "origin", "main", check=False).returncode == 0:
+                print("   Terminal: pushed ✅")
+                return
+        print("   Terminal: push failed after 3 attempts", file=_sys.stderr)
+    except Exception as e:
+        print(f"   Terminal: commit/push failed (non-fatal): {e}", file=_sys.stderr)
+
+
+try:
+    _rebuild_terminal()
+except Exception as _e:
+    import sys as _sys
+    print(f"Terminal rebuild block failed (non-fatal): {_e}", file=_sys.stderr)

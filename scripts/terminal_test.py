@@ -75,15 +75,19 @@ ANAMES = {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "IWM": "Small caps", "DIA": "Do
           "ETH-USD": "Ethereum"}
 
 # ---------------------------------------------------------------- helpers
-GREEN, RED, AMBER, GOLD, BLUE, MUT = "#4caf7d", "#e05555", "#e0a94c", "#d4af5a", "#5aa2d4", "#8891a5"
+GREEN, RED, AMBER, GOLD, BLUE, MUT = "#4caf7d", "#e05555", "#e0a94c", "#d4af37", "#5aa2d4", "#606060"
+GOLD_DIM, TXT, STRONG = "#8b7020", "#a0a0a0", "#ffffff"
+MINUS = "\u2212"  # U+2212 true minus, never a hyphen (finance typography)
 
 def ema(s, n): return s.ewm(span=n, adjust=False).mean()
-def pct(v, d=1): return f"{v:.{d}f}%"
-def sgn(v, d=1): return f"{v:+.{d}f}%"
+def mn(txt): return str(txt).replace("-", MINUS)   # hyphen -> true minus, display only
+def pct(v, d=1): return mn(f"{v:.{d}f}%")
+def sgn(v, d=1): return ("+" if v >= 0 else MINUS) + f"{abs(v):.{d}f}%"
 def col(v, good, bad=None):
     bad = bad if bad else (lambda x: not good(x))
     return GREEN if good(v) else (RED if bad(v) else AMBER)
-def cnum(v, d=1): return f'<b style="color:{GREEN if v > 0 else RED}">{v:+.{d}f}%</b>'
+def cnum(v, d=1):
+    return f'<b style="color:{GREEN if v > 0 else RED}">{sgn(v, d)}</b>'
 def dot(ok): return f'<span style="color:{GREEN if ok else RED}">●</span>'
 def pctile(series, val):
     s = series.dropna()
@@ -168,45 +172,85 @@ GROUPS = [
     ("Tools", [("screener", "Screener"), ("calculators", "Calculators"), ("glossary", "Glossary")]),
 ]
 
+FONT_LINK = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
+             '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+             '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700'
+             '&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">')
+
 CSS = """
-:root { --bg:#0d1017; --card:#141926; --line:#232a3a; --tx:#d6dae3; --muted:#8891a5;
-        --gold:#d4af5a; --green:#4caf7d; --red:#e05555; }
+:root { --background:#0b0b0b; --surface:#141414; --surface-raised:#1c1c1c; --border:#2a2a2a;
+        --text-primary:#ffffff; --text-secondary:#a0a0a0; --text-muted:#606060;
+        --gold:#d4af37; --gold-dim:#8b7020; --positive:#4caf7d; --negative:#e05555;
+        --neutral:#a0a0a0;
+        --font-sans:'Inter',system-ui,-apple-system,sans-serif;
+        --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
+        /* legacy aliases used inline */
+        --bg:var(--background); --card:var(--surface); --line:var(--border);
+        --tx:var(--text-secondary); --muted:var(--text-muted);
+        --green:var(--positive); --red:var(--negative); }
 * { box-sizing:border-box; margin:0; }
-body { background:var(--bg); color:var(--tx);
-       font:14px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+body { background:var(--background); color:var(--text-secondary);
+       font:14px/1.6 var(--font-sans); -webkit-font-smoothing:antialiased; }
 a { color:inherit; text-decoration:none; }
+b, strong { color:var(--text-primary); font-weight:600; }
 .layout { display:flex; min-height:100vh; }
-nav { width:212px; flex:none; border-right:1px solid var(--line); padding:20px 0 40px; }
-nav .brand { padding:0 16px 14px; font-weight:700; letter-spacing:.4px; }
-nav .brand small { display:block; color:var(--muted); font-weight:400; font-size:10px; }
-nav .g { padding:14px 16px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
-nav a { display:block; padding:5px 16px; font-size:13px; color:var(--muted); border-left:2px solid transparent; }
-nav a:hover { color:var(--tx); }
-nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,90,.06); }
-main { flex:1; min-width:0; padding:26px 26px 70px; max-width:960px; }
-h1 { font-size:21px; } h1 .tag { font-size:12px; color:var(--muted); font-weight:400; }
-h2 { font-size:14px; margin:30px 0 4px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
-.sub { color:var(--muted); font-size:12px; margin:6px 0 14px; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin-top:10px; }
-.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:13px; margin-top:12px; }
-.slabel { font-size:11px; color:var(--muted); }
-.sval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+nav { width:216px; flex:none; border-right:1px solid var(--border); padding:22px 0 40px; }
+nav .brand { padding:0 16px 16px; font-weight:700; color:var(--text-primary); letter-spacing:-.02em; font-size:15px; }
+nav .brand small { display:block; color:var(--text-muted); font-weight:400; font-size:9.5px;
+                   letter-spacing:.18em; text-transform:uppercase; margin-top:3px; }
+nav .g { padding:16px 16px 5px; font-size:9.5px; text-transform:uppercase; letter-spacing:.4em;
+         color:var(--text-muted); font-weight:500; }
+nav a { display:block; padding:5px 16px; font-size:13px; color:var(--text-secondary);
+        border-left:2px solid transparent; transition:color .12s; }
+nav a:hover { color:var(--text-primary); }
+nav a.on { color:var(--gold); border-left-color:var(--gold); background:rgba(212,175,55,.06); }
+main { flex:1; min-width:0; padding:28px 28px 72px; max-width:980px; }
+h1 { font-size:2.25rem; color:var(--text-primary); font-weight:700; letter-spacing:-.035em; line-height:1.15; }
+h1 .tag { font-size:12px; color:var(--text-muted); font-weight:400; letter-spacing:0; }
+h2 { font-size:10.5px; margin:32px 0 4px; color:var(--text-muted); text-transform:uppercase;
+     letter-spacing:.22em; font-weight:600; }
+.sub { color:var(--text-secondary); font-size:13px; margin:8px 0 6px; max-width:70ch; }
+.stamp { display:inline-flex; align-items:center; gap:8px; margin:12px 0 4px; padding:5px 12px;
+         border:1px solid var(--border); border-radius:9999px; background:var(--surface);
+         font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); letter-spacing:.02em; }
+.stamp .dot { width:6px; height:6px; border-radius:9999px; background:var(--positive);
+              box-shadow:0 0 6px var(--positive); }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+        padding:16px 18px; margin-top:10px; }
+.card:hover { background:var(--surface-raised); }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin-top:12px; }
+.slabel { font-size:9.5px; color:var(--text-muted); text-transform:uppercase;
+          letter-spacing:.16em; font-weight:500; }
+.sval { font-size:1.5rem; font-weight:600; color:var(--text-primary);
+        font-family:var(--font-mono); font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
 table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; }
-th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
-.muted { color:var(--muted); }
-ul.pb { margin:8px 0 0 18px; } ul.pb li { margin:6px 0; }
-.legend { font-size:11px; color:var(--muted); margin-top:6px; }
-.pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); font-size:12.5px; }
+td { font-family:var(--font-mono); color:var(--text-secondary); }
+td b, td strong { font-family:var(--font-sans); }
+th { color:var(--text-muted); font-weight:500; font-size:9.5px; text-transform:uppercase;
+     letter-spacing:.14em; font-family:var(--font-sans); }
+.muted { color:var(--text-muted); }
+ul.pb { margin:8px 0 0 0; padding:0; list-style:none; }
+ul.pb li { margin:7px 0; padding-left:18px; position:relative; }
+ul.pb li:before { content:"\\25B8"; position:absolute; left:0; color:var(--gold); }
+.legend { font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.55; }
+.pill { display:inline-block; padding:2px 10px; border-radius:9999px; font-size:10.5px;
+        font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
 .ovgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
 .ovgrid .card { margin:0; } .ovgrid .card:hover { border-color:var(--gold); }
-.foot { margin-top:44px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
-input.calc { background:#0d1017; border:1px solid var(--line); border-radius:6px; color:var(--tx);
-             padding:6px 9px; width:110px; font-size:13px; }
-label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 14px 2px 0; }
-@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--line);
+.foot { margin-top:48px; font-size:10.5px; color:var(--text-muted); border-top:1px solid var(--border);
+        padding-top:16px; line-height:1.6; }
+input.calc, select { background:var(--background); border:1px solid var(--border); border-radius:4px;
+             color:var(--text-primary); padding:7px 9px; width:110px; font-size:13px;
+             font-family:var(--font-mono); }
+input.calc:focus, select:focus { outline:none; border-color:var(--gold-dim); }
+label.cl { display:inline-block; font-size:9.5px; color:var(--text-muted); margin:6px 14px 2px 0;
+           text-transform:uppercase; letter-spacing:.14em; }
+button { font-family:var(--font-sans); }
+@media (max-width:760px){ .layout{display:block} nav{width:auto;border-right:0;border-bottom:1px solid var(--border);
   white-space:nowrap;overflow-x:auto;display:flex;align-items:center;padding:10px}
-  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px} }
+  nav .brand{padding:0 12px} nav .g{display:none} nav a{display:inline-block;border-left:0;padding:5px 9px}
+  main{padding:20px 16px 60px} h1{font-size:1.875rem} }
 """
 
 def nav_html(active):
@@ -218,22 +262,64 @@ def nav_html(active):
             out.append(f'<a href="/terminal/{slug + "/" if slug else ""}"{on}>{name}</a>')
     return "".join(out)
 
-def write_page(slug, title, subtitle, body):
+def true_minus(html):
+    """Hyphen -> U+2212 in visible text nodes only.
+
+    Skips <script>/<style> bodies and every tag's attributes, so SVG point lists,
+    ISO dates (preceded by a digit) and words like 'risk-off' are left alone.
+    """
+    import re as _re
+    stash = []
+    def _hide(m):
+        stash.append(m.group(0))
+        return f"\x00{len(stash)-1}\x00"
+    html = _re.sub(r"<(script|style)\b.*?</\1>", _hide, html, flags=_re.S | _re.I)
+    def _fix(m):
+        return ">" + _re.sub(r"(?<!\w)-(?=[\d.])", MINUS, m.group(1)) + "<"
+    html = _re.sub(r">([^<]*)<", _fix, html)
+    return _re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], html)
+
+def write_page(slug, title, subtitle, body, sources="Yahoo Finance · FRED · CFTC"):
     path = os.path.join(ROOT, slug, "index.html") if slug else os.path.join(ROOT, "index.html")
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    body = true_minus(body)
+    crumb = ('<div class="muted" style="font-size:11px;letter-spacing:.06em">TraderGK '
+             f'<span style="color:var(--gold)">›</span> {title}</div>') if slug else ""
     html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>{title} — TraderGK terminal</title><style>{CSS}</style></head>
+<title>{title} — TraderGK terminal</title>{FONT_LINK}<style>{CSS}</style></head>
 <body><div class="layout"><nav>{nav_html(slug)}</nav><main>
+{crumb}
 <h1>{title} <span class="tag">· private</span></h1>
-<div class="sub">{subtitle}<br>Snapshot generated <b>{STAMP}</b> · free public data
-(Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
+<div class="sub">{subtitle}</div>
+<div class="stamp"><span class="dot"></span>LIVE DATA · {STAMP.upper()} · {sources.upper()} · HOURLY REBUILD</div>
 {body}
 <div class="foot">TraderGK research · private page — reachable by direct link only · education only, not financial advice.
 Data may be delayed or approximate; nothing here is a recommendation.</div>
-</main></div></body></html>"""
+</main></div>
+<script>
+// Interactive tables re-render on click, so sweep text nodes for hyphen-minus each time.
+(function(){{
+  var RE = /(^|[^A-Za-z0-9])-(?=[0-9.])/g;
+  function sweep(root){{
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = w.nextNode())) {{
+      var p = n.parentNode && n.parentNode.nodeName;
+      if (p === 'SCRIPT' || p === 'STYLE') continue;
+      if (n.nodeValue.indexOf('-') < 0) continue;
+      var r = n.nodeValue.replace(RE, '$1\\u2212');
+      if (r !== n.nodeValue) n.nodeValue = r;
+    }}
+  }}
+  sweep(document.body);
+  document.addEventListener('click', function(){{ setTimeout(function(){{ sweep(document.body); }}, 0); }}, true);
+  document.addEventListener('input', function(){{ setTimeout(function(){{ sweep(document.body); }}, 0); }}, true);
+}})();
+</script>
+</body></html>"""
     with open(path, "w") as f:
         f.write(html)
 
@@ -496,7 +582,7 @@ def m_volatility(px):
     brows = []
     for i, (bname, mask) in enumerate(buckets):
         f = fwd[mask].dropna() * 100
-        now_tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a">now</span>' if i == cur_b else ""
+        now_tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af37">now</span>' if i == cur_b else ""
         brows.append((f"<b>{bname}</b>{now_tag}", cnum(f.mean(), 2), cnum(f.median(), 2),
                       f"{(f > 0).mean() * 100:.0f}%", f"{len(f):,}"))
     bucket_tbl = table(["VIX bucket", "Avg fwd 21d", "Median", "Win rate", "n"], brows)
@@ -597,7 +683,7 @@ def _rrg_quad(x, y):
 
 RRG_JS = r"""
 (function(){
-const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',BLU='#5aa2d4',MUT='#8891a5';
+const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',BLU='#5aa2d4',MUT='#606060';
 const QC={LEADING:GRN,WEAKENING:GOLDC,LAGGING:RED,IMPROVING:BLU};
 let uni=Object.keys(D)[0];
 const wrap=document.getElementById('rrgw');
@@ -605,7 +691,7 @@ function render(){
  const u=D[uni];
  let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+Object.keys(D).map(k=>
   '<button data-u="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 12px;border-radius:14px;border:1px solid '+
-  (k===uni?GOLDC:'#232a3a')+';background:'+(k===uni?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===uni?GOLDC:MUT)+'">'+D[k].name+'</button>').join('')+'</div>';
+  (k===uni?GOLDC:'#2a2a2a')+';background:'+(k===uni?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===uni?GOLDC:MUT)+'">'+D[k].name+'</button>').join('')+'</div>';
  // scatter
  const S=560,P=44;let xs=[],ys=[];
  u.rows.forEach(r=>r.trail.forEach(p=>{xs.push(p[0]);ys.push(p[1]);}));
@@ -983,12 +1069,12 @@ def m_key_levels(px):
             sections[t] = card(f'<span class="muted">Levels unavailable this run ({e}).</span>')
     tabs = "".join(
         f'<button onclick="klshow(\'{t}\')" id="klb-{t}" style="cursor:pointer;font-size:12px;padding:4px 12px;'
-        f'border-radius:16px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin:0 6px 8px 0">{t.replace("-USD","")}</button>'
+        f'border-radius:16px;border:1px solid #2a2a2a;background:transparent;color:#606060;margin:0 6px 8px 0">{t.replace("-USD","")}</button>'
         for t in KL_TICKERS)
     divs = "".join(f'<div id="kl-{t}" style="display:none">{body}</div>' for t, body in sections.items())
     js = ("<script>function klshow(t){%s.forEach(x=>{document.getElementById('kl-'+x).style.display=x===t?'block':'none';"
-          "const b=document.getElementById('klb-'+x);b.style.color=x===t?'#d4af5a':'#8891a5';"
-          "b.style.borderColor=x===t?'#d4af5a':'#232a3a';});}klshow('SPY');</script>"
+          "const b=document.getElementById('klb-'+x);b.style.color=x===t?'#d4af37':'#606060';"
+          "b.style.borderColor=x===t?'#d4af37':'#2a2a2a';});}klshow('SPY');</script>"
           ) % json.dumps(KL_TICKERS)
     body = f"<div>{tabs}</div>{divs}{js}" + card(
         "A level only matters if the market has a reason to defend it. This page generates levels from six "
@@ -1037,7 +1123,7 @@ def _anchor_200w(s):
 
 VAL_JS = r"""
 (function(){
-const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',MUT='#606060';
 let asset=Object.keys(D)[0];const off={};
 const wrap=document.getElementById('valw');
 function fmtp(v,p){return (p>2000?v.toLocaleString(undefined,{maximumFractionDigits:0}):v.toLocaleString(undefined,{maximumFractionDigits:2}));}
@@ -1049,7 +1135,7 @@ function render(){
  let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+Object.keys(D).map(k=>{
   const dd=D[k],allfv=dd.models.map(m=>m.fv),cc=allfv.reduce((x,y)=>x+y,0)/allfv.length,dv=(cc/dd.price-1)*100;
   return '<button data-a="'+k+'" style="cursor:pointer;font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid '+
-   (k===asset?GOLDC:'#232a3a')+';background:'+(k===asset?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+
+   (k===asset?GOLDC:'#2a2a2a')+';background:'+(k===asset?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+
    dd.name+' <b style="color:'+(dv>=0?GRN:RED)+'">'+(dv>=0?'+':'')+dv.toFixed(1)+'%</b></button>';}).join('')+'</div>';
  if(comp!=null){const dv=(comp/a.price-1)*100;
   h+='<div style="font-size:20px;font-weight:700">'+(a.unit||'')+fmtp(comp,a.price)+
@@ -1061,7 +1147,7 @@ function render(){
    ' · active range '+(a.unit||'')+fmtp(Math.min(...fvs),a.price)+' – '+(a.unit||'')+fmtp(Math.max(...fvs),a.price)+'</div>';}
  a.models.forEach(m=>{const on=!off[asset+m.name],dv=(m.fv/a.price-1)*100;
   h+='<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);opacity:'+(on?1:.4)+'">'+
-   '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#232a3a')+'"></button>'+
+   '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#2a2a2a')+'"></button>'+
    '<div style="flex:1"><b>'+m.name+'</b> <span style="color:'+(dv>=0?GRN:RED)+'">'+(a.unit||'')+fmtp(m.fv,a.price)+' ('+(dv>=0?'+':'')+dv.toFixed(1)+'%)</span>'+
    '<div class="muted" style="font-size:12px">'+m.f+'</div>'+
    '<div class="muted" style="font-size:11px;font-style:italic">'+m.note+'</div></div></div>';});
@@ -1263,7 +1349,7 @@ def m_correlation(px):
     divs = sorted(((cur.loc[a].drop(a).abs().mean(), names[a]) for a, _ in CORR_ASSETS))
     div_html = "".join(
         f'<div style="display:flex;gap:8px;align-items:center;padding:2px 0"><span style="width:90px">{n}</span>'
-        f'<div style="flex:1;background:#232a3a;border-radius:3px;height:8px">'
+        f'<div style="flex:1;background:#2a2a2a;border-radius:3px;height:8px">'
         f'<div style="width:{v*100:.0f}%;background:{GREEN if v<0.42 else (AMBER if v<0.55 else RED)};height:8px;border-radius:3px"></div></div>'
         f'<span class="muted" style="width:40px;text-align:right">{v:.2f}</span></div>' for v, n in divs)
     sb = cur.loc["SPY", "TLT"]
@@ -1313,7 +1399,7 @@ MOM_PLAYS = {
 
 MOM_JS = r"""
 (function(){
-const R=__ROWS__,PLAYS=__PLAYS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+const R=__ROWS__,PLAYS=__PLAYS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',MUT='#606060';
 let cat='all',open=null;
 const wrap=document.getElementById('momw');
 const CATS=['rates','indices','fx','crypto','energy','metals','vol'];
@@ -1324,16 +1410,16 @@ function render(){
  let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+
   [['all','All ('+R.length+')'],...CATS.map(c=>[c,c[0].toUpperCase()+c.slice(1)])]
   .map(([k,l])=>'<button data-c="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 10px;border-radius:14px;border:1px solid '+
-   (k===cat?GOLDC:'#232a3a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
+   (k===cat?GOLDC:'#2a2a2a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
  h+='<div style="overflow-x:auto"><table><tr><th>Asset (ranked)</th><th>Score</th><th>Today</th><th>1W</th><th>1M</th><th>3M</th><th>RSI</th><th>TF align</th><th>52w</th><th>Flags</th><th>Regime</th></tr>';
  rows.forEach((r,i)=>{
   const rc=r.regime==='Trending up'?GRN:(r.regime==='Trending down'?RED:(r.regime==='Chop'?MUT:GOLDC));
   h+='<tr data-i="'+i+'" style="cursor:pointer"><td style="white-space:nowrap"><b>'+r.n+'</b> <span class="muted" style="font-size:10px">'+r.cat+'</span></td>'+
-   '<td><b style="color:'+(r.score>=65?GRN:(r.score<=35?RED:'#d6dae3'))+'">'+r.score+'</b></td>'+
+   '<td><b style="color:'+(r.score>=65?GRN:(r.score<=35?RED:'#ffffff'))+'">'+r.score+'</b></td>'+
    '<td>'+pc(r.t,2)+'</td><td>'+pc(r.w)+'</td><td>'+pc(r.m)+'</td><td>'+pc(r.q)+'</td>'+
-   '<td style="color:'+(r.rsi>70?RED:(r.rsi<30?GRN:'#d6dae3'))+'">'+r.rsi.toFixed(1)+'</td>'+
+   '<td style="color:'+(r.rsi>70?RED:(r.rsi<30?GRN:'#ffffff'))+'">'+r.rsi.toFixed(1)+'</td>'+
    '<td style="letter-spacing:1px">'+blocks(r)+'</td>'+
-   '<td><div style="width:56px;background:#232a3a;height:6px;border-radius:3px"><div style="width:'+(r.p52*100).toFixed(0)+'%;background:'+GOLDC+';height:6px;border-radius:3px"></div></div></td>'+
+   '<td><div style="width:56px;background:#2a2a2a;height:6px;border-radius:3px"><div style="width:'+(r.p52*100).toFixed(0)+'%;background:'+GOLDC+';height:6px;border-radius:3px"></div></div></td>'+
    '<td style="color:'+GOLDC+'">'+(r.acc===1?'▲ ':'')+(r.acc===-1?'▼ ':'')+(r.div?'◆':'')+'</td>'+
    '<td style="color:'+rc+';white-space:nowrap">'+r.regime+'</td></tr>';
   if(open===i)h+='<tr><td colspan="11" style="background:rgba(212,175,90,.05);font-size:12px;color:'+MUT+'">'+
@@ -1491,13 +1577,13 @@ def _seas_pack(s):
 SEAS_JS = r"""
 (function(){
 const D=__DATA__,MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',BLU='#5aa2d4',MUT='#8891a5';
+const GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',BLU='#5aa2d4',MUT='#606060';
 let inst='ES',view='overlay';
 const wrap=document.getElementById('seas'),tip=document.getElementById('stip');
 function tabs(id,items,cur,fn){return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px">'+items.map(([k,l])=>
  '<button data-'+id+'="'+k+'" style="cursor:pointer;font-size:12px;padding:4px 12px;border-radius:16px;border:1px solid '+
- (k===cur?GOLDC:'#232a3a')+';background:'+(k===cur?'rgba(212,175,90,.12)':'transparent')+';color:'+
- (k===cur?GOLDC:'#8891a5')+'">'+l+'</button>').join('')+'</div>';}
+ (k===cur?GOLDC:'#2a2a2a')+';background:'+(k===cur?'rgba(212,175,90,.12)':'transparent')+';color:'+
+ (k===cur?GOLDC:'#606060')+'">'+l+'</button>').join('')+'</div>';}
 function render(){
  const d=D[inst];if(!d){wrap.innerHTML='data unavailable';return}
  let h=tabs('i',Object.keys(D).map(k=>[k,k+' · '+D[k].name]),inst,0);
@@ -1517,7 +1603,7 @@ function overlay(el,d){
  let vals=[];S.forEach(s=>s[1].forEach(v=>{if(v!=null)vals.push(v)}));
  const lo=Math.min(...vals),hi=Math.max(...vals),rg=(hi-lo)||1;
  const X=i=>P+(W-2*P)*(i-1)/365,Y=v=>P+(H-2*P)*(1-(v-lo)/rg);
- let g='<rect x="'+P+'" y="'+P+'" width="'+(W-2*P)+'" height="'+(H-2*P)+'" fill="none" stroke="#232a3a"/>';
+ let g='<rect x="'+P+'" y="'+P+'" width="'+(W-2*P)+'" height="'+(H-2*P)+'" fill="none" stroke="#2a2a2a"/>';
  if(lo<0&&hi>0)g+='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" stroke="'+MUT+'" stroke-width="0.6" stroke-dasharray="3 4"/>';
  for(let m=0;m<12;m++){const x=X(m*30.4+1);g+='<text x="'+x+'" y="'+(H-14)+'" fill="'+MUT+'" font-size="10">'+MN[m]+'</text>';}
  [lo,lo+rg/2,hi].forEach(v=>{g+='<text x="4" y="'+(Y(v)+3)+'" fill="'+MUT+'" font-size="10">'+v.toFixed(0)+'%</text>';});
@@ -1526,7 +1612,7 @@ function overlay(el,d){
  S.forEach(([n,a,c])=>{let pts=[];for(let i=1;i<367;i++)if(a[i]!=null)pts.push(X(i).toFixed(1)+','+Y(a[i]).toFixed(1));
   g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+(n==='YTD'?2.2:1.4)+'"/>';});
  el.innerHTML='<svg id="ssvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto">'+g+
-  '<line id="cx" y1="'+P+'" y2="'+(H-P)+'" stroke="#d6dae3" stroke-width="0.5" visibility="hidden"/></svg>'+
+  '<line id="cx" y1="'+P+'" y2="'+(H-P)+'" stroke="#ffffff" stroke-width="0.5" visibility="hidden"/></svg>'+
   '<div class="legend">'+S.map(([n,,c])=>'<span style="color:'+c+'">▬</span> '+n).join(' · ')+
   ' · cumulative % from the first session of the year, aligned by calendar day. When the YTD line hugs the averages, the year is behaving seasonally; a hard split from them is information on its own.</div>';
  const svg=document.getElementById('ssvg'),cx=document.getElementById('cx');
@@ -1553,7 +1639,7 @@ function monthly(el,d){
 }
 function days(el,d){
  const cm=new Date().getUTCMonth();
- let sel='<select id="msel" style="background:#0d1017;color:#d6dae3;border:1px solid #232a3a;border-radius:6px;padding:4px 8px;font-size:12px;margin-bottom:8px">'+
+ let sel='<select id="msel" style="background:#0b0b0b;color:#ffffff;border:1px solid #2a2a2a;border-radius:6px;padding:4px 8px;font-size:12px;margin-bottom:8px">'+
   MN.map((m,i)=>'<option value="'+i+'"'+(i===cm?' selected':'')+'>'+m+'</option>').join('')+'<option value="-1">All months</option></select>';
  el.innerHTML=sel+'<div id="dviz"></div>';
  const draw=mi=>{
@@ -1572,11 +1658,11 @@ function days(el,d){
 function grid(el,d){
  let mx=0;d.grid.forEach(r=>r.forEach(v=>{if(v!=null)mx=Math.max(mx,Math.abs(v))}));
  let h='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px"><tr><th style="padding:3px 6px"></th>';
- for(let t=1;t<=23;t++)h+='<th style="padding:3px 4px;color:#8891a5">'+t+'</th>';h+='</tr>';
- d.grid.forEach((row,m)=>{h+='<tr><td style="padding:3px 6px;color:#8891a5;font-weight:600">'+MN[m]+'</td>';
+ for(let t=1;t<=23;t++)h+='<th style="padding:3px 4px;color:#606060">'+t+'</th>';h+='</tr>';
+ d.grid.forEach((row,m)=>{h+='<tr><td style="padding:3px 6px;color:#606060;font-weight:600">'+MN[m]+'</td>';
   row.forEach((v,t)=>{if(v==null){h+='<td></td>';return}
    const a=Math.min(0.9,Math.abs(v)/mx),c=v>=0?'76,175,125':'224,85,85';
-   h+='<td title="'+MN[m]+' · trading day '+(t+1)+': '+(v>=0?'+':'')+v.toFixed(3)+'%" style="padding:3px 4px;background:rgba('+c+','+a.toFixed(2)+');border:1px solid #0d1017;text-align:center;min-width:22px">'+(Math.abs(v)>=0.05?(v>0?'+':'−'):'')+'</td>';});
+   h+='<td title="'+MN[m]+' · trading day '+(t+1)+': '+(v>=0?'+':'')+v.toFixed(3)+'%" style="padding:3px 4px;background:rgba('+c+','+a.toFixed(2)+');border:1px solid #0b0b0b;text-align:center;min-width:22px">'+(Math.abs(v)>=0.05?(v>0?'+':'−'):'')+'</td>';});
   h+='</tr>';});
  el.innerHTML=h+'</table></div><div class="legend">Every month × trading-day cell, colored by average daily return over the full history (green = positive drift, red = negative; intensity = size). Hover any cell for the exact number. The vertical green band at the month edges is the turn-of-month effect.</div>';
 }
@@ -1607,8 +1693,8 @@ def m_seasonality(gspc_m):
     stance = "bullish" if avg[cur] > 0.5 else ("bearish" if avg[cur] < 0 else "neutral")
     payload = json.dumps(data, separators=(",", ":"))
     body = card('<div id="seas">loading…</div>'
-                '<div id="stip" style="display:none;position:fixed;z-index:9;background:#141926;'
-                'border:1px solid #232a3a;border-radius:8px;padding:8px 11px;font-size:12px;'
+                '<div id="stip" style="display:none;position:fixed;z-index:9;background:#141414;'
+                'border:1px solid #2a2a2a;border-radius:8px;padding:8px 11px;font-size:12px;'
                 'pointer-events:none;line-height:1.5"></div>'
                 "<script>" + SEAS_JS.replace("__DATA__", payload) + "</script>",
                 "SEASONAL BEHAVIOR · PICK AN INSTRUMENT AND A VIEW") + card(
@@ -1702,7 +1788,7 @@ def _cal_asset(name, s):
                'asset historically finds its bid.</div>', "TRADING DAY OF MONTH")
     mn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     trs = "<tr><th>Year</th>" + "".join(
-        f'<th style="{"color:#d4af5a" if m == NOW.month else ""}">{mn[m-1]}</th>' for m in range(1, 13)) + "</tr>"
+        f'<th style="{"color:#d4af37" if m == NOW.month else ""}">{mn[m-1]}</th>' for m in range(1, 13)) + "</tr>"
     trs += "<tr><td class='muted'>Win rate</td>" + "".join(
         f'<td style="color:{GREEN if win[m] >= 60 else (RED if win[m] < 45 else "var(--tx)")}">{win[m]:.0f}%</td>'
         for m in range(1, 13)) + "</tr>"
@@ -1732,12 +1818,12 @@ def m_calendar(gspc_d):
             sections[sym] = card(f'<span class="muted">Unavailable this run ({e}).</span>')
     tabs = "".join(
         f'<button onclick="calshow(\'{s}\')" id="calb-{s}" style="cursor:pointer;font-size:12px;padding:4px 12px;'
-        f'border-radius:16px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin:0 6px 8px 0">{n}</button>'
+        f'border-radius:16px;border:1px solid #2a2a2a;background:transparent;color:#606060;margin:0 6px 8px 0">{n}</button>'
         for s, n in CAL_ASSETS)
     divs = "".join(f'<div id="cal-{s}" style="display:none">{b}</div>' for s, b in sections.items())
     js = ("<script>function calshow(t){%s.forEach(x=>{document.getElementById('cal-'+x).style.display=x===t?'block':'none';"
-          "const b=document.getElementById('calb-'+x);b.style.color=x===t?'#d4af5a':'#8891a5';"
-          "b.style.borderColor=x===t?'#d4af5a':'#232a3a';});}calshow('^GSPC');</script>"
+          "const b=document.getElementById('calb-'+x);b.style.color=x===t?'#d4af37':'#606060';"
+          "b.style.borderColor=x===t?'#d4af37':'#2a2a2a';});}calshow('^GSPC');</script>"
           ) % json.dumps([s for s, _ in CAL_ASSETS])
     body = f"<div>{tabs}</div>{divs}{js}" + card(
         "The Seasonality tab answers \"which months favor this asset\"; this one answers the day-trader's "
@@ -1839,7 +1925,7 @@ def m_election(gspc_m):
             sel = qm[(qm.index.year % 4 == c) & (qm.index.quarter == q)]
             byq = sel.groupby([sel.index.year, sel.index.quarter]).apply(lambda g: ((1 + g).prod() - 1) * 100)
             cells.append(float(byq.mean()) if len(byq) else 0.0)
-        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a;font-size:10px">now</span>' if c == cur_c else ""
+        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af37;font-size:10px">now</span>' if c == cur_c else ""
         qrows.append((f"<b>{CYCLE_NAMES[c]}</b>{tag}", *[cnum(v, 1) for v in cells]))
     desc, actions, caution = CYCLE_NOTES[cname]
     avg, winr, n = stats[cur_c]
@@ -1982,7 +2068,7 @@ def m_yield_curve():
     rg = (hi - lo) or 1
     X = lambda i: P2 + (W2 - 2 * P2) * i / (len(labs) - 1)
     Y = lambda v: P2 + (H2 - 2 * P2) * (1 - (v - lo) / rg)
-    g = f'<rect x="{P2}" y="{P2}" width="{W2-2*P2}" height="{H2-2*P2}" fill="none" stroke="#232a3a"/>'
+    g = f'<rect x="{P2}" y="{P2}" width="{W2-2*P2}" height="{H2-2*P2}" fill="none" stroke="#2a2a2a"/>'
     for series, color, wdt in ((curve_1y, MUT, 1.2), (curve_1m, BLUE, 1.4), (curve_now, GOLD, 2.2)):
         pts = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v in enumerate(series))
         g += f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="{wdt}"/>'
@@ -2195,7 +2281,7 @@ def m_credit():
         f = fwd[mask].dropna()
         if len(f) < 10:
             continue
-        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a;font-size:10px">now</span>' if zn == zname else ""
+        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af37;font-size:10px">now</span>' if zn == zname else ""
         rng = f"< {zhi}" if zlo == 0 else (f"≥ {zlo}" if zhi > 1000 else f"{zlo}–{zhi}")
         zrows.append((f"<b>{zn}</b>{tag}", rng, cnum(float(f.mean()), 1),
                       f"{(f > 0).mean() * 100:.0f}%", f'<span style="color:{RED}">{float(f.min()):.1f}%</span>',
@@ -2625,7 +2711,7 @@ def m_business_cycle():
     X = lambda g: 40 + (S - 80) * (g + gspan) / (2 * gspan)
     Y = lambda i: S - 40 - (S - 80) * (i - ispan_lo) / ((ispan_hi - ispan_lo) or 1)
     cx, cy = X(0), Y(2.0)
-    g = (f'<rect x="40" y="40" width="{S-80}" height="{S-80}" fill="none" stroke="#232a3a"/>'
+    g = (f'<rect x="40" y="40" width="{S-80}" height="{S-80}" fill="none" stroke="#2a2a2a"/>'
          f'<line x1="{cx}" x2="{cx}" y1="40" y2="{S-40}" stroke="{MUT}" stroke-width="0.6"/>'
          f'<line x1="40" x2="{S-40}" y1="{cy}" y2="{cy}" stroke="{MUT}" stroke-width="0.6"/>'
          f'<text x="46" y="56" fill="{RED}" font-size="10" font-weight="600">STAGFLATION</text>'
@@ -2935,7 +3021,7 @@ def _fg_card(title, score, hist, month_avg, month_n, extra="", tag=""):
     return card(
         f'<div style="display:flex;gap:14px;align-items:baseline"><div style="font-size:30px;font-weight:700;'
         f'color:{_mood_col(score)}">{score:.0f}</div><div><b>{_mood(score)}</b>'
-        + (f' <span class="pill" style="background:#232a3a;color:{MUT};font-size:10px">{tag}</span>' if tag else "")
+        + (f' <span class="pill" style="background:#2a2a2a;color:{MUT};font-size:10px">{tag}</span>' if tag else "")
         + f'</div></div><div class="stats" style="margin-top:8px">{strip}</div>'
         + extra +
         f'<div class="muted" style="margin-top:8px;font-size:12px"><b>Seasonal alignment</b> · {line} '
@@ -3250,7 +3336,7 @@ def _cot_fetch(key):
 
 COT_JS = r"""
 (function(){
-const R=__ROWS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+const R=__ROWS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',MUT='#606060';
 let cat='all',sortk='idx',sdesc=true;
 const wrap=document.getElementById('cotw');
 const CATS=['indices','currencies','energy','metals','grains','softs','meats','crypto','other'];
@@ -3270,7 +3356,7 @@ function render(){
   [['all','All ('+R.length+')'],...CATS.map(c=>[c,c[0].toUpperCase()+c.slice(1)+' ('+nc(c)+')']),
    ['ext','⚡ Extremes ('+R.filter(r=>r.ext).length+')'],['star','★ Divergences ('+R.filter(r=>r.star).length+')']]
   .map(([k,l])=>'<button data-c="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 10px;border-radius:14px;border:1px solid '+
-   (k===cat?GOLDC:'#232a3a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
+   (k===cat?GOLDC:'#2a2a2a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
  h+='<div style="overflow-x:auto"><table><tr>'+
   [['flag','Flag'],['n','Instrument'],['px','Price'],['ch','Δ 1w'],['oi','OI'],['cn','Comm net'],['cp','% of OI'],['cw','Δ WoW'],
    ['sn','Specs net'],['sp','% of OI'],['rn','Small net'],['idx','COT idx'],['spark','26w trend']]
@@ -3284,7 +3370,7 @@ function render(){
    '<td style="color:'+(r.cw>=0?GRN:RED)+'">'+fmt(r.cw)+'</td>'+
    '<td style="color:'+(r.sn>=0?GRN:RED)+'">'+fmt(r.sn)+'</td><td>'+r.sp+'%</td>'+
    '<td style="color:'+(r.rn>=0?GRN:RED)+'">'+fmt(r.rn)+'</td>'+
-   '<td style="font-weight:600;color:'+(r.idx==null?MUT:(r.idx>=80||r.idx<=20?GOLDC:'#d6dae3'))+'">'+(r.idx==null?'—':r.idx)+'</td>'+
+   '<td style="font-weight:600;color:'+(r.idx==null?MUT:(r.idx>=80||r.idx<=20?GOLDC:'#ffffff'))+'">'+(r.idx==null?'—':r.idx)+'</td>'+
    '<td>'+spark(r.spark)+'</td></tr>';});
  h+='</table></div>';
  wrap.innerHTML=h;
@@ -3552,12 +3638,12 @@ def m_astrology():
             f'{dstr(e["end"])}<br>peak {dstr(e["peak"])}</td></tr>')
     filt = ("<div style='margin-bottom:8px'>Minimum significance: " + "".join(
         f'<button onclick="afilt({s})" id="ab{s}" style="cursor:pointer;font-size:11px;padding:3px 9px;'
-        f'border-radius:12px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin-right:4px">'
+        f'border-radius:12px;border:1px solid #2a2a2a;background:transparent;color:#606060;margin-right:4px">'
         + "★" * s + "</button>" for s in range(1, 6)) + "</div>")
     js = ("<script>function afilt(s){document.querySelectorAll('#astbl tr[data-sig]').forEach(r=>"
           "{r.style.display=(+r.dataset.sig>=s)?'':'none'});"
           "[1,2,3,4,5].forEach(i=>{const b=document.getElementById('ab'+i);"
-          "b.style.color=i===s?'#d4af5a':'#8891a5';b.style.borderColor=i===s?'#d4af5a':'#232a3a';});}"
+          "b.style.color=i===s?'#d4af37':'#606060';b.style.borderColor=i===s?'#d4af37':'#2a2a2a';});}"
           "afilt(1);</script>")
     body = card(stat_grid([("Moon phase", phase, GOLD),
                            ("Illumination", pct(illum, 0), MUT),
@@ -3780,12 +3866,12 @@ def m_calculators():
         "const rp=Math.abs(e-s);const o=document.getElementById('c_out');"
         "if(!a||!r||!rp){o.innerHTML='<span class=muted>—</span>';return}"
         "const sh=Math.floor(a*r/rp),risk=a*r,notional=sh*e;"
-        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#ffffff'}'>${v}</div></div>`;"
         "o.innerHTML=cell('Risk amount','$'+risk.toLocaleString(undefined,{maximumFractionDigits:2}),'#e05555')"
         "+cell('Position size',sh.toLocaleString()+' units')"
         "+cell('Notional exposure','$'+notional.toLocaleString(undefined,{maximumFractionDigits:0}))"
         "+cell('1R (per unit)',rp.toFixed(2))"
-        "+cell('Exposure / account',(notional/a*100).toFixed(1)+'%',notional>a?'#e05555':'#8891a5');}"
+        "+cell('Exposure / account',(notional/a*100).toFixed(1)+'%',notional>a?'#e05555':'#606060');}"
         "['c_acct','c_risk','c_in','c_st'].forEach(i=>document.getElementById(i).addEventListener('input',cc));cc();</script>",
         "POSITION SIZE") + card(
         '<div class="muted" style="font-size:12px;margin-bottom:6px">The reward:risk ratio and the hit rate it '
@@ -3798,7 +3884,7 @@ def m_calculators():
         "const risk=Math.abs(e-s),rew=Math.abs(t-e);const o=document.getElementById('r_out');"
         "if(!risk){o.innerHTML='<span class=muted>—</span>';return}"
         "const rr=rew/risk,be=1/(1+rr)*100;"
-        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#ffffff'}'>${v}</div></div>`;"
         "o.innerHTML=cell('Reward : Risk',rr.toFixed(2)+' R',rr>=2?'#4caf7d':(rr<1?'#e05555':'#e0a94c'))"
         "+cell('Break-even win rate',be.toFixed(1)+'%')"
         "+cell('Risk per unit',risk.toFixed(2))+cell('Reward per unit',rew.toFixed(2));}"
@@ -3813,11 +3899,11 @@ def m_calculators():
         "<script>function ec(){const w=+e_wr.value/100,aw=+e_w.value,al=+e_l.value;"
         "const ex=w*aw-(1-w)*al;const o=document.getElementById('e_out');"
         "const kel=al?((w*aw-(1-w)*al)/aw):0;"
-        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#ffffff'}'>${v}</div></div>`;"
         "o.innerHTML=cell('Expectancy',ex.toFixed(2)+'R / trade',ex>0?'#4caf7d':'#e05555')"
         "+cell('Over 100 trades',(ex*100).toFixed(0)+'R',ex>0?'#4caf7d':'#e05555')"
-        "+cell('Kelly fraction',(kel*100).toFixed(1)+'%','#8891a5')"
-        "+cell('Half-Kelly (practical)',(kel*50).toFixed(1)+'%','#8891a5');}"
+        "+cell('Kelly fraction',(kel*100).toFixed(1)+'%','#606060')"
+        "+cell('Half-Kelly (practical)',(kel*50).toFixed(1)+'%','#606060');}"
         "['e_wr','e_w','e_l'].forEach(i=>document.getElementById(i).addEventListener('input',ec));ec();</script>",
         "R-MULTIPLE EXPECTANCY") + card(
         '<div class="muted" style="font-size:12px;margin-bottom:6px">Growth at a fixed rate per period, and '
@@ -3830,7 +3916,7 @@ def m_calculators():
         "<script>function kc(){const p=+k_p.value,r=+k_r.value/100,y=+k_y.value,d=+k_d.value/100;"
         "const end=p*Math.pow(1+r,y);const o=document.getElementById('k_out');"
         "const recov=d<1?(1/(1-d)-1)*100:Infinity;"
-        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#ffffff'}'>${v}</div></div>`;"
         "o.innerHTML=cell('Ending value','$'+end.toLocaleString(undefined,{maximumFractionDigits:0}),'#4caf7d')"
         "+cell('Total gain','$'+(end-p).toLocaleString(undefined,{maximumFractionDigits:0}))"
         "+cell('Multiple',(end/p).toFixed(2)+'×')"
@@ -3964,7 +4050,7 @@ def build_confluence(mods):
         pillar_scores[pname] = pscore
         pcol = GREEN if pscore > 0.25 else (RED if pscore < -0.25 else AMBER)
         plabel = "Bullish" if pscore > 0.25 else ("Bearish" if pscore < -0.25 else "Neutral")
-        bar = (f'<div style="background:#232a3a;border-radius:4px;height:8px;position:relative;margin:6px 0">'
+        bar = (f'<div style="background:#2a2a2a;border-radius:4px;height:8px;position:relative;margin:6px 0">'
                f'<div style="position:absolute;left:50%;width:1px;height:8px;background:{MUT}"></div>'
                f'<div style="position:absolute;left:{50 + min(0, pscore*50):.1f}%;width:{abs(pscore)*50:.1f}%;'
                f'height:8px;background:{pcol};border-radius:4px"></div></div>')
@@ -4086,6 +4172,19 @@ def main():
             import traceback
             name = traceback.extract_tb(e.__traceback__)[-1].name
             failed.append(f"{name}: {e}")
+    # Never overwrite a good terminal with a badly degraded one. A couple of dead
+    # data sources is tolerable (that page shows "unavailable this run"); a pile of
+    # them means the run is broken — bail out before writing anything and let the
+    # previous build stand.
+    MAX_FAILED = 3
+    if failed:
+        print(f"FAILED modules ({len(failed)}):")
+        for f in failed:
+            print("  -", f)
+    if len(failed) > MAX_FAILED:
+        print(f"ABORT: {len(failed)} module failures exceeds the limit of {MAX_FAILED}; "
+              f"pages left untouched.")
+        return 2
     slug_order = [s for _, items in GROUPS for s, _ in items]
     mods.sort(key=lambda m: slug_order.index(m["slug"]) if m["slug"] in slug_order else 99)
     confl = build_confluence(mods)
@@ -4093,11 +4192,11 @@ def main():
     for m in mods + [confl]:
         write_page(m["slug"], m["title"], m["sub"], m["body"])
     write_page("", ov["title"], ov["sub"], ov["body"])
-    print(f"built {len(mods)+2} pages -> {ROOT}")
-    if failed:
-        print("FAILED modules:")
-        for f in failed:
-            print("  -", f)
+    with open(os.path.join(ROOT, ".built"), "w") as f:
+        f.write(NOW.strftime("%Y-%m-%dT%H:%M:%SZ") + "\n")
+    print(f"built {len(mods)+2} pages -> {ROOT} ({len(failed)} degraded)")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    import sys as _sys
+    _sys.exit(main() or 0)
