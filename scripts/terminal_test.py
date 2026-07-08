@@ -546,64 +546,441 @@ def m_volatility(px):
                 body=body, stance=stance,
                 headline=f"{regime} — VIX {lvl:.1f} ({p10y:.0f}th pctile), 9D/3M {ts:.2f}")
 
+RRG_UNIS = [
+    ("sectors", "US Sectors", "SPY", dict(SECTORS)),
+    ("industries", "Industries", "SPY",
+     {"IGV": "Software", "SMH": "Semis", "XBI": "Biotech", "KRE": "Reg. banks",
+      "XHB": "Homebuilders", "ITA": "Defense", "XOP": "Oil & gas E&P",
+      "XME": "Metals & mining", "JETS": "Airlines", "TAN": "Solar"}),
+    ("styles", "Styles & Factors", "SPY",
+     {"MTUM": "Momentum", "VLUE": "Value factor", "QUAL": "Quality", "USMV": "Min vol",
+      "IWF": "Growth", "IWD": "Value (large)", "RSP": "Equal weight", "IWM": "Small caps"}),
+    ("assets", "Asset Classes", "SPY",
+     {"TLT": "Long bonds", "IEF": "7-10y bonds", "GLD": "Gold", "DBC": "Commodities",
+      "HYG": "HY credit", "EEM": "Emerging mkts", "EFA": "Dev. intl", "BTC-USD": "Bitcoin"}),
+    ("global", "Global Markets", "SPY",
+     {"EWJ": "Japan", "EWG": "Germany", "EWU": "UK", "EWQ": "France", "EWI": "Italy",
+      "EWP": "Spain", "EWY": "South Korea", "EWT": "Taiwan", "FXI": "China",
+      "INDA": "India", "EWZ": "Brazil"}),
+    ("crypto", "Crypto (vs BTC)", "BTC-USD",
+     {"ETH-USD": "Ethereum", "SOL-USD": "Solana", "BNB-USD": "BNB", "XRP-USD": "XRP",
+      "ADA-USD": "Cardano", "DOGE-USD": "Dogecoin"}),
+]
+
+def _rrg_quad(x, y):
+    if x >= 100 and y >= 100: return "LEADING"
+    if x >= 100: return "WEAKENING"
+    if y >= 100: return "IMPROVING"
+    return "LAGGING"
+
+RRG_JS = r"""
+(function(){
+const D=__DATA__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',BLU='#5aa2d4',MUT='#8891a5';
+const QC={LEADING:GRN,WEAKENING:GOLDC,LAGGING:RED,IMPROVING:BLU};
+let uni=Object.keys(D)[0];
+const wrap=document.getElementById('rrgw');
+function render(){
+ const u=D[uni];
+ let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+Object.keys(D).map(k=>
+  '<button data-u="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 12px;border-radius:14px;border:1px solid '+
+  (k===uni?GOLDC:'#232a3a')+';background:'+(k===uni?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===uni?GOLDC:MUT)+'">'+D[k].name+'</button>').join('')+'</div>';
+ // scatter
+ const S=560,P=44;let xs=[],ys=[];
+ u.rows.forEach(r=>r.trail.forEach(p=>{xs.push(p[0]);ys.push(p[1]);}));
+ const sp=Math.max(1.6,...xs.map(v=>Math.abs(v-100)),...ys.map(v=>Math.abs(v-100)))*1.15;
+ const X=v=>P+(S-2*P)*((v-(100-sp))/(2*sp)),Y=v=>S-P-(S-2*P)*((v-(100-sp))/(2*sp));
+ const cx=X(100),cy=Y(100);
+ let g='<rect x="'+P+'" y="'+P+'" width="'+(cx-P)+'" height="'+(cy-P)+'" fill="rgba(90,162,212,.05)"/>'+
+  '<rect x="'+cx+'" y="'+P+'" width="'+(S-P-cx)+'" height="'+(cy-P)+'" fill="rgba(76,175,125,.05)"/>'+
+  '<rect x="'+P+'" y="'+cy+'" width="'+(cx-P)+'" height="'+(S-P-cy)+'" fill="rgba(224,85,85,.05)"/>'+
+  '<rect x="'+cx+'" y="'+cy+'" width="'+(S-P-cx)+'" height="'+(S-P-cy)+'" fill="rgba(212,175,90,.05)"/>'+
+  '<line x1="'+cx+'" x2="'+cx+'" y1="'+P+'" y2="'+(S-P)+'" stroke="'+MUT+'" stroke-width="0.6"/>'+
+  '<line x1="'+P+'" x2="'+(S-P)+'" y1="'+cy+'" y2="'+cy+'" stroke="'+MUT+'" stroke-width="0.6"/>'+
+  '<text x="'+(S-P-8)+'" y="'+(P+16)+'" text-anchor="end" fill="'+GRN+'" font-size="11" font-weight="600">LEADING</text>'+
+  '<text x="'+(S-P-8)+'" y="'+(S-P-8)+'" text-anchor="end" fill="'+GOLDC+'" font-size="11" font-weight="600">WEAKENING</text>'+
+  '<text x="'+(P+8)+'" y="'+(S-P-8)+'" fill="'+RED+'" font-size="11" font-weight="600">LAGGING</text>'+
+  '<text x="'+(P+8)+'" y="'+(P+16)+'" fill="'+BLU+'" font-size="11" font-weight="600">IMPROVING</text>'+
+  '<text x="'+(S/2)+'" y="'+(S-6)+'" text-anchor="middle" fill="'+MUT+'" font-size="10">RS-Ratio (trend of relative strength) →</text>'+
+  '<text x="12" y="'+(S/2)+'" fill="'+MUT+'" font-size="10" transform="rotate(-90 12 '+(S/2)+')" text-anchor="middle">RS-Momentum →</text>';
+ u.rows.forEach(r=>{
+  const c=QC[r.q];
+  const pts=r.trail.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ');
+  g+='<polyline points="'+pts+'" fill="none" stroke="'+c+'" stroke-width="1.1" opacity="0.45"/>';
+  r.trail.slice(0,-1).forEach(p=>{g+='<circle cx="'+X(p[0]).toFixed(1)+'" cy="'+Y(p[1]).toFixed(1)+'" r="1.6" fill="'+c+'" opacity="0.4"/>';});
+  const e=r.trail[r.trail.length-1];
+  g+='<circle cx="'+X(e[0]).toFixed(1)+'" cy="'+Y(e[1]).toFixed(1)+'" r="4" fill="'+c+'"><title>'+r.t+' · '+r.q+'</title></circle>'+
+   '<text x="'+(X(e[0])+6).toFixed(1)+'" y="'+(Y(e[1])-5).toFixed(1)+'" fill="'+c+'" font-size="10" font-weight="600">'+r.t+'</text>';});
+ h+='<svg viewBox="0 0 '+S+' '+S+'" style="width:100%;max-width:620px;height:auto;display:block;margin:0 auto">'+g+'</svg>';
+ h+='<div style="overflow-x:auto;margin-top:12px"><table><tr><th>Asset</th><th>Quadrant</th><th>RS-Ratio</th><th>RS-Mom</th><th>Dir</th><th>1m vs bench</th><th>3m vs bench</th><th>Action</th></tr>';
+ u.rows.forEach(r=>{const e=r.trail[r.trail.length-1];
+  h+='<tr><td style="white-space:nowrap"><b>'+r.t+'</b> <span class="muted">'+r.n+'</span></td>'+
+   '<td><span style="color:'+QC[r.q]+';font-weight:600">'+r.q+'</span>'+(r.nw?' <span class="pill" style="background:rgba(212,175,90,.15);color:'+GOLDC+';font-size:10px">NEW</span>':'')+'</td>'+
+   '<td>'+e[0].toFixed(2)+'</td><td>'+e[1].toFixed(2)+'</td><td style="color:'+GOLDC+'">'+r.dir+'</td>'+
+   '<td style="color:'+(r.r1>=0?GRN:RED)+'">'+(r.r1>=0?'+':'')+r.r1+'%</td>'+
+   '<td style="color:'+(r.r3>=0?GRN:RED)+'">'+(r.r3>=0?'+':'')+r.r3+'%</td>'+
+   '<td class="muted" style="font-size:12px">'+r.act+'</td></tr>';});
+ h+='</table></div>';
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>{uni=b.dataset.u;render();});
+}
+render();
+})();
+"""
+
 def m_relative_strength(px):
-    rows = []
-    for etf, name in {**SECTORS, "EFA": "Dev. intl", "EEM": "Emerging", "IWM": "Small caps",
-                      "QQQ": "Nasdaq 100", "RSP": "Equal-weight"}.items():
-        s = (px[etf] / px["SPY"]).dropna()
-        r3, r1 = (s.iloc[-1] / s.iloc[-64] - 1) * 100, (s.iloc[-1] / s.iloc[-22] - 1) * 100
-        rows.append((etf, name, r3, r1, r3 > 0 and r1 > 0, r3 < 0 and r1 < 0))
-    rows.sort(key=lambda r: r[2], reverse=True)
-    leaders = [r for r in rows if r[4]][:4]
-    stance = "info"
-    body = card(table(["vs SPY", "3-month", "1-month", "Status"],
-                      [(f"<b>{e}</b> <span class='muted'>{nm}</span>", cnum(r3), cnum(r1),
-                        f'<span style="color:{GREEN}">leading</span>' if ld else
-                        (f'<span style="color:{RED}">lagging</span>' if lg else
-                         '<span class="muted">turning</span>'))
-                       for e, nm, r3, r1, ld, lg in rows]),
-                "RELATIVE STRENGTH vs S&P 500 · RATIO CHANGE") + card(
-        "Relative strength persists: what leads over 3 months tends to keep leading. The highest-signal names "
-        "are green on BOTH horizons (established + still accelerating). A 3-month leader going red on 1-month "
-        "is rotation starting — that's where tops in leadership themes first show up.", "HOW TO READ IT")
+    syms = sorted({s for *_, mems in RRG_UNIS for s in mems} |
+                  {b for _, _, b, _ in RRG_UNIS})
+    hist = yf.download(syms, period="2y", interval="1d", auto_adjust=True,
+                       progress=False)["Close"].ffill(limit=3)
+    data, rotations = {}, []
+    for key, uname, bench, mems in RRG_UNIS:
+        wk = hist.resample("W-FRI").last()
+        rows = []
+        for t, n in mems.items():
+            if t not in wk.columns or t == bench:
+                continue
+            rs = (100 * wk[t] / wk[bench]).dropna()
+            if len(rs) < 25:
+                continue
+            rsr = (100 * rs / rs.rolling(14).mean()).dropna()
+            rsm = (100 * rsr / rsr.rolling(5).mean()).dropna()
+            pts = [[round(float(rsr.loc[i]), 2), round(float(rsm.loc[i]), 2)]
+                   for i in rsm.index[-8:]]
+            if len(pts) < 4:
+                continue
+            q_now, q_prev1, q_prev2 = (_rrg_quad(*pts[-1]), _rrg_quad(*pts[-2]),
+                                       _rrg_quad(*pts[-3]))
+            nw = q_now != q_prev1 or q_now != q_prev2
+            dx, dy = pts[-1][0] - pts[-2][0], pts[-1][1] - pts[-2][1]
+            ang = math.degrees(math.atan2(dy, dx)) % 360
+            dirs = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"]
+            arrow = dirs[int((ang + 22.5) // 45) % 8]
+            ratio_d = (hist[t] / hist[bench]).dropna()
+            r1 = round(float((ratio_d.iloc[-1] / ratio_d.iloc[-22] - 1) * 100), 1)
+            r3 = round(float((ratio_d.iloc[-1] / ratio_d.iloc[-64] - 1) * 100), 1)
+            up = arrow in ("↗", "↑", "↖")
+            down = arrow in ("↘", "↓", "↙")
+            if q_now == "IMPROVING":
+                act = ("Accumulate — freshly turned off the lows; best risk/reward of the cycle"
+                       if nw and q_prev1 == "LAGGING" or q_prev2 == "LAGGING"
+                       else "Wait — turn not confirmed")
+            elif q_now == "LEADING":
+                act = "Tighten stops — momentum fading" if down else "Hold / buy pullbacks"
+            elif q_now == "WEAKENING":
+                act = "Watch — possible re-acceleration" if up else "Reduce — rotation out underway"
+            else:
+                act = "Watchlist — early turn forming" if up else "Avoid / underweight"
+            rows.append(dict(t=t.replace("-USD", ""), n=n, trail=pts, q=q_now, nw=nw,
+                             dir=arrow, r1=r1, r3=r3, act=act))
+            if q_now != q_prev1:
+                rotations.append((uname, f"{n} ({t.replace('-USD','')}) rotated "
+                                  f"{q_prev1.title()} → {q_now.title()}, last week — {act.lower()}"))
+            elif q_prev1 != q_prev2:
+                rotations.append((uname, f"{n} ({t.replace('-USD','')}) rotated "
+                                  f"{q_prev2.title()} → {q_prev1.title()}, two weeks ago — {act.lower()}"))
+        order = {"LEADING": 0, "IMPROVING": 1, "WEAKENING": 2, "LAGGING": 3}
+        rows.sort(key=lambda r: (order[r["q"]], -r["trail"][-1][0]))
+        data[key] = dict(name=uname, rows=rows)
+    rot_html = "".join(
+        f'<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:13px">'
+        f'<span class="muted" style="font-size:11px">{u}</span><br>{txt}</div>'
+        for u, txt in rotations[:10]) or '<span class="muted">No quadrant changes in the last two weeks.</span>'
+    payload = json.dumps(data, separators=(",", ":"))
+    body = card(rot_html, "FRESH ROTATIONS — QUADRANT CHANGES, LAST TWO WEEKS") + card(
+        '<div id="rrgw">loading…</div><script>' + RRG_JS.replace("__DATA__", payload) + "</script>",
+        "RELATIVE ROTATION · WEEKLY RS-RATIO × RS-MOMENTUM · 8-WEEK TRAILS") + card(
+        "<ul class='pb'>"
+        "<li><b>The cycle is clockwise</b>: strength builds (Improving, top-left), peaks (Leading, "
+        "top-right), fades (Weakening, bottom-right), bottoms (Lagging, bottom-left) — then repeats. "
+        "Where a name IS matters less than where its trail is HEADED.</li>"
+        "<li><b>Improving is where alpha is born</b> — relative strength has turned before the crowd "
+        "repriced it. Names freshly arrived from Lagging (the NEW badge) are the highest risk/reward "
+        "entries in rotation strategy.</li>"
+        "<li><b>Leading is for holding, not chasing</b> — buy pullbacks, and treat a south-pointing arrow "
+        "as the start of distribution even while price still looks fine.</li>"
+        "<li><b>Weakening is the exit ramp</b> — still outperforming on trend, but the money is already "
+        "leaving. Most traders overstay here.</li>"
+        "<li><b>Lagging is only interesting when its arrow points north</b> — that's next quarter's "
+        "Improving story, a watchlist entry rather than a position.</li></ul>"
+        '<div class="muted" style="margin-top:8px">RS-Ratio = the asset/benchmark ratio versus its own '
+        '14-week average (×100); RS-Momentum = the same normalization applied to RS-Ratio. Both center on '
+        '100 — the crosshair — computed on weekly closes with 8-week trails.</div>', "HOW TO TRADE THE QUADRANTS")
+    leaders = [r["t"] for r in data["sectors"]["rows"] if r["q"] == "LEADING"]
     return dict(slug="relative-strength", title="Relative Strength",
-                sub="Which sectors and style baskets are beating the index — ratio momentum on two horizons.",
-                body=body, stance=stance,
-                headline="Leaders: " + ", ".join(r[0] for r in leaders) if leaders else "No dual-horizon leaders")
+                sub="Relative rotation across six universes — sectors, industries, factors, asset classes, countries, crypto — with 8-week trails.",
+                body=body, stance="info",
+                headline=(f"Leading sectors: {', '.join(leaders[:4])}" if leaders
+                          else f"{len(rotations)} fresh rotations — no sector in Leading"))
+
+KL_TICKERS = ["SPY", "QQQ", "IWM", "NVDA", "GLD", "TLT", "BTC-USD", "ETH-USD"]
+
+def _swings(h, l, w=5):
+    sh, sl = [], []
+    for i in range(w, len(h) - w):
+        if h.iloc[i] == h.iloc[i - w:i + w + 1].max():
+            sh.append((h.index[i], float(h.iloc[i])))
+        if l.iloc[i] == l.iloc[i - w:i + w + 1].min():
+            sl.append((l.index[i], float(l.iloc[i])))
+    return sh, sl
+
+def _vprofile(close, vol, bins=40):
+    lo, hi = float(close.min()), float(close.max())
+    if hi <= lo:
+        return None
+    step = (hi - lo) / bins
+    hist = [0.0] * bins
+    for c, v in zip(close, vol):
+        b = min(int((c - lo) / step), bins - 1)
+        hist[b] += float(v)
+    poc_i = max(range(bins), key=lambda i: hist[i])
+    total = sum(hist)
+    inc, i0, i1 = hist[poc_i], poc_i, poc_i
+    while inc < 0.70 * total and (i0 > 0 or i1 < bins - 1):
+        left = hist[i0 - 1] if i0 > 0 else -1
+        right = hist[i1 + 1] if i1 < bins - 1 else -1
+        if right >= left:
+            i1 += 1; inc += hist[i1]
+        else:
+            i0 -= 1; inc += hist[i0]
+    ctr = lambda i: lo + (i + 0.5) * step
+    hvn = sorted(range(bins), key=lambda i: -hist[i])[:3]
+    lvn = [i for i in sorted(range(i0, i1 + 1), key=lambda i: hist[i])[:3]]
+    return dict(poc=ctr(poc_i), vah=ctr(i1), val=ctr(i0),
+                hvn=[ctr(i) for i in hvn], lvn=[ctr(i) for i in lvn])
+
+def _kl_options(tkr, spot):
+    tk = yf.Ticker(tkr)
+    exps = tk.options
+    if not exps:
+        return None
+    near = exps[0]
+    month = next((e for e in exps if (pd.Timestamp(e) - pd.Timestamp.now()).days >= 25), None)
+    out = dict(near=near)
+    ch = tk.option_chain(near)
+    co = ch.calls[["strike", "openInterest", "lastPrice"]].fillna(0)
+    po = ch.puts[["strike", "openInterest", "lastPrice"]].fillna(0)
+    win = (co["strike"] > spot * 0.9) & (co["strike"] < spot * 1.12)
+    out["cwalls"] = co[win & (co["strike"] >= spot * 0.985)].nlargest(3, "openInterest")["strike"].tolist()
+    winp = (po["strike"] > spot * 0.88) & (po["strike"] < spot * 1.1)
+    out["pwalls"] = po[winp & (po["strike"] <= spot * 1.015)].nlargest(3, "openInterest")["strike"].tolist()
+    ks = sorted(set(co["strike"]) & set(po["strike"]))
+    if ks:
+        def pain(K):
+            call_pay = ((K - co["strike"]).clip(lower=0) * co["openInterest"]).sum()
+            put_pay = ((po["strike"] - K).clip(lower=0) * po["openInterest"]).sum()
+            return call_pay + put_pay
+        out["maxpain"] = min((k for k in ks if spot * 0.85 < k < spot * 1.15), key=pain, default=None)
+    atm_i = (co["strike"] - spot).abs().idxmin()
+    atm_k = co.loc[atm_i, "strike"]
+    pr = po[po["strike"] == atm_k]
+    if len(pr):
+        out["em_near"] = float(co.loc[atm_i, "lastPrice"] + pr["lastPrice"].iloc[0]) / spot * 100
+    if month:
+        ch2 = tk.option_chain(month)
+        c2, p2 = ch2.calls, ch2.puts
+        ai = (c2["strike"] - spot).abs().idxmin()
+        ak = c2.loc[ai, "strike"]
+        pr2 = p2[p2["strike"] == ak]
+        if len(pr2):
+            out["em_month"] = float(c2.loc[ai, "lastPrice"] + pr2["lastPrice"].iloc[0]) / spot * 100
+            out["month"] = month
+    return out
+
+def _kl_ticker(tkr, df):
+    o, h, l, c, v = (df[k].dropna() for k in ("Open", "High", "Low", "Close", "Volume"))
+    spot = float(c.iloc[-1])
+    fmt = lambda p: f"{p:,.0f}" if spot > 2000 else f"{p:,.2f}"
+    # --- structure
+    sh, sl = _swings(h, l, 5)
+    def trend(hs, ls):
+        if len(hs) < 2 or len(ls) < 2:
+            return "Insufficient swings"
+        hh, hl_ = hs[-1][1] > hs[-2][1], ls[-1][1] > ls[-2][1]
+        if hh and hl_: return "Uptrend (HH + HL)"
+        if not hh and not hl_: return "Downtrend (LH + LL)"
+        return "Mixed structure"
+    d_tr = trend(sh, sl)
+    wdf = df.resample("W-FRI").agg({"High": "max", "Low": "min"}).dropna()
+    wsh, wsl = _swings(wdf["High"], wdf["Low"], 3)
+    w_tr = trend(wsh, wsl)
+    # --- volume profile
+    profs = {lab: _vprofile(c.iloc[-n:], v.iloc[-n:])
+             for lab, n in (("1M", 22), ("3M", 63), ("1Y", 252))}
+    p3 = profs["3M"]
+    va_pos = ("Above value — acceptance up here is bullish; a fall back inside targets the POC" if spot > p3["vah"]
+              else "Below value — the auction has rejected higher prices; rallies into VAL often fade" if spot < p3["val"]
+              else "Inside value — rotation between VAH and VAL is the base case")
+    # --- order flow
+    rets = c.pct_change().iloc[-21:]
+    vv = v.iloc[-21:]
+    upv = float(vv[rets > 0].sum()); dnv = float(vv[rets < 0].sum())
+    udr = upv / dnv if dnv else float("inf")
+    obv = (v * rets.reindex(v.index).fillna(0).apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))).cumsum()
+    obv_rising = bool(obv.iloc[-1] > obv.iloc[-20])
+    relv = float(v.iloc[-1] / v.iloc[-21:-1].mean())
+    flow = ("Accumulation: up days carry the heavier volume and OBV is rising — buyers are lifting offers. "
+            "Support retests are buyable until this flips." if udr > 1.15 and obv_rising else
+            "Distribution: down days carry the heavier volume and OBV is falling — sellers are hitting bids. "
+            "Treat support retests with suspicion; bounces are for selling until this flips."
+            if udr < 0.87 and not obv_rising else
+            "Balanced flow — neither side has the volume edge; take the levels more seriously than the tape.")
+    # --- reference levels
+    levels = []
+    for n, lab in ((20, "20-day MA"), (50, "50-day MA"), (100, "100-day MA"), (200, "200-day MA")):
+        levels.append((lab, float(c.rolling(n).mean().iloc[-1]), "ma"))
+    levels += [("Prior day high", float(h.iloc[-2]), "prior"), ("Prior day low", float(l.iloc[-2]), "prior")]
+    wk = df.iloc[-6:-1] if len(df) > 6 else df
+    pw = df[df.index >= df.index[-1] - pd.Timedelta(days=12)].iloc[:-1]
+    levels += [("Prior week high", float(wdf["High"].iloc[-2]), "prior"),
+               ("Prior week low", float(wdf["Low"].iloc[-2]), "prior")]
+    mdf = df.resample("ME").agg({"High": "max", "Low": "min"}).dropna()
+    if len(mdf) >= 2:
+        levels += [("Prior month high", float(mdf["High"].iloc[-2]), "prior"),
+                   ("Prior month low", float(mdf["Low"].iloc[-2]), "prior")]
+    hi52, lo52 = float(h.iloc[-252:].max()), float(l.iloc[-252:].min())
+    levels += [("52-week high", hi52, "prior"), ("52-week low", lo52, "prior")]
+    swing_rows = []
+    for d, pv in sh[-2:]:
+        levels.append((f"Swing high ({d.date()})", pv, "swing")); swing_rows.append((f"Swing high ({d.date()})", pv))
+    for d, pv in sl[-2:]:
+        levels.append((f"Swing low ({d.date()})", pv, "swing")); swing_rows.append((f"Swing low ({d.date()})", pv))
+    # AVWAPs
+    avws = []
+    for anchor, lab in ((l.iloc[-252:].idxmin(), "AVWAP from 52w low"),
+                        (h.iloc[-252:].idxmax(), "AVWAP from 52w high"),
+                        (c[c.index.year == NOW.year].index[0] if (c.index.year == NOW.year).any() else None, "AVWAP YTD")):
+        if anchor is None:
+            continue
+        cc, vv2 = c.loc[anchor:], v.loc[anchor:]
+        aw = float((cc * vv2).sum() / vv2.sum())
+        levels.append((lab, aw, "avwap")); avws.append((lab, aw))
+    for lab, prof in profs.items():
+        if not prof:
+            continue
+        levels += [(f"{lab} POC", prof["poc"], "vp"), (f"{lab} VAH", prof["vah"], "vp"),
+                   (f"{lab} VAL", prof["val"], "vp")]
+        levels += [(f"{lab} HVN", x, "vp") for x in prof["hvn"][:2]]
+    # options
+    opt = None
+    if "-USD" not in tkr:
+        try:
+            opt = _kl_options(tkr, spot)
+            if opt:
+                levels += [("Call wall", k, "opt") for k in opt.get("cwalls", [])]
+                levels += [("Put wall", k, "opt") for k in opt.get("pwalls", [])]
+                if opt.get("maxpain"):
+                    levels.append(("Max pain", opt["maxpain"], "opt"))
+        except Exception:
+            opt = None
+    # --- confluence clustering (0.6%)
+    levels = [(lab, p, m) for lab, p, m in levels if p and 0.5 * spot < p < 1.6 * spot]
+    levels.sort(key=lambda x: x[1])
+    clusters = []
+    for lab, p, m in levels:
+        if clusters and abs(p - clusters[-1]["px"]) / clusters[-1]["px"] < 0.006:
+            cl = clusters[-1]
+            cl["labels"].append(lab); cl["methods"].add(m)
+            cl["px"] = (cl["px"] * (len(cl["labels"]) - 1) + p) / len(cl["labels"])
+        else:
+            clusters.append(dict(px=p, labels=[lab], methods={m}))
+    for cl in clusters:
+        cl["score"] = len(cl["labels"])
+    above = sorted([c_ for c_ in clusters if c_["px"] > spot], key=lambda c_: c_["px"])[:5]
+    below = sorted([c_ for c_ in clusters if c_["px"] <= spot], key=lambda c_: -c_["px"])[:6]
+    def ladder_rows(cls_, up):
+        out = []
+        for cl in cls_:
+            d = (cl["px"] / spot - 1) * 100
+            sc = cl["score"]
+            out.append(
+                f'<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)">'
+                f'<b style="min-width:86px">{fmt(cl["px"])}</b>'
+                f'<span style="color:{GREEN if up else RED};min-width:64px">{d:+.2f}%</span>'
+                f'<span class="pill" style="background:rgba(212,175,90,{min(.06*sc,.35):.2f});color:{GOLD};min-width:26px;text-align:center">{sc}</span>'
+                f'<span class="muted" style="font-size:12px">{" · ".join(cl["labels"][:6])}</span></div>')
+        return "".join(out)
+    nearest_up = above[0] if above else None
+    nearest_dn = below[0] if below else None
+    pocket = ""
+    if nearest_up and nearest_dn:
+        pocket = (f"The trade map is the {abs(nearest_dn['px']/spot-1)*100:.2f}% pocket down to "
+                  f"{fmt(nearest_dn['px'])} ({nearest_dn['labels'][0]}) versus "
+                  f"{(nearest_up['px']/spot-1)*100:.2f}% up to {fmt(nearest_up['px'])} "
+                  f"({nearest_up['labels'][0]}).")
+    conflict = "" if d_tr.split(" ")[0] == w_tr.split(" ")[0] else " — NOT confirmed by the weekly"
+    # --- assemble html
+    hh = card(
+        f'<div><b>Daily:</b> <span style="color:{GREEN if d_tr.startswith("Up") else (RED if d_tr.startswith("Down") else AMBER)}">{d_tr}</span>'
+        f' &nbsp;·&nbsp; <b>Weekly:</b> <span style="color:{GREEN if w_tr.startswith("Up") else (RED if w_tr.startswith("Down") else AMBER)}">{w_tr}</span>'
+        f' &nbsp;·&nbsp; <b>Last:</b> {fmt(spot)}</div>'
+        f'<div class="muted" style="margin-top:6px">{va_pos}. Daily structure {d_tr.lower()}{conflict}. {pocket}</div>'
+        f'<div style="margin-top:8px;font-size:13px">{flow}</div>'
+        f'<div class="muted" style="font-size:11px;margin-top:4px">[up/down volume {udr:.2f}× · OBV '
+        f'{"rising" if obv_rising else "falling"} · relative volume {relv:.2f}×]</div>', "STRUCTURE & ORDER FLOW")
+    hh += card('<div class="slabel" style="margin-bottom:4px">RESISTANCE ABOVE</div>' + ladder_rows(above, True) +
+               '<div class="slabel" style="margin:10px 0 4px">SUPPORT BELOW</div>' + ladder_rows(below, False) +
+               '<div class="legend">Every level source clustered (0.6% tolerance) and scored by how many '
+               'independent inputs agree — a score of 5+ is major structure worth marking before the open.</div>',
+               "CONFLUENCE LADDER")
+    vp_html = "".join(
+        f'<div style="display:inline-block;margin-right:26px"><div class="slabel">{lab}</div>'
+        f'<div style="font-size:13px">VAH {fmt(pr["vah"])} · POC <b style="color:{GOLD}">{fmt(pr["poc"])}</b> · VAL {fmt(pr["val"])}</div></div>'
+        for lab, pr in profs.items() if pr)
+    lvz = " · ".join(fmt(x) for x in (profs["1Y"]["lvn"] if profs["1Y"] else []))
+    hh += card(vp_html + (f'<div class="muted" style="margin-top:8px;font-size:12px">Thin zones (price travels '
+                          f'fast through these): {lvz}</div>' if lvz else ""),
+               "VOLUME PROFILE · POC = the auction's fairest price, value area = 70% of volume")
+    if opt:
+        em1 = f"±{opt['em_near']:.2f}% → {opt['near']}" if opt.get("em_near") else "—"
+        em2 = f"±{opt['em_month']:.2f}% → {opt['month']}" if opt.get("em_month") else "—"
+        hh += card(
+            f'<div>Call walls (pin/resistance): <b>{" · ".join(fmt(k) for k in opt.get("cwalls", [])) or "—"}</b>'
+            f' &nbsp;·&nbsp; Put walls (support→accelerant): <b>{" · ".join(fmt(k) for k in opt.get("pwalls", [])) or "—"}</b>'
+            f' &nbsp;·&nbsp; Max pain ({opt["near"][5:]}): <b>{fmt(opt["maxpain"]) if opt.get("maxpain") else "—"}</b></div>'
+            f'<div class="muted" style="margin-top:6px">Expected move: {em1} &nbsp;·&nbsp; {em2}. '
+            'Walls are where dealer hedging concentrates — call walls cap pinned tapes; put walls hold as '
+            'support until they break, then accelerate the move. A confluence level INSIDE the weekly '
+            'expected-move band is the one in play this week.</div>', "OPTIONS LEVELS")
+    ref_rows = [(lab, fmt(p)) for lab, p, m in levels if m == "ma"] + \
+               [(lab, fmt(p)) for lab, p, m in levels if m == "prior"] + \
+               [(lab, fmt(p)) for lab, p in avws] + [(lab, fmt(p)) for lab, p in swing_rows]
+    hh += card('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:3px 18px">' +
+               "".join(f'<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;'
+                       f'border-bottom:1px solid var(--line)"><span class="muted">{a}</span><span>{b}</span></div>'
+                       for a, b in ref_rows) + "</div>", "REFERENCE LEVELS — THE RAW INPUTS BEHIND THE LADDER")
+    return hh
 
 def m_key_levels(px):
-    rows = []
-    for t in ["SPY", "QQQ", "IWM", "DIA", "TLT", "GLD", "BTC-USD"]:
-        s = px[t].dropna()
-        last = s.iloc[-1]
-        s50, s200 = s.rolling(50).mean().iloc[-1], s.rolling(200).mean().iloc[-1]
-        h52, l52 = s.rolling(252).max().iloc[-1], s.rolling(252).min().iloc[-1]
-        mo = s.loc[s.index >= (s.index[-1] - pd.Timedelta(days=31))]
-        piv = (mo.max() + mo.min() + last) / 3
-        rows.append((t, last, s50, s200, h52, l52, piv))
-    body = card(table(
-        ["Asset", "Last", "50-day", "200-day", "52w high", "52w low", "Pivot (1m)"],
-        [(f"<b>{t}</b> <span class='muted'>{ANAMES.get(t,'')}</span>", f"{l:,.0f}" if l > 500 else f"{l:,.2f}",
-          f'<span style="color:{GREEN if l> a else RED}">{a:,.1f}</span>',
-          f'<span style="color:{GREEN if l> b else RED}">{b:,.1f}</span>',
-          f"{h:,.1f} <span class='muted'>({(l/h-1)*100:+.1f}%)</span>",
-          f"{lo:,.1f} <span class='muted'>({(l/lo-1)*100:+.1f}%)</span>",
-          f"{p:,.1f}") for t, l, a, b, h, lo, p in rows]),
-        "TREND & REFERENCE LEVELS") + card(
-        "Green moving-average cells = price above that average (trend support below); red = trend overhead "
-        "as resistance. The 52-week extremes are the market's memory — approaches of the high with strong "
-        "breadth break through; with weak breadth they get sold. Pivot = (1m high + low + close) / 3, a "
-        "mean-reversion magnet for the coming weeks.", "HOW TO READ IT")
-    spys = px["SPY"].dropna().iloc[-252:]
-    body += card(line_chart([spys.tolist(), spys.rolling(50).mean().dropna().tolist(),
-                             spys.rolling(200).mean().dropna().tolist()], [GOLD, BLUE, MUT]) +
-                 f'<div class="legend"><span style="color:{GOLD}">▬</span> SPY · '
-                 f'<span style="color:{BLUE}">▬</span> 50-day · <span style="color:{MUT}">▬</span> 200-day · 12 months</div>')
+    raw = yf.download(KL_TICKERS, period="2y", interval="1d", auto_adjust=True,
+                      progress=False, group_by="ticker")
+    sections, first_spy = {}, ""
+    for t in KL_TICKERS:
+        try:
+            sections[t] = _kl_ticker(t, raw[t].dropna(how="all"))
+        except Exception as e:
+            sections[t] = card(f'<span class="muted">Levels unavailable this run ({e}).</span>')
+    tabs = "".join(
+        f'<button onclick="klshow(\'{t}\')" id="klb-{t}" style="cursor:pointer;font-size:12px;padding:4px 12px;'
+        f'border-radius:16px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin:0 6px 8px 0">{t.replace("-USD","")}</button>'
+        for t in KL_TICKERS)
+    divs = "".join(f'<div id="kl-{t}" style="display:none">{body}</div>' for t, body in sections.items())
+    js = ("<script>function klshow(t){%s.forEach(x=>{document.getElementById('kl-'+x).style.display=x===t?'block':'none';"
+          "const b=document.getElementById('klb-'+x);b.style.color=x===t?'#d4af5a':'#8891a5';"
+          "b.style.borderColor=x===t?'#d4af5a':'#232a3a';});}klshow('SPY');</script>"
+          ) % json.dumps(KL_TICKERS)
+    body = f"<div>{tabs}</div>{divs}{js}" + card(
+        "A level only matters if the market has a reason to defend it. This page generates levels from six "
+        "independent methods — volume profile on three windows (where positions actually changed hands), "
+        "anchored VWAPs (institutional cost bases), swing structure, prior-period extremes, moving averages, "
+        "and dealer options positioning — then clusters anything within 0.6% and scores the cluster by how "
+        "many methods agree. One moving average is a line on a chart; a price where the 3-month POC, an "
+        "anchored VWAP and a put wall coincide is real structure. Mark the 5+ scores on your TradingView "
+        "chart before the open and trade the reactions.", "THE 60-SECOND VERSION")
+    spy = px["SPY"].dropna()
     return dict(slug="key-levels", title="Key Levels",
-                sub="Where trend support, resistance, and the market's reference points sit right now.",
+                sub="Six level-generation methods, clustered and scored into one confluence ladder — per ticker.",
                 body=body, stance="info",
-                headline=f"SPY {px['SPY'].dropna().iloc[-1]:,.0f} — "
-                         f"{'above' if px['SPY'].dropna().iloc[-1] > px['SPY'].dropna().rolling(200).mean().iloc[-1] else 'below'} its 200-day")
+                headline=f"SPY {spy.iloc[-1]:,.0f} — ladder built from volume, VWAPs, swings, MAs and options")
 
 def m_valuation(px, gspc_m):
     spy = px["SPY"].dropna()
