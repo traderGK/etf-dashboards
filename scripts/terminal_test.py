@@ -1774,47 +1774,367 @@ def m_election(gspc_m):
                 body=body, stance=stance,
                 headline=f"{names[cur_c]} year — historical average {avg_yr[cur_c]:+.1f}%")
 
+TENORS = [("DGS1MO", "1M", 1 / 12), ("DGS3MO", "3M", 0.25), ("DGS6MO", "6M", 0.5),
+          ("DGS1", "1Y", 1), ("DGS2", "2Y", 2), ("DGS3", "3Y", 3), ("DGS5", "5Y", 5),
+          ("DGS7", "7Y", 7), ("DGS10", "10Y", 10), ("DGS20", "20Y", 20), ("DGS30", "30Y", 30)]
+
+RATE_SENS = [("SPY", "S&P 500"), ("QQQ", "NASDAQ 100"), ("IWM", "Small caps"),
+             ("KRE", "Banks"), ("GLD", "Gold"), ("TLT", "Long bonds"), ("BTC-USD", "Bitcoin")]
+
+CURVE_PLAYS = {
+    "Bear flattener": (
+        "Front-end yields rising faster than the long end — the market prices more tightening than the long "
+        "end believes the economy can absorb.",
+        ["The dollar", "Front-end carry (bills)", "Quality over beta"],
+        ["Gold (real-rate headwind)", "Small caps and unprofitable growth", "Emerging markets"],
+        "Persistent bear flattening is how curves invert — the late-cycle regime. Each hike priced brings the inversion trigger closer."),
+    "Bull flattener": (
+        "Long-end yields falling faster than the front — the classic growth-scare configuration; the long end "
+        "is pricing a slowdown the Fed hasn't acknowledged.",
+        ["Long duration Treasuries", "Defensives and staples", "Gold"],
+        ["Banks (margin compression)", "Cyclicals", "Value over growth"],
+        "Bull flattening into an inversion is the bond market disagreeing with the Fed. It usually wins."),
+    "Bull steepener": (
+        "Front-end yields falling faster than the long end — cuts are being priced, whether from easing "
+        "inflation or a cracking economy. Which one decides everything.",
+        ["Long duration growth", "Gold and Bitcoin", "Small caps (if cuts are pre-emptive)"],
+        ["The dollar", "Cash (carry disappears)"],
+        "The re-steepening out of inversion is the historical recession trigger window — check the Business Cycle tab before treating it as bullish."),
+    "Bear steepener": (
+        "Long-end yields rising faster than the front — the market prices growth, inflation, or a term premium "
+        "for fiscal supply. The reflation configuration.",
+        ["Banks and financials", "Cyclicals and value", "Commodities"],
+        ["Long bonds", "Unprofitable growth", "Utilities and bond proxies"],
+        "Bear steepening from an inverted curve is normalization; from an already-steep curve it can signal a supply or credibility problem."),
+}
+
+INVERSIONS = [("Aug 1978", "Jan 1980", "17 mo"), ("Dec 1988", "Jul 1990", "19 mo"),
+              ("Feb 2000", "Mar 2001", "13 mo"), ("Feb 2006", "Dec 2007", "22 mo"),
+              ("Aug 2019", "Feb 2020", "6 mo"), ("Jul 2022", "— (no NBER recession followed)", "n/a")]
+
 def m_yield_curve():
-    t10y3m, t10y2y = fred("T10Y3M"), fred("T10Y2Y")
-    v3m, v2y = t10y3m.iloc[-1], t10y2y.iloc[-1]
-    inv = v3m < 0
-    stance = "bearish" if inv else "neutral"
-    steepening = v3m > t10y3m.iloc[-64]
-    body = card(stat_grid([("10y − 3m", f"{v3m:+.2f} pts", col(v3m, lambda v: v > 0)),
-                           ("10y − 2y", f"{v2y:+.2f} pts", col(v2y, lambda v: v > 0)),
-                           ("3-month direction", "steepening" if steepening else "flattening",
-                            GREEN if steepening and not inv else AMBER)]) +
-                '<div class="muted" style="margin-top:10px">The inversion itself is the warning shot; the '
-                'recession historically arrives after the curve <i>re-steepens</i> out of inversion — because '
-                're-steepening means the market smells rate cuts coming. Steep and steepening from positive '
-                'territory is the healthy expansion configuration.</div>', "CURVE SNAPSHOT") + card(
-        line_chart([t10y3m.iloc[-1260:].tolist()], [BLUE], hlines=[(0, RED, "0")]) +
-        '<div class="legend">10-year minus 3-month Treasury spread, last ~5 years (FRED T10Y3M). '
-        'Below zero = inverted.</div>')
+    import numpy as np
+    cur = {}
+    for sid, lab, yrs in TENORS:
+        try:
+            cur[lab] = fred(sid, 2)
+        except Exception:
+            pass
+    if len(cur) < 6:
+        raise RuntimeError("FRED curve unavailable")
+    df = pd.DataFrame(cur).ffill().dropna(how="all")
+    last = df.iloc[-1]
+    def chg(n):
+        return (df.iloc[-1] - df.iloc[-1 - n]) * 100  # bps
+    d1, d5, d21 = chg(1), chg(5), chg(21)
+    t10y2y = float(last["10Y"] - last["2Y"]) * 100
+    t10y3m = float(last["10Y"] - last["3M"]) * 100
+    # shape
+    if t10y2y < 0 and t10y3m < 0:
+        shape, sc = "Inverted", RED
+        shape_txt = ("Short rates above long rates across the curve — the bond market is pricing policy as "
+                     "restrictive enough to force cuts. The best-documented recession signal there is, with "
+                     "a long and variable lag.")
+    elif abs(t10y2y) < 40 and abs(t10y3m) < 60:
+        shape, sc = "Flat", AMBER
+        shape_txt = ("Barely any compensation for holding duration — a late-cycle signature. The next 50bps "
+                     "of movement usually declares which regime follows.")
+    elif t10y2y > 120:
+        shape, sc = "Steep", GREEN
+        shape_txt = ("Healthy term premium: lenders are paid to hold duration. Steep and steepening from "
+                     "positive territory is the expansion configuration.")
+    else:
+        shape, sc = "Normal", GREEN
+        shape_txt = ("An upward slope with moderate term premium — the ordinary state of the world, and the "
+                     "one that maps to nothing dramatic.")
+    # curve regime quadrant
+    d2, d10 = float(d21["2Y"]), float(d21["10Y"])
+    if d2 > 0 and d10 < d2:
+        regime = "Bear flattener"
+    elif d2 < 0 and d10 < d2:
+        regime = "Bull flattener"
+    elif d2 < 0:
+        regime = "Bull steepener"
+    else:
+        regime = "Bear steepener"
+    desc, favours, pressures, watch = CURVE_PLAYS[regime]
+    # curve chart: today vs 1m vs 1y
+    labs = [l for _, l, _ in TENORS if l in df.columns]
+    def snap(n):
+        return [float(df[l].iloc[-1 - n]) for l in labs]
+    curve_now, curve_1m = snap(0), snap(21)
+    curve_1y = snap(min(252, len(df) - 1))
+    W2, H2, P2 = 820, 240, 40
+    allv = curve_now + curve_1m + curve_1y
+    lo, hi = min(allv), max(allv)
+    rg = (hi - lo) or 1
+    X = lambda i: P2 + (W2 - 2 * P2) * i / (len(labs) - 1)
+    Y = lambda v: P2 + (H2 - 2 * P2) * (1 - (v - lo) / rg)
+    g = f'<rect x="{P2}" y="{P2}" width="{W2-2*P2}" height="{H2-2*P2}" fill="none" stroke="#232a3a"/>'
+    for series, color, wdt in ((curve_1y, MUT, 1.2), (curve_1m, BLUE, 1.4), (curve_now, GOLD, 2.2)):
+        pts = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v in enumerate(series))
+        g += f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="{wdt}"/>'
+        for i, v in enumerate(series):
+            if color == GOLD:
+                g += f'<circle cx="{X(i):.1f}" cy="{Y(v):.1f}" r="2.6" fill="{GOLD}"/>'
+    for i, l in enumerate(labs):
+        g += f'<text x="{X(i):.1f}" y="{H2-14}" fill="{MUT}" font-size="10" text-anchor="middle">{l}</text>'
+    for v in (lo, (lo + hi) / 2, hi):
+        g += f'<text x="6" y="{Y(v)+3:.1f}" fill="{MUT}" font-size="10">{v:.2f}%</text>'
+    curve_svg = (f'<svg viewBox="0 0 {W2} {H2}" xmlns="http://www.w3.org/2000/svg" '
+                 f'style="width:100%;height:auto;display:block">{g}</svg>')
+    # rate sensitivity regression
+    hist = yf.download([s for s, _ in RATE_SENS] + ["^TNX"], period="6mo", interval="1d",
+                       auto_adjust=True, progress=False)["Close"].ffill(limit=2)
+    dy = hist["^TNX"].diff() * 100  # bps
+    sens = []
+    for sym, name in RATE_SENS:
+        if sym not in hist.columns:
+            continue
+        r = hist[sym].pct_change() * 100
+        both = pd.concat([dy, r], axis=1).dropna().iloc[-90:]
+        if len(both) < 30:
+            continue
+        x, y = both.iloc[:, 0].values, both.iloc[:, 1].values
+        b, a = np.polyfit(x, y, 1)
+        pred = a + b * x
+        ss_res = float(((y - pred) ** 2).sum())
+        ss_tot = float(((y - y.mean()) ** 2).sum())
+        r2 = 1 - ss_res / ss_tot if ss_tot else 0
+        sens.append((name, b * 10, r2))
+    # real yield
+    real = fred("DFII10", 2)
+    be = fred("T10YIE", 2)
+    real_now = float(real.iloc[-1])
+    real_1m = (real_now - float(real.iloc[-22])) * 100
+    body = card(
+        f'<div style="font-size:19px;font-weight:700;color:{sc}">{shape}</div>'
+        f'<div class="muted" style="margin-top:3px">{shape_txt}</div>' +
+        stat_grid([("10y − 2y", f"{t10y2y:+.0f} bps", col(t10y2y, lambda v: v > 0)),
+                   ("10y − 3m", f"{t10y3m:+.0f} bps", col(t10y3m, lambda v: v > 0)),
+                   ("Curve regime (21d)", regime, GOLD),
+                   ("10y real (TIPS)", pct(real_now, 2), MUT),
+                   ("10y breakeven", pct(float(be.iloc[-1]), 2), MUT)]), "CURVE SHAPE") + \
+        "<h2>The curve · today vs 1 month vs 1 year ago</h2>" + card(
+        curve_svg + f'<div class="legend"><span style="color:{GOLD}">▬</span> today · '
+        f'<span style="color:{BLUE}">▬</span> one month ago · <span style="color:{MUT}">▬</span> one year ago. '
+        'Each point is what the market charges to lend for that term. The SHAPE carries the signal; the drift '
+        'between lines shows where the repricing is happening.</div>')
+    body += "<h2>Tenor moves</h2>" + card(table(
+        ["Tenor", "Yield", "1d", "1w", "1m"],
+        [(f"<b>{l}</b>", pct(float(last[l]), 2),
+          f'<span style="color:{RED if d1[l] > 0 else GREEN}">{d1[l]:+.0f}</span>',
+          f'<span style="color:{RED if d5[l] > 0 else GREEN}">{d5[l]:+.0f}</span>',
+          f'<span style="color:{RED if d21[l] > 0 else GREEN}">{d21[l]:+.0f}</span>') for l in labs]) +
+        '<div class="legend">Change in basis points. Red = yields up (bonds down), green = yields down.</div>')
+    if sens:
+        body += "<h2>If the 10-year rises +10bps tomorrow…</h2>" + card(table(
+            ["Asset", "Implied move", "R²"],
+            [(f"<b>{n}</b>", cnum(b, 2), f'<span style="color:{GREEN if r2 > 0.3 else MUT}">{r2:.2f}</span>')
+             for n, b, r2 in sens]) +
+            '<div class="legend">Each asset\'s average response to a +10bp day in the 10-year over the last '
+            '~90 sessions (OLS on daily changes). A low R² means a loose relationship — treat it as a lean, '
+            'not a rule. Flip the signs for a yields-down day.</div>')
+    body += f"<h2>Curve regime · {regime}</h2>" + card(
+        f'<div class="muted">{desc}</div>'
+        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px">'
+        f'<div><div class="slabel">FAVOURS</div>' +
+        "".join(f'<div style="font-size:13px;color:{GREEN}">▸ {x}</div>' for x in favours) + "</div>"
+        f'<div><div class="slabel">PRESSURES</div>' +
+        "".join(f'<div style="font-size:13px;color:{RED}">▸ {x}</div>' for x in pressures) + "</div></div>"
+        f'<div class="muted" style="margin-top:10px;font-size:12px"><b>Watch:</b> {watch}</div>',
+        "PLAYBOOK")
+    body += "<h2>Real yield</h2>" + card(
+        stat_grid([("10y real (TIPS)", pct(real_now, 2), col(real_now, lambda v: v < 1.5, lambda v: v > 2.2)),
+                   ("1-month change", f"{real_1m:+.0f} bps", col(real_1m, lambda v: v < 0)),
+                   ("10y breakeven inflation", pct(float(be.iloc[-1]), 2), MUT)]) +
+        '<div class="muted" style="margin-top:8px">The real yield is the after-inflation cost of money — the '
+        'single most important driver for gold, long-duration growth and Bitcoin. Rising real yields pressure '
+        'all three; falling real yields are their tailwind.</div>')
+    body += "<h2>Inversions → recessions: the honest record</h2>" + card(table(
+        ["Inversion began", "Recession began", "Lag"],
+        [(f"<b>{a}</b>", b, c) for a, b, c in INVERSIONS]) +
+        '<div class="legend">Two things this record actually shows: the lag is long and variable (6–22 months), '
+        'and the danger window historically opens when the curve RE-STEEPENS out of inversion, not during it. '
+        'The 2022 inversion resolving without an NBER recession is the standing counter-example — treat this '
+        'as a base rate, not a law.</div>')
+    stance = "bearish" if shape == "Inverted" else ("neutral" if shape == "Flat" else "neutral")
     return dict(slug="yield-curve", title="Yield Curve",
-                sub="The bond market's growth forecast — the single best-documented recession signal.",
+                sub="The full Treasury curve — shape, tenor moves, rate sensitivity, regime quadrant, and the real yield.",
                 body=body, stance=stance,
-                headline=f"10y−3m {v3m:+.2f} — {'inverted' if inv else 'positive'}")
+                headline=f"{shape} curve · {regime} · 10y−2y {t10y2y:+.0f}bps")
+
+CREDIT_ZONES = [("Complacent", 0, 300,
+                 "Credit is priced for perfection. Carry works until it doesn't — this zone funds the best "
+                 "entries elsewhere but offers no cushion when the regime turns.",
+                 ["A full risk budget is defensible — but keep stops honest, because repricing from here is fast",
+                  "Cheap insurance: puts on HYG/JNK cost least exactly when this zone says you may need them",
+                  "Watch the velocity and CCC panels — they turn before the headline number does"],
+                 "Adding leverage merely because nothing has broken yet. This zone is where that habit gets built and later punished."),
+                ("Normal", 300, 400,
+                 "Credit is charging a fair price for risk. The ordinary regime — nothing here argues for or "
+                 "against equity exposure on its own.",
+                 ["Standard risk budget; let the other tabs pick the direction",
+                  "Spread direction matters more than the level — track the 20-day change",
+                  "Rallies with spreads tightening alongside are the durable kind"],
+                 "Over-reading a mid-range number. The signal in credit lives at the extremes and in the velocity."),
+                ("Elevated", 400, 550,
+                 "Lenders are demanding real compensation. Historically this zone has produced the best "
+                 "forward equity returns — and the worst individual outcomes.",
+                 ["Scale in, don't jump in — the widest zones reward patience over conviction",
+                  "Quality over junk: IG and BBB recover first, CCC last",
+                  "Falling spreads from here confirm the turn better than any equity signal"],
+                 "Treating the average forward return as the expected one. The distribution here is brutally wide."),
+                ("Distressed", 550, 10000,
+                 "The market is pricing a default cycle. Panic prices bottoms — eventually — but the path "
+                 "through this zone is where portfolios die.",
+                 ["Survival first: size for the worst case, not the average case",
+                  "The first sustained tightening off the highs is the highest-conviction risk-on signal in macro",
+                  "Investment-grade credit usually offers equity-like returns with far less pain from here"],
+                 "Catching the falling knife with leverage. Spreads can double from levels that already look extreme."),
+                ]
 
 def m_credit():
-    hy = fred("BAMLH0A0HYM2")
-    lvl = hy.iloc[-1] * 100  # to bps
-    p = pctile(hy, hy.iloc[-1])
-    widening = hy.iloc[-1] > hy.iloc[-64] * 1.1
-    stance = "bearish" if widening or lvl > 500 else "bullish" if lvl < 350 else "neutral"
-    body = card(stat_grid([("HY spread (OAS)", f"{lvl:.0f} bps", col(lvl, lambda v: v < 400, lambda v: v > 500)),
-                           ("5y percentile", pct(p, 0), col(p, lambda v: v < 50, lambda v: v > 80)),
-                           ("3-month trend", "widening" if widening else "stable/tightening",
-                            RED if widening else GREEN)]) +
-                '<div class="muted" style="margin-top:10px">Credit is the canary: high-yield spreads widen '
-                'BEFORE equity tops far more reliably than the reverse. Tight and stable spreads underwrite '
-                'the equity uptrend; a 100+ bps widening while stocks hold their highs is one of the best '
-                'sell signals in macro.</div>', "HIGH-YIELD CREDIT") + card(
-        line_chart([(hy * 100).iloc[-1260:].tolist()], [BLUE], hlines=[(400, AMBER, "400"), (600, RED, "600")]) +
-        '<div class="legend">ICE BofA US High Yield option-adjusted spread, bps, ~5 years (FRED).</div>')
+    series = {}
+    for sid, name in (("BAMLC0A0CM", "Investment grade"), ("BAMLC0A4CBBB", "BBB (lowest IG)"),
+                      ("BAMLH0A0HYM2", "High yield"), ("BAMLH0A3HYC", "CCC & below")):
+        try:
+            series[name] = fred(sid, 10) * 100  # bps
+        except Exception:
+            pass
+    if "High yield" not in series:
+        raise RuntimeError("FRED credit series unavailable")
+    hy = series["High yield"]
+    lvl = float(hy.iloc[-1])
+    p3y = pctile(hy.iloc[-756:], lvl)
+    # velocity
+    vel = float(hy.iloc[-1] - hy.iloc[-21])
+    vel_hist = (hy - hy.shift(21)).dropna()
+    vel_p = pctile(vel_hist, vel)
+    vel_txt = (f"Spread velocity is quiet ({vel:+.0f}bps/20d) — no urgency signal from credit regardless of the level."
+               if abs(vel) < 30 else
+               f"Spreads are widening fast ({vel:+.0f}bps/20d, {vel_p:.0f}th percentile of all 20-day windows) — "
+               "velocity leads the level. This is the panel that fires before the headline number does."
+               if vel > 0 else
+               f"Spreads are compressing fast ({vel:+.0f}bps/20d) — credit is actively re-risking, which has "
+               "historically confirmed equity rallies rather than preceded reversals.")
+    # zone
+    zone = next(z for z in CREDIT_ZONES if z[1] <= lvl < z[2])
+    zname, _, _, zdesc, zactions, zavoid = zone
+    zcol = {"Complacent": GREEN, "Normal": GREEN, "Elevated": AMBER, "Distressed": RED}[zname]
+    light = {"Complacent": "GREEN — risk on", "Normal": "GREEN — risk on",
+             "Elevated": "AMBER — reduce", "Distressed": "RED — defense"}[zname]
+    # CCC gap
+    gap_html = ""
+    if "CCC & below" in series:
+        ccc = series["CCC & below"]
+        gap = float(ccc.iloc[-1] - hy.iloc[-1])
+        gap_1m = gap - float(ccc.iloc[-22] - hy.iloc[-22])
+        gap_txt = ("The bottom of the quality ladder is moving in line with broad high yield — no early-warning "
+                   "signal from the junkiest cohort right now." if abs(gap_1m) < 40 else
+                   "The CCC cohort is widening faster than broad high yield — stress is entering at the bottom "
+                   "of the ladder, which is where it always enters first." if gap_1m > 0 else
+                   "CCC is tightening faster than broad HY — aggressive risk appetite returning to the lowest "
+                   "quality tier, historically a late-stage rally characteristic.")
+        gap_html = card(
+            stat_grid([("CCC minus HY", f"{gap:.0f} bps", MUT),
+                       ("1-month change", f"{gap_1m:+.0f} bps", col(gap_1m, lambda v: v < 0))]) +
+            f'<div class="muted" style="margin-top:8px">{gap_txt}</div>', "EARLY-WARNING WIRE · CCC MINUS HY")
+    # quality ladder
+    ladder = table(["Cohort", "OAS", "1w", "1m", "3y percentile"],
+                   [(f"<b>{n}</b>", f"{float(s.iloc[-1]):.0f} bps",
+                     f'<span style="color:{RED if s.iloc[-1] > s.iloc[-6] else GREEN}">{float(s.iloc[-1]-s.iloc[-6]):+.0f}</span>',
+                     f'<span style="color:{RED if s.iloc[-1] > s.iloc[-22] else GREEN}">{float(s.iloc[-1]-s.iloc[-22]):+.0f}</span>',
+                     f"{pctile(s.iloc[-756:], float(s.iloc[-1])):.0f}%")
+                    for n, s in series.items()])
+    # credit vs equities
+    spy = yf.download("SPY", period="2y", interval="1d", auto_adjust=True,
+                      progress=False)["Close"].squeeze().dropna()
+    spy_21 = float((spy.iloc[-1] / spy.iloc[-22] - 1) * 100)
+    if spy_21 > 0 and vel <= 5:
+        cvd, cvc = "Confirming rally", GREEN
+        cv_txt = ("Equities are rising and credit agrees — spreads flat to tighter. Rallies with credit "
+                  "confirmation have historically been the durable ones.")
+    elif spy_21 > 0 and vel > 5:
+        cvd, cvc = "Bearish divergence", RED
+        cv_txt = ("Equities up while spreads widen — the people paid to worry about default are worrying while "
+                  "stockholders aren't. This divergence has front-run most major equity tops.")
+    elif spy_21 <= 0 and vel > 5:
+        cvd, cvc = "Confirming selloff", RED
+        cv_txt = ("Both markets are de-risking together — a genuine risk-off episode rather than an equity-only "
+                  "wobble. Wait for spreads to stop widening before buying the dip.")
+    else:
+        cvd, cvc = "Bullish divergence", GREEN
+        cv_txt = ("Equities are falling while credit tightens — credit is refusing to confirm the selloff. "
+                  "Historically this resolves in equities' favour.")
+    hy_al, spy_al = hy.align(spy, join="inner")
+    n = min(len(hy_al), 252)
+    spy_n = (spy_al.iloc[-n:] / spy_al.iloc[-n] * 100).tolist()
+    hy_inv = (-hy_al.iloc[-n:]).tolist()
+    lo_h, hi_h = min(hy_inv), max(hy_inv)
+    hy_scaled = [(v - lo_h) / ((hi_h - lo_h) or 1) * (max(spy_n) - min(spy_n)) + min(spy_n) for v in hy_inv]
+    cv_chart = line_chart([spy_n, hy_scaled], [GOLD, BLUE])
+    # forward returns by zone
+    hy_d, spy_d = hy.align(spy, join="inner")
+    fwd = (spy_d.shift(-63) / spy_d - 1) * 100
+    zrows = []
+    for zn, zlo, zhi, *_ in CREDIT_ZONES:
+        mask = (hy_d >= zlo) & (hy_d < zhi)
+        f = fwd[mask].dropna()
+        if len(f) < 10:
+            continue
+        tag = ' <span class="pill" style="background:rgba(212,175,90,.15);color:#d4af5a;font-size:10px">now</span>' if zn == zname else ""
+        rng = f"< {zhi}" if zlo == 0 else (f"≥ {zlo}" if zhi > 1000 else f"{zlo}–{zhi}")
+        zrows.append((f"<b>{zn}</b>{tag}", rng, cnum(float(f.mean()), 1),
+                      f"{(f > 0).mean() * 100:.0f}%", f'<span style="color:{RED}">{float(f.min()):.1f}%</span>',
+                      f"{len(f):,}"))
+    body = card(
+        f'<div style="font-size:30px;font-weight:700;color:{zcol}">{lvl:.0f} <span style="font-size:15px">bps</span></div>'
+        f'<div style="margin-top:2px"><b style="color:{zcol}">{zname}</b> · {light} · '
+        f'{p3y:.0f}th percentile of 3 years</div>'
+        f'<div class="muted" style="margin-top:6px">High-yield spreads at {lvl:.0f}bps sit in the '
+        f'{"tightest" if p3y < 50 else "widest"} {min(p3y, 100-p3y):.0f}% of recent history — '
+        + ("credit sees almost no default risk. Excellent for carry, zero cushion for surprises."
+           if p3y < 20 else
+           "lenders are pricing genuine default risk; the cushion is there but so is the reason for it."
+           if p3y > 70 else "credit is charging an ordinary price for risk.") + "</div>",
+        "HIGH-YIELD OAS · THE RISK TRAFFIC LIGHT")
+    body += card(stat_grid([("20-session change", f"{vel:+.0f} bps", col(vel, lambda v: v < 0)),
+                            ("Percentile of all 20d windows", f"{vel_p:.0f}th", MUT)]) +
+                 f'<div class="muted" style="margin-top:8px">{vel_txt}</div>', "VELOCITY ALARM")
+    body += gap_html
+    body += "<h2>The quality ladder</h2>" + card(
+        ladder + '<div class="legend">Stress climbs the ladder from the bottom — CCC cracks first, investment '
+        'grade last. A CCC widening that IG ignores is early; both widening together is late.</div>')
+    body += f"<h2>Credit vs equities · {cvd}</h2>" + card(
+        f'<div><b style="color:{cvc}">{cvd}</b> — 21 days: S&P {spy_21:+.1f}%, HY OAS {vel:+.0f}bps</div>'
+        f'<div class="muted" style="margin-top:6px">{cv_txt}</div>' + cv_chart +
+        f'<div class="legend"><span style="color:{GOLD}">▬</span> SPY · <span style="color:{BLUE}">▬</span> '
+        'HY OAS plotted INVERTED, so the lines should move together when credit confirms equities. The lines '
+        'peeling apart is the divergence.</div>')
+    if zrows:
+        body += "<h2>What the S&P did next, by spread zone</h2>" + card(table(
+            ["Zone", "HY OAS", "Avg fwd 3m", "% positive", "Worst", "n"], zrows) +
+            '<div class="legend">Forward 3-month S&P returns grouped by the HY spread on entry day, over the '
+            'history this feed serves. Read your current row, then read the Worst column. The pattern worth '
+            'internalising: average forward returns are HIGHEST from the widest zones — panic prices the bottom '
+            'in — but so are the worst cases. The zone doesn\'t time entries; it sets how much risk one '
+            'entry deserves.</div>')
+    body += f"<h2>Playbook · {zname} zone</h2>" + card(
+        f'<div class="muted">{zdesc}</div>' +
+        "".join(f'<div style="font-size:13px;margin-top:5px">▸ {a}</div>' for a in zactions) +
+        f'<div class="muted" style="margin-top:10px;font-size:12px"><b>Avoid:</b> {zavoid}</div>')
+    body += card(
+        "A credit spread is the extra yield lenders demand to hold a company's bond instead of a Treasury — "
+        "literally the market's price of \"will this borrower survive?\". Because credit investors face ruin "
+        "rather than missed upside, they turn cautious BEFORE equity investors do. That asymmetry is what makes "
+        "this page an early-warning system you can use without ever touching a bond.", "THE 60-SECOND VERSION")
+    stance = "bearish" if (vel > 30 or zname in ("Elevated", "Distressed")) else \
+             ("bullish" if lvl < 350 else "neutral")
     return dict(slug="credit-spreads", title="Credit Spreads",
-                sub="What bond investors charge for default risk — equity's early-warning system.",
-                body=body, stance=stance, headline=f"HY spread {lvl:.0f} bps ({pct(p,0)} 5y percentile)")
+                sub="The price of default risk across the quality ladder — equity's earliest warning system.",
+                body=body, stance=stance,
+                headline=f"HY {lvl:.0f}bps ({zname}, {p3y:.0f}th pctile) · {cvd.lower()}")
 
 def m_liquidity():
     walcl = fred("WALCL") / 1000  # millions -> billions
@@ -1885,26 +2205,207 @@ def m_business_cycle():
                 sub="Where the real economy sits — the slow clock behind every market regime.",
                 body=body, stance=phase[2], headline=f"{phase[0]} — {score}/3 lights green")
 
+MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M", 7: "N", 8: "Q",
+              9: "U", 10: "V", 11: "X", 12: "Z"}
+# FOMC decision days (second day of each meeting)
+FOMC = ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17", "2026-07-29",
+        "2026-09-16", "2026-10-28", "2026-12-09", "2027-01-27", "2027-03-17"]
+
+def _zq_implied(year, month):
+    t = f"ZQ{MONTH_CODE[month]}{str(year)[-2:]}.CBT"
+    d = yf.download(t, period="10d", progress=False, auto_adjust=False)
+    if not len(d):
+        return None
+    return 100 - float(d["Close"].dropna().iloc[-1])
+
+def _meeting_probs(effr):
+    """CME-style: back out post-meeting rates from ZQ, propagate a 25bp distribution."""
+    meetings = [pd.Timestamp(d) for d in FOMC if pd.Timestamp(d) > pd.Timestamp(NOW.date())]
+    rows, r_start = [], effr
+    dist = {round(effr, 4): 1.0}
+    for mt in meetings[:6]:
+        imp = _zq_implied(mt.year, mt.month)
+        if imp is None:
+            continue
+        n = mt.days_in_month
+        d = mt.day
+        # month average = (d-1)/n * r_start + (n-d+1)/n * r_end
+        r_end = (n * imp - (d - 1) * r_start) / (n - d + 1)
+        em = (r_end - r_start) * 100  # bps expected change at this meeting
+        # per-meeting move distribution in 25bp steps
+        moves = {}
+        k = abs(em) / 25.0
+        full = int(k)
+        frac = k - full
+        sign = 1 if em >= 0 else -1
+        moves[sign * full * 25] = 1 - frac
+        moves[sign * (full + 1) * 25] = frac
+        moves = {m: p for m, p in moves.items() if p > 1e-6}
+        nd = {}
+        for lvl, p in dist.items():
+            for mv, pm in moves.items():
+                k2 = round(lvl + mv / 100, 4)
+                nd[k2] = nd.get(k2, 0) + p * pm
+        dist = nd
+        # collapse to 25bp target ranges
+        buckets = {}
+        for lvl, p in dist.items():
+            lo = math.floor(lvl * 4) / 4
+            buckets[lo] = buckets.get(lo, 0) + p
+        tot = sum(buckets.values())
+        buckets = {k2: v / tot for k2, v in buckets.items() if v / tot > 0.008}
+        modal = max(buckets, key=buckets.get)
+        rows.append(dict(date=mt.strftime("%Y-%m-%d"),
+                         label=mt.strftime("%b %Y"),
+                         days=(mt - pd.Timestamp(NOW.date())).days,
+                         buckets=sorted(buckets.items()),
+                         modal=modal, modal_p=buckets[modal] * 100,
+                         edelta=(sum(k2 * v for k2, v in buckets.items()) + 0.125 - effr) * 100))
+        r_start = r_end
+    return rows
+
+def _polymarket_fed():
+    """Pull the 'how many Fed cuts this year' event; each market is a Yes/No leg."""
+    q = ("https://gamma-api.polymarket.com/events?closed=false&limit=100"
+         "&order=volume&ascending=false")
+    req = urllib.request.Request(q, headers={"User-Agent": "Mozilla/5.0"})
+    data = json.loads(urllib.request.urlopen(req, timeout=25).read())
+    ev = next((e for e in data
+               if "fed" in (e.get("title", "") + e.get("slug", "")).lower()
+               and "cut" in (e.get("title", "") + e.get("slug", "")).lower()), None)
+    if not ev:
+        return None
+    rows = []
+    for m in ev.get("markets", []):
+        try:
+            outs = json.loads(m["outcomes"]) if isinstance(m["outcomes"], str) else m["outcomes"]
+            prices = json.loads(m["outcomePrices"]) if isinstance(m["outcomePrices"], str) else m["outcomePrices"]
+            yes = float(dict(zip(outs, prices)).get("Yes", 0)) * 100
+            label = m.get("groupItemTitle") or m.get("question", "")
+            rows.append((label, yes))
+        except Exception:
+            continue
+    if not rows:
+        return None
+    rows.sort(key=lambda r: -r[1])
+    return dict(q=ev.get("title", "Fed rate cuts"), rows=rows)
+
 def m_fed_path(px):
-    effr = fred("DFF", 1).iloc[-1]
-    zq = px["ZQ=F"].dropna()
-    implied = 100 - zq.iloc[-1]
-    gap = implied - effr
-    stance = "bullish" if gap < -0.05 else ("bearish" if gap > 0.05 else "neutral")
-    exp_txt = ("cuts priced into the front contract" if gap < -0.05 else
-               "hikes priced into the front contract" if gap > 0.05 else
-               "no change priced in near term")
-    body = card(stat_grid([("Effective Fed funds", pct(effr, 2), MUT),
-                           ("Futures-implied (front)", pct(implied, 2), MUT),
-                           ("Implied − actual", f"{gap:+.2f} pts", col(gap, lambda v: v < 0))]) +
-                f'<div class="muted" style="margin-top:10px">Fed funds futures (ZQ) price the average funds '
-                f'rate over the contract month — right now: <b>{exp_txt}</b>. This is a simplified read from '
-                'the front contract; full meeting-by-meeting probabilities need the whole futures strip. The '
-                'direction of travel is what matters for assets: easing cycles that happen WITHOUT a recession '
-                'are historically the strongest equity environment there is.</div>', "WHAT'S PRICED IN")
+    effr = float(fred("DFF", 1).iloc[-1])
+    lo_band = math.floor(effr * 4) / 4
+    rows = _meeting_probs(effr)
+    if not rows:
+        raise RuntimeError("ZQ futures strip unavailable")
+    # Taylor rule
+    cpi_idx = fred("CPIAUCSL", 3)
+    cpi = float((cpi_idx.iloc[-1] / cpi_idx.iloc[-13] - 1) * 100)
+    un = float(fred("UNRATE", 3).iloc[-1])
+    u_star, pi_star, r_star = 4.2, 2.0, 0.5
+    taylor = r_star + cpi + 0.5 * (cpi - pi_star) + 1.0 * (u_star - un)
+    tgap = (taylor - effr) * 100
+    t_bias = "hiking bias" if tgap > 25 else ("cutting bias" if tgap < -25 else "neutral")
+    # Leg 1 summary at the final covered meeting
+    last = rows[-1]
+    p_cut = sum(p for k, p in last["buckets"] if k < lo_band - 1e-9) * 100
+    p_hold = sum(p for k, p in last["buckets"] if abs(k - lo_band) < 1e-9) * 100
+    p_hike = sum(p for k, p in last["buckets"] if k > lo_band + 1e-9) * 100
+    poly = None
+    try:
+        poly = _polymarket_fed()
+    except Exception:
+        pass
+    # meeting cards
+    def bucket_bar(rows_):
+        out = ""
+        for mt in rows_:
+            segs = ""
+            for k, p in mt["buckets"]:
+                c = RED if k < lo_band - 1e-9 else (GREEN if k > lo_band + 1e-9 else MUT)
+                segs += (f'<div title="{k:.2f}–{k+0.25:.2f}%: {p*100:.1f}%" '
+                         f'style="width:{p*100:.1f}%;background:{c};height:14px"></div>')
+            legend = " · ".join(f'{k:.2f}–{k+0.25:.2f} <b>{p*100:.1f}%</b>' for k, p in mt["buckets"])
+            out += (f'<div style="padding:8px 0;border-bottom:1px solid var(--line)">'
+                    f'<div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:6px">'
+                    f'<span><b>{mt["label"]}</b> <span class="muted">{mt["date"]} · {mt["days"]}d</span></span>'
+                    f'<span class="muted">modal {mt["modal"]:.2f}–{mt["modal"]+0.25:.2f}% @ '
+                    f'<b style="color:var(--tx)">{mt["modal_p"]:.0f}%</b> · E[Δ] '
+                    f'<b style="color:{GREEN if mt["edelta"]>0 else RED}">{mt["edelta"]:+.0f}bps</b></span></div>'
+                    f'<div style="display:flex;border-radius:3px;overflow:hidden;margin:5px 0 3px">{segs}</div>'
+                    f'<div class="muted" style="font-size:11px">{legend}</div></div>')
+        return out
+    body = card(
+        stat_grid([("Current target range", f"{lo_band:.2f}–{lo_band+0.25:.2f}%", MUT),
+                   ("Effective Fed funds", pct(effr, 2), MUT),
+                   ("Next FOMC", f"{rows[0]['label']} ({rows[0]['days']}d)", GOLD),
+                   ("Taylor-rule rate", pct(taylor, 2), col(tgap, lambda v: v < 0, lambda v: v > 25))]),
+        "WHERE POLICY STANDS")
+    # divergence callouts
+    calls = []
+    if poly:
+        nocut = next((p for o, p in poly["rows"] if "no" in o.lower()), None)
+        if nocut is not None:
+            fut_nocut = 100 - p_cut
+            if abs(fut_nocut - nocut) > 15:
+                calls.append((AMBER, f"⚠ Futures vs Polymarket disagree by {abs(fut_nocut-nocut):.0f}pp on "
+                              f'"no cuts": futures imply {fut_nocut:.0f}%, real-money prediction markets '
+                              f"{nocut:.0f}%. Wide disagreements usually resolve toward the futures market — "
+                              "but when they don't, the repricing is violent."))
+    fut_dir = 1 if last["edelta"] > 10 else (-1 if last["edelta"] < -10 else 0)
+    tay_dir = 1 if tgap > 25 else (-1 if tgap < -25 else 0)
+    if fut_dir == tay_dir and fut_dir != 0:
+        calls.append((GREEN, f"✓ The data and the market agree: the Taylor gap ({tgap:+.0f}bps) and the futures "
+                      f"path ({last['edelta']:+.0f}bps by {last['label']}) point the same way — there is "
+                      "data-backed conviction behind the priced path."))
+    elif fut_dir != tay_dir:
+        calls.append((AMBER, f"⚠ The data and the market disagree: the Taylor rule implies a {t_bias} "
+                      f"({tgap:+.0f}bps vs the actual rate) while futures price {last['edelta']:+.0f}bps by "
+                      f"{last['label']}. One of them reprices."))
+    if calls:
+        body += card("".join(f'<div style="color:{c};font-size:13px;padding:4px 0">{t}</div>' for c, t in calls),
+                     "DIVERGENCE CHECK")
+    body += "<h2>Meeting-by-meeting probabilities</h2>" + card(
+        bucket_bar(rows) +
+        f'<div class="legend">Computed independently from the Fed funds futures strip (ZQ contracts) using the '
+        f'standard methodology: the month-average implied rate is decomposed into pre- and post-meeting rates, '
+        f'then a 25bp move distribution is propagated forward across meetings. '
+        f'<span style="color:{RED}">red</span> = below the current range · '
+        f'<span style="color:{MUT}">grey</span> = hold · <span style="color:{GREEN}">green</span> = above.</div>')
+    body += "<h2>Three independent reads on the path</h2>" + card(
+        f'<div class="slabel">LEG 1 · FED FUNDS FUTURES</div>'
+        f'<div style="margin:4px 0 12px">By the <b>{last["label"]}</b> meeting, futures imply: '
+        f'<b style="color:{RED}">net cut {p_cut:.0f}%</b> · <b style="color:{MUT}">hold {p_hold:.0f}%</b> · '
+        f'<b style="color:{GREEN}">net hike {p_hike:.0f}%</b></div>' +
+        (f'<div class="slabel">LEG 2 · PREDICTION MARKETS (REAL MONEY)</div>'
+         f'<div class="muted" style="font-size:12px">{poly["q"]}</div>' +
+         "".join(f'<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0">'
+                 f'<span>{o}</span><b>{p:.1f}%</b></div>' for o, p in poly["rows"][:5]) + '<div style="height:12px"></div>'
+         if poly else '<div class="slabel">LEG 2 · PREDICTION MARKETS</div>'
+         '<div class="muted" style="font-size:12px;margin-bottom:12px">Polymarket feed unavailable this run.</div>') +
+        f'<div class="slabel">LEG 3 · THE DATA (TAYLOR RULE)</div>'
+        f'<div style="font-size:19px;font-weight:700;color:{col(tgap, lambda v: v < 0, lambda v: v > 25)}">'
+        f'{taylor:.2f}% <span style="font-size:13px">{t_bias}</span></div>'
+        f'<div class="muted" style="font-size:12px">With CPI at {cpi:.1f}% and unemployment at {un:.1f}%, a '
+        f'standard Taylor rule puts the policy rate at {taylor:.2f}% versus the actual {effr:.2f}% '
+        f'({tgap:+.0f}bps). ' +
+        ("The data says policy is meaningfully too loose — the reaction function argues for hikes, not cuts."
+         if tgap > 25 else
+         "The data says policy is meaningfully too tight — the reaction function argues for cuts."
+         if tgap < -25 else "The data says policy is roughly where the reaction function wants it.") + "</div>")
+    body += card(
+        "Most rate-path tools re-plot the CME's numbers. This one computes the probabilities independently from "
+        "the futures strip, then puts that read on trial against two other crowds: prediction markets (real "
+        "dollars staked on explicit outcomes) and the data itself (a Taylor-rule reaction function fed by live "
+        "CPI and unemployment). When all three agree, the path is priced with conviction. When they diverge, "
+        "someone is wrong — and the callouts above tell you who is likely to blink. What matters for assets is "
+        "the direction of travel: easing cycles that happen WITHOUT a recession are historically the strongest "
+        "equity environment there is.", "WHY THREE LEGS")
+    stance = "bullish" if last["edelta"] < -15 else ("bearish" if last["edelta"] > 15 else "neutral")
+    exp_txt = (f"{abs(last['edelta']):.0f}bps of {'cuts' if last['edelta'] < 0 else 'hikes'} priced by "
+               f"{last['label']}" if abs(last["edelta"]) > 8 else f"no net change priced by {last['label']}")
     return dict(slug="fed-path", title="Fed Path",
-                sub="What the rates market expects the Fed to do — read from Fed funds futures.",
-                body=body, stance=stance, headline=f"EFFR {pct(effr,2)}, {exp_txt}")
+                sub="Meeting-by-meeting probabilities from the futures strip, cross-examined against prediction markets and the Taylor rule.",
+                body=body, stance=stance,
+                headline=f"Target {lo_band:.2f}–{lo_band+0.25:.2f}% · {exp_txt}")
 
 def _fg_scale(series, invert=False, win=252):
     """Rolling percentile of the latest value -> 0..100 (optionally inverted)."""
