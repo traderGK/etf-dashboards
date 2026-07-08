@@ -3599,134 +3599,470 @@ def m_astrology():
                 headline=f"{phase} · {live_now} events live · " +
                          (f"{', '.join(retro_now[:2])} retrograde" if retro_now else "no retrogrades"))
 
+THEMES = {
+    "SKYY": ("Cloud computing", "SaaS and cloud infrastructure"),
+    "IBB": ("Biotech (large)", "Large-cap biotech"),
+    "ARKG": ("Genomics", "Genomic medicine"),
+    "CIBR": ("Cybersecurity", "Cyber pure-play"),
+    "KWEB": ("China internet", "China tech platforms"),
+    "IHI": ("Medical devices", "Med-tech"),
+    "XOP": ("Oil & gas E&P", "Smid-cap producers"),
+    "IAI": ("Brokers & exchanges", "Capital markets"),
+    "SMH": ("Semiconductors", "Chip designers and fabs"),
+    "TAN": ("Solar", "Solar pure-play"),
+    "LIT": ("Lithium & battery", "Battery supply chain"),
+    "COPX": ("Copper miners", "Copper producers"),
+    "REMX": ("Rare earths", "Strategic metals"),
+    "URA": ("Uranium", "Nuclear fuel cycle"),
+    "JETS": ("Airlines", "Global carriers"),
+    "XHB": ("Homebuilders", "US housing"),
+    "ITA": ("Defense", "Aerospace and defense"),
+    "GDX": ("Gold miners", "Senior gold producers"),
+    "BOTZ": ("Robotics & AI", "Automation and AI hardware"),
+    "FINX": ("Fintech", "Financial technology"),
+    "HACK": ("Cyber (equal-wt)", "Cybersecurity, equal weight"),
+    "MOO": ("Agribusiness", "Agriculture value chain"),
+    "PAVE": ("Infrastructure", "US infrastructure build-out"),
+    "XBI": ("Biotech (equal-wt)", "Smid-cap biotech"),
+}
+CYCLE_LEADERS = {"Early": ["XLY", "XLF", "XLRE", "XLI"], "Mid": ["XLK", "XLI", "XLC"],
+                 "Late": ["XLE", "XLB", "XLP", "XLV"], "Recession": ["XLP", "XLU", "XLV"]}
+
 def m_screener(px):
+    # --- master gauges (four independent risk reads)
+    spy = px["SPY"].dropna()
+    g_trend = bool(spy.iloc[-1] > spy.rolling(200).mean().iloc[-1])
     panel_cols = [t for t in PANEL if t in px.columns and px[t].dropna().shape[0] > 260]
+    panel = px[panel_cols]
+    a50 = float((panel.iloc[-1] > panel.rolling(50).mean().iloc[-1]).sum()) / len(panel_cols) * 100
+    g_breadth = a50 >= 50
+    g_credit = bool((px["HYG"] / px["IEF"]).dropna().iloc[-1] >
+                    (px["HYG"] / px["IEF"]).dropna().rolling(50).mean().iloc[-1])
+    g_vol = bool(px["^VIX"].dropna().iloc[-1] < 20)
+    gauges = [("Index trend", g_trend, "SPY vs its 200-day"),
+              ("Breadth", g_breadth, f"{a50:.0f}% of the panel above its 50-day"),
+              ("Credit appetite", g_credit, "HYG/IEF vs its 50-day"),
+              ("Volatility", g_vol, f"VIX {float(px['^VIX'].dropna().iloc[-1]):.1f}")]
+    n_bull = sum(g for _, g, _ in gauges)
+    if n_bull >= 3:
+        regime, rcol = "Risk-on", GREEN
+        rnote = ("Capital is leaning into risk. Trend, participation and credit agree — this is the regime "
+                 "where breakouts work and dips get bought.")
+    elif n_bull <= 1:
+        regime, rcol = "Defense", RED
+        rnote = ("The gauges have turned. Preservation beats participation here: reduce size, raise cash, and "
+                 "wait for at least two gauges to flip back before re-engaging.")
+    else:
+        regime, rcol = "Mixed — trim", AMBER
+        rnote = ("The gauges disagree. Half-size, tighter stops, and let the tape resolve. Mixed regimes are "
+                 "where over-trading destroys accounts.")
+    gauge_html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:10px">' + \
+        "".join(f'<div><div class="slabel">{n}</div>'
+                f'<div class="sval" style="color:{GREEN if g else RED}">{"BULLISH" if g else "BEARISH"}</div>'
+                f'<div class="muted" style="font-size:11px">{d}</div></div>' for n, g, d in gauges) + "</div>"
+    # --- cycle overlay
+    try:
+        infl = float((fred("CPIAUCSL", 3).pct_change(12).dropna().iloc[-1]) * 100)
+        ipy = float((fred("INDPRO", 3).pct_change(12).dropna().iloc[-1]) * 100)
+        phase = "Late" if infl > 3 and ipy > 0 else ("Mid" if ipy > 1 else "Early")
+    except Exception:
+        phase = "Mid"
+    expected = CYCLE_LEADERS[phase]
+    # --- sector leaders
+    sec_rows = []
+    for etf, name in SECTORS.items():
+        s = px[etf].dropna()
+        rs3 = float(((s.iloc[-1] / s.iloc[-64]) / (spy.iloc[-1] / spy.iloc[-64]) - 1) * 100)
+        above20 = bool(s.iloc[-1] > s.rolling(20).mean().iloc[-1])
+        star = "★" if etf in expected else ""
+        sec_rows.append((etf, name, rs3, above20, star))
+    sec_rows.sort(key=lambda r: -r[2])
+    actual_top = [r[0] for r in sec_rows[:3]]
+    diverge = not set(actual_top) & set(expected)
+    # --- themes (auto-ranked, no hardcoded favourite)
+    tsyms = [t for t in THEMES]
+    th = yf.download(tsyms, period="1y", interval="1d", auto_adjust=True,
+                     progress=False)["Close"].ffill(limit=3)
+    trows = []
+    for t, (name, note) in THEMES.items():
+        if t not in th.columns:
+            continue
+        s = th[t].dropna()
+        if len(s) < 60:
+            continue
+        ratio = (s / spy.reindex(s.index).ffill()).dropna()
+        v20 = float((ratio.iloc[-1] / ratio.rolling(20).mean().iloc[-1] - 1) * 100)
+        v50 = float((ratio.iloc[-1] / ratio.rolling(50).mean().iloc[-1] - 1) * 100)
+        state = ("BULLISH", GREEN) if v20 > 0 and v50 > 0 else \
+                (("BEARISH", RED) if v20 < 0 and v50 < 0 else ("MIXED", AMBER))
+        trows.append((t, name, note, v20, v50, state))
+    trows.sort(key=lambda r: -r[3])
+    def theme_tbl(rs):
+        return table(["Pair", "Theme", "vs 20d", "vs 50d", "State"],
+                     [(f"<b>{t}/SPY</b>", f"{n}<div class='muted' style='font-size:11px'>{nt}</div>",
+                       cnum(a, 2), cnum(b, 2),
+                       f'<span style="color:{st[1]};font-weight:600">{st[0]}</span>')
+                      for t, n, nt, a, b, st in rs])
+    # --- stock table
     rows = []
     for t in panel_cols:
         s = px[t].dropna()
-        s50 = s.rolling(50).mean().iloc[-1]; s200 = s.rolling(200).mean().iloc[-1]
-        r1, r3 = (s.iloc[-1] / s.iloc[-22] - 1) * 100, (s.iloc[-1] / s.iloc[-64] - 1) * 100
-        rs = r3 - (px["SPY"].dropna().iloc[-1] / px["SPY"].dropna().iloc[-64] - 1) * 100
-        rows.append((t, SECTORS[PANEL[t]], s.iloc[-1], (s.iloc[-1] / s50 - 1) * 100,
-                     (s.iloc[-1] / s200 - 1) * 100, r1, r3, rs))
-    rows.sort(key=lambda r: r[7], reverse=True)
+        s20 = float(s.rolling(20).mean().iloc[-1])
+        s50 = float(s.rolling(50).mean().iloc[-1]); s200 = float(s.rolling(200).mean().iloc[-1])
+        r1, r3 = float((s.iloc[-1] / s.iloc[-22] - 1) * 100), float((s.iloc[-1] / s.iloc[-64] - 1) * 100)
+        rs = r3 - float((spy.iloc[-1] / spy.iloc[-64] - 1) * 100)
+        rows.append((t, SECTORS[PANEL[t]], float(s.iloc[-1]), float((s.iloc[-1] / s20 - 1) * 100),
+                     float((s.iloc[-1] / s50 - 1) * 100), float((s.iloc[-1] / s200 - 1) * 100), r1, r3, rs))
+    rows.sort(key=lambda r: -r[8])
     trs = "\n".join(
         f"<tr><td><b>{t}</b></td><td class='muted'>{sec}</td><td>{p:,.2f}</td>"
-        f"<td style='color:{GREEN if a>0 else RED}'>{a:+.1f}%</td>"
-        f"<td style='color:{GREEN if b>0 else RED}'>{b:+.1f}%</td>"
-        f"<td style='color:{GREEN if c>0 else RED}'>{c:+.1f}%</td>"
-        f"<td style='color:{GREEN if d>0 else RED}'>{d:+.1f}%</td>"
-        f"<td style='color:{GREEN if e>0 else RED}'>{e:+.1f}%</td></tr>"
-        for t, sec, p, a, b, c, d, e in rows)
+        + "".join(f"<td style='color:{GREEN if v>0 else RED}'>{v:+.1f}%</td>" for v in (a, b, c, d, e, f))
+        + "</tr>" for t, sec, p, a, b, c, d, e, f in rows)
+    green_sectors = [r[0] for r in sec_rows if r[2] > 0 and r[3]]
+    ideas = [r for r in rows if r[3] > 0 and PANEL[r[0]] in green_sectors][:10]
     body = card(
-        '<div class="muted" style="margin-bottom:8px">Mega/large-cap panel ranked by 3-month relative '
-        'strength vs SPY. Click a header to re-sort.</div>'
+        f'<div style="font-size:19px;font-weight:700;color:{rcol}">{regime} · {n_bull}/4 gauges bullish</div>'
+        f'<div class="muted" style="margin-top:3px">{rnote}</div>' + gauge_html, "MASTER GAUGES")
+    body += "<h2>Sector leadership vs the cycle</h2>" + card(
+        table(["Sector", "RS vs SPY (3m)", "Above 20d", "Cycle-expected"],
+              [(f"<b>{e}</b> <span class='muted'>{n}</span>", cnum(r, 1), dot(a),
+                f'<span style="color:{GOLD}">{st}</span>' if st else '<span class="muted">—</span>')
+               for e, n, r, a, st in sec_rows]) +
+        f'<div class="legend">★ marks the sectors that historically lead in a <b>{phase}</b>-cycle economy. '
+        + ("Actual leadership DIVERGES from what the cycle expects — either the cycle classifier is early or "
+           "the market is discounting a phase change. Extra caution is warranted either way."
+           if diverge else
+           "Actual leadership agrees with the cycle read, which raises confidence in both.") + "</div>")
+    body += "<h2>Themes — leading</h2>" + card(
+        theme_tbl(trows[:10]) +
+        '<div class="legend">Every theme measured as its own ratio against SPY, ranked by distance above its '
+        '20-day. Nothing here is hardcoded as "the story" — when one theme drops out of the top ten and '
+        'another enters, that rotation IS the signal.</div>')
+    body += "<h2>Themes — fading</h2>" + card(theme_tbl(trows[-5:][::-1]) +
+        '<div class="legend">The weakest of the same universe: these are objectively losing capital versus '
+        'the index. Avoid the temptation to call them cheap.</div>')
+    if ideas:
+        body += "<h2>Drill-down: names with regime and momentum</h2>" + card(
+            table(["Ticker", "Sector", "vs 20d", "RS vs SPY (3m)"],
+                  [(f"<b>{r[0]}</b>", f"<span class='muted'>{r[1]}</span>", cnum(r[3], 1), cnum(r[8], 1))
+                   for r in ideas]) +
+            '<div class="legend">Constituents of the leading sectors that are also above their own 20-day — '
+            'both the regime and the name are working. A close back under the 20-day is the natural '
+            'invalidation.</div>')
+    body += "<h2>The full panel</h2>" + card(
+        '<div class="muted" style="margin-bottom:8px">Click any header to re-sort.</div>'
         f"<div style='overflow-x:auto'><table id='scr'><tr>"
         "<th onclick='so(0,0)'>Ticker</th><th onclick='so(1,0)'>Sector</th><th onclick='so(2,1)'>Price</th>"
-        "<th onclick='so(3,1)'>vs 50d</th><th onclick='so(4,1)'>vs 200d</th><th onclick='so(5,1)'>1m</th>"
-        f"<th onclick='so(6,1)'>3m</th><th onclick='so(7,1)'>RS vs SPY (3m)</th></tr>{trs}</table></div>"
+        "<th onclick='so(3,1)'>vs 20d</th><th onclick='so(4,1)'>vs 50d</th><th onclick='so(5,1)'>vs 200d</th>"
+        f"<th onclick='so(6,1)'>1m</th><th onclick='so(7,1)'>3m</th>"
+        f"<th onclick='so(8,1)'>RS vs SPY</th></tr>{trs}</table></div>"
         "<script>function so(i,num){const t=document.getElementById('scr');"
         "const r=[...t.rows].slice(1);const d=t.dataset['s'+i]!=='1';t.dataset['s'+i]=d?'1':'0';"
         "r.sort((a,b)=>{let x=a.cells[i].innerText.replace(/[,%+]/g,''),y=b.cells[i].innerText.replace(/[,%+]/g,'');"
         "return num?(d?y-x:x-y):(d?x.localeCompare(y):y.localeCompare(x));});"
         "r.forEach(x=>t.appendChild(x));}</script>")
     return dict(slug="screener", title="Screener",
-                sub="The whole panel, sortable — find the leaders and the broken names in one table.",
+                sub="Master risk gauges, sector leadership against the cycle, auto-ranked themes, and the full sortable panel.",
                 body=body, stance="info",
-                headline=f"Top RS: {', '.join(r[0] for r in rows[:3])}")
+                headline=f"{regime} ({n_bull}/4) · leading themes: {', '.join(r[1] for r in trows[:2])}")
 
 def m_calculators():
+    out_style = 'style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"'
     body = card(
-        '<div class="slabel">POSITION SIZE (RISK-FIRST)</div>'
+        '<div class="muted" style="font-size:12px;margin-bottom:6px">Risk a fixed percentage of the account '
+        'per trade. The stop distance sets the size — never the other way round.</div>'
         '<label class="cl">Account $<br><input class="calc" id="c_acct" value="100000"></label>'
         '<label class="cl">Risk %<br><input class="calc" id="c_risk" value="1"></label>'
         '<label class="cl">Entry<br><input class="calc" id="c_in" value="100"></label>'
         '<label class="cl">Stop<br><input class="calc" id="c_st" value="96"></label>'
-        '<div id="c_out" style="margin-top:10px;font-weight:600"></div>'
+        f'<div id="c_out" {out_style}></div>'
         "<script>function cc(){const a=+c_acct.value,r=+c_risk.value/100,e=+c_in.value,s=+c_st.value;"
-        "const rp=Math.abs(e-s);if(!a||!r||!rp){c_out.innerText='—';return}"
-        "const sh=Math.floor(a*r/rp);c_out.innerHTML=`${sh.toLocaleString()} shares · $${(sh*e).toLocaleString(undefined,{maximumFractionDigits:0})} position · $${Math.round(a*r).toLocaleString()} at risk (1R = ${rp.toFixed(2)})`;}"
-        "document.querySelectorAll('.calc').forEach(i=>i.addEventListener('input',cc));cc();</script>") + card(
-        '<div class="slabel">R-MULTIPLE EXPECTANCY</div>'
+        "const rp=Math.abs(e-s);const o=document.getElementById('c_out');"
+        "if(!a||!r||!rp){o.innerHTML='<span class=muted>—</span>';return}"
+        "const sh=Math.floor(a*r/rp),risk=a*r,notional=sh*e;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "o.innerHTML=cell('Risk amount','$'+risk.toLocaleString(undefined,{maximumFractionDigits:2}),'#e05555')"
+        "+cell('Position size',sh.toLocaleString()+' units')"
+        "+cell('Notional exposure','$'+notional.toLocaleString(undefined,{maximumFractionDigits:0}))"
+        "+cell('1R (per unit)',rp.toFixed(2))"
+        "+cell('Exposure / account',(notional/a*100).toFixed(1)+'%',notional>a?'#e05555':'#8891a5');}"
+        "['c_acct','c_risk','c_in','c_st'].forEach(i=>document.getElementById(i).addEventListener('input',cc));cc();</script>",
+        "POSITION SIZE") + card(
+        '<div class="muted" style="font-size:12px;margin-bottom:6px">The reward:risk ratio and the hit rate it '
+        'requires just to break even, before costs.</div>'
+        '<label class="cl">Entry<br><input class="calc" id="r_in" value="100"></label>'
+        '<label class="cl">Stop<br><input class="calc" id="r_st" value="96"></label>'
+        '<label class="cl">Target<br><input class="calc" id="r_tg" value="112"></label>'
+        f'<div id="r_out" {out_style}></div>'
+        "<script>function rc(){const e=+r_in.value,s=+r_st.value,t=+r_tg.value;"
+        "const risk=Math.abs(e-s),rew=Math.abs(t-e);const o=document.getElementById('r_out');"
+        "if(!risk){o.innerHTML='<span class=muted>—</span>';return}"
+        "const rr=rew/risk,be=1/(1+rr)*100;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "o.innerHTML=cell('Reward : Risk',rr.toFixed(2)+' R',rr>=2?'#4caf7d':(rr<1?'#e05555':'#e0a94c'))"
+        "+cell('Break-even win rate',be.toFixed(1)+'%')"
+        "+cell('Risk per unit',risk.toFixed(2))+cell('Reward per unit',rew.toFixed(2));}"
+        "['r_in','r_st','r_tg'].forEach(i=>document.getElementById(i).addEventListener('input',rc));rc();</script>",
+        "RISK / REWARD") + card(
+        '<div class="muted" style="font-size:12px;margin-bottom:6px">Positive expectancy plus surviving the '
+        'variance is the whole game. Everything else is decoration.</div>'
         '<label class="cl">Win rate %<br><input class="calc" id="e_wr" value="45"></label>'
         '<label class="cl">Avg win (R)<br><input class="calc" id="e_w" value="2"></label>'
         '<label class="cl">Avg loss (R)<br><input class="calc" id="e_l" value="1"></label>'
-        '<div id="e_out" style="margin-top:10px;font-weight:600"></div>'
+        f'<div id="e_out" {out_style}></div>'
         "<script>function ec(){const w=+e_wr.value/100,aw=+e_w.value,al=+e_l.value;"
-        "const ex=w*aw-(1-w)*al;e_out.innerHTML=`Expectancy: <span style='color:${ex>0?'#4caf7d':'#e05555'}'>${ex.toFixed(2)}R per trade</span> · 100 trades ≈ ${(ex*100).toFixed(0)}R`;}"
-        "['e_wr','e_w','e_l'].forEach(i=>document.getElementById(i).addEventListener('input',ec));ec();</script>") + card(
-        '<div class="slabel">COMPOUNDING</div>'
+        "const ex=w*aw-(1-w)*al;const o=document.getElementById('e_out');"
+        "const kel=al?((w*aw-(1-w)*al)/aw):0;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "o.innerHTML=cell('Expectancy',ex.toFixed(2)+'R / trade',ex>0?'#4caf7d':'#e05555')"
+        "+cell('Over 100 trades',(ex*100).toFixed(0)+'R',ex>0?'#4caf7d':'#e05555')"
+        "+cell('Kelly fraction',(kel*100).toFixed(1)+'%','#8891a5')"
+        "+cell('Half-Kelly (practical)',(kel*50).toFixed(1)+'%','#8891a5');}"
+        "['e_wr','e_w','e_l'].forEach(i=>document.getElementById(i).addEventListener('input',ec));ec();</script>",
+        "R-MULTIPLE EXPECTANCY") + card(
+        '<div class="muted" style="font-size:12px;margin-bottom:6px">Growth at a fixed rate per period, and '
+        'what a drawdown costs you in the same currency.</div>'
         '<label class="cl">Start $<br><input class="calc" id="k_p" value="100000"></label>'
-        '<label class="cl">Return %/yr<br><input class="calc" id="k_r" value="15"></label>'
-        '<label class="cl">Years<br><input class="calc" id="k_y" value="10"></label>'
-        '<div id="k_out" style="margin-top:10px;font-weight:600"></div>'
-        "<script>function kc(){const p=+k_p.value,r=+k_r.value/100,y=+k_y.value;"
-        "k_out.innerText=`$${(p*Math.pow(1+r,y)).toLocaleString(undefined,{maximumFractionDigits:0})}`;}"
-        "['k_p','k_r','k_y'].forEach(i=>document.getElementById(i).addEventListener('input',kc));kc();</script>")
+        '<label class="cl">Return %/period<br><input class="calc" id="k_r" value="15"></label>'
+        '<label class="cl">Periods<br><input class="calc" id="k_y" value="10"></label>'
+        '<label class="cl">Drawdown %<br><input class="calc" id="k_d" value="20"></label>'
+        f'<div id="k_out" {out_style}></div>'
+        "<script>function kc(){const p=+k_p.value,r=+k_r.value/100,y=+k_y.value,d=+k_d.value/100;"
+        "const end=p*Math.pow(1+r,y);const o=document.getElementById('k_out');"
+        "const recov=d<1?(1/(1-d)-1)*100:Infinity;"
+        "const cell=(l,v,c)=>`<div><div class=slabel>${l}</div><div class=sval style='color:${c||'#d6dae3'}'>${v}</div></div>`;"
+        "o.innerHTML=cell('Ending value','$'+end.toLocaleString(undefined,{maximumFractionDigits:0}),'#4caf7d')"
+        "+cell('Total gain','$'+(end-p).toLocaleString(undefined,{maximumFractionDigits:0}))"
+        "+cell('Multiple',(end/p).toFixed(2)+'×')"
+        "+cell('Gain needed to recover',(isFinite(recov)?recov.toFixed(1)+'%':'∞'),'#e05555');}"
+        "['k_p','k_r','k_y','k_d'].forEach(i=>document.getElementById(i).addEventListener('input',kc));kc();</script>",
+        "COMPOUNDING & DRAWDOWN MATH") + card(
+        "Tools for planning, not advice. Position sizing assumes a fixed percentage of the account risked per "
+        "trade. The break-even win rate is the hit rate a given reward:risk needs just to stop losing money — "
+        "before commissions, slippage and taxes, all of which move it against you. Kelly is shown because it's "
+        "the mathematically optimal growth fraction, and half-Kelly is shown because full Kelly's drawdowns are "
+        "unlivable for actual humans. Note the last cell above: a 20% drawdown needs a 25% gain to recover, and "
+        "a 50% drawdown needs 100%. That asymmetry is why risk management outranks entry selection.",
+        "THE ARITHMETIC THAT DECIDES SURVIVAL")
     return dict(slug="calculators", title="Calculators",
-                sub="Position sizing, expectancy, and compounding — the arithmetic that decides survival.",
-                body=body, stance="info", headline="Position size · expectancy · compounding")
+                sub="Position sizing, reward:risk with break-even hit rates, expectancy, Kelly, and drawdown math.",
+                body=body, stance="info",
+                headline="Position size · risk/reward · expectancy · compounding")
+
+GLOSSARY = {
+    "Breadth": [
+        ("A/D line", "Cumulative advancers minus decliners. The breadth backbone: index highs the A/D line refuses to confirm are suspect."),
+        ("Breadth thrust", "A violent expansion in participation off a low. Rare, and historically one of the most reliable bullish signals there is."),
+        ("McClellan oscillator", "EMA19 − EMA39 of ratio-adjusted net advances — the momentum of breadth. Extremes and thrusts carry the signal, not the daily wiggle."),
+        ("Zweig breadth thrust", "10-day EMA of advances ÷ (advances + declines). Armed below 0.40, fires at 0.615 or higher within ten sessions."),
+        ("% above 50-day", "Share of a panel in short-term uptrends. A mean-reverting oscillator with teeth only at the edges: above 80 or below 20."),
+    ],
+    "Volatility & options": [
+        ("Term structure (vol)", "Near-dated implied vol against far-dated. Upward slope (contango) is normal; inversion is the cleanest regime-break signal in the vol space."),
+        ("Variance risk premium", "Implied vol minus subsequently realized vol. Persistently positive because insurance costs money; its extremes are the signal."),
+        ("Dealer gamma (GEX)", "Aggregate option gamma held by dealers. Positive gamma means their hedging suppresses moves and pins price; negative means it chases and accelerates."),
+        ("Gamma flip", "The strike where cumulative dealer gamma crosses zero. Crossing it intraday is often when a quiet tape turns fast."),
+        ("Max pain", "The strike at which the most option value expires worthless. A gravitational tendency into expiry, not a law."),
+        ("Expected move", "The move the at-the-money straddle prices in before expiry — the options market's own forecast of its range."),
+        ("SKEW", "The relative price of tail hedges. High SKEW means crash protection is bid even when spot vol sleeps."),
+    ],
+    "Positioning & flow": [
+        ("COT report", "Weekly CFTC breakdown of futures open interest by trader class. Extremes are contrarian; mid-range readings carry no signal."),
+        ("Commercials", "Producers and hedgers with real-world exposure. Counter-trend and early — the informed side of the COT table."),
+        ("Large speculators", "Funds and managed money. Trend-followers by nature; their extremes mark crowded trades where the fuel is spent."),
+        ("COT index", "Where commercials' net position sits inside its 26-week range, 0–100. Above 80 or below 20 are the contrarian zones."),
+        ("Open interest", "Total leveraged contracts outstanding. Rising OI with rising price means new money funding the move; falling OI means positions closing."),
+        ("Funding rate", "What perpetual-futures longs pay shorts (or vice versa) to hold. Persistently positive = crowded longs, and squeeze fuel below."),
+        ("Liquidation ladder", "Where leveraged positions would be forcibly closed. Price gravitates to dense clusters because forced closes supply liquidity."),
+    ],
+    "Rotation & trend": [
+        ("Relative strength", "An asset's performance versus a benchmark. It persists: what leads over three months tends to keep leading."),
+        ("RRG quadrants", "Leading, Weakening, Lagging, Improving — the clockwise rotation of relative strength. Improving is where alpha is born; Weakening is the exit ramp."),
+        ("12-1 momentum", "Last twelve months' return excluding the most recent month — the academic standard, skipping the month that mean-reverts."),
+        ("Volume profile", "The distribution of volume by price. The POC is the auction's fairest price; the value area holds 70% of volume; thin zones travel fast."),
+        ("Anchored VWAP", "Volume-weighted average price from a chosen event — an institutional cost basis, and a level the market actually remembers."),
+        ("Confluence level", "A price where several independent methods agree. One moving average is a line on a chart; five methods stacked is real structure."),
+    ],
+    "Macro & rates": [
+        ("Yield-curve inversion", "Short rates above long rates. The warning fires on inversion; the trouble historically lands after the curve re-steepens out of it."),
+        ("Bear flattener", "Front-end yields rising faster than the long end — the market prices tightening the long end doubts the economy can absorb. Late-cycle."),
+        ("Real yield", "The after-inflation cost of money (via TIPS). The single most important driver for gold, long-duration growth and Bitcoin."),
+        ("Credit spread (OAS)", "The extra yield lenders demand over Treasuries — literally the market's price of \"will this borrower survive?\""),
+        ("Net liquidity", "Fed balance sheet minus reverse repo minus the Treasury's cash account — the dollars actually available to the system."),
+        ("NFCI", "The Chicago Fed's weekly composite of financial conditions. Negative means looser than average; the direction matters more than the level."),
+        ("Sahm rule", "A 0.50pt rise in the three-month average unemployment rate off its twelve-month low. It has called every post-war US recession."),
+        ("Taylor rule", "A reaction function estimating where policy rates 'should' sit given inflation and unemployment. A reference point, not a forecast."),
+        ("Investment clock", "The growth × inflation quadrant — Goldilocks, Overheat, Stagflation, Disinflation. It maps to asset leadership faster than cycle phase does."),
+    ],
+    "Risk & process": [
+        ("R (risk unit)", "Your per-trade risk, entry to stop. Denominating results in R makes any two trades comparable regardless of size or instrument."),
+        ("Expectancy", "Win% × average win − loss% × average loss, in R. Positive expectancy plus sizing discipline is the entire game."),
+        ("Break-even win rate", "The hit rate a given reward:risk needs just to stop losing money, before costs. A 3R target needs only 25%."),
+        ("Kelly fraction", "The mathematically optimal bet size for growth. Full Kelly's drawdowns are unlivable, which is why practitioners use half."),
+        ("Drawdown", "Decline from the running high. A 20% drawdown needs 25% to recover; 50% needs 100%. That asymmetry outranks entry selection."),
+        ("Variance", "The reason a positive edge still loses money for a while. Survive it, or the edge never gets to pay you."),
+    ],
+}
 
 def m_glossary():
-    terms = [
-        ("A/D line", "Cumulative advancers minus decliners. The breadth backbone: index highs without A/D highs are suspect."),
-        ("Breadth thrust", "A violent expansion in participation off a low (e.g. Zweig ≥ 0.615 within days of ≤ 0.40) — historically one of the most reliable bull signals."),
-        ("COT report", "Weekly CFTC breakdown of futures positioning by trader type. Speculator extremes are contrarian."),
-        ("Drawdown", "Percent decline from the running high. The risk number that matters more than volatility."),
-        ("Expectancy", "Average R won or lost per trade: win% × avg win − loss% × avg loss. Positive expectancy plus sizing discipline is the whole game."),
-        ("McClellan oscillator", "EMA19 − EMA39 of ratio-adjusted net advances — breadth momentum. Extremes and thrusts, not the day-to-day wiggle, carry the signal."),
-        ("Net liquidity", "Fed balance sheet minus reverse repo minus Treasury account — the system's spendable dollars. Risk assets track its direction."),
-        ("NFCI", "Chicago Fed's weekly composite of financial conditions. Negative = looser than average."),
-        ("R (risk unit)", "Your per-trade risk (entry to stop). Denominating results in R makes any two trades comparable."),
-        ("Relative strength", "An asset's return versus a benchmark. Persistent — leaders tend to keep leading over 3–12 months."),
-        ("Sahm rule", "Recession trigger: 3-month average unemployment rising 0.50pt off its 12-month low. Simple, and it has called every post-war US recession."),
-        ("Term structure (vol)", "VIX3M vs VIX. Ratio above ~1.05 = normal contango; below 1.0 = stress backwardation."),
-        ("Yield-curve inversion", "Short rates above long rates (10y−3m below zero). The warning fires on inversion; trouble usually lands after the re-steepening."),
-        ("Zweig breadth thrust", "10-day EMA of advances/(advances+declines). Armed under 0.40, fires at ≥ 0.615 within 10 sessions."),
-    ]
-    body = card("".join(f'<div style="padding:8px 0;border-bottom:1px solid var(--line)">'
-                        f'<b style="color:{GOLD}">{t}</b><div class="muted" style="margin-top:2px">{d}</div></div>'
-                        for t, d in terms))
+    total = sum(len(v) for v in GLOSSARY.values())
+    body = ('<input id="gq" class="calc" style="width:100%;max-width:340px;margin-bottom:12px" '
+            'placeholder="Filter terms…">')
+    for section, terms in GLOSSARY.items():
+        body += f"<h2>{section}</h2>" + card("".join(
+            f'<div class="gterm" style="padding:8px 0;border-bottom:1px solid var(--line)">'
+            f'<b style="color:{GOLD}">{t}</b><div class="muted" style="margin-top:2px">{d}</div></div>'
+            for t, d in terms))
+    body += ("<script>document.getElementById('gq').addEventListener('input',function(e){"
+             "const q=e.target.value.toLowerCase();"
+             "document.querySelectorAll('.gterm').forEach(x=>{"
+             "x.style.display=x.innerText.toLowerCase().includes(q)?'':'none';});"
+             "document.querySelectorAll('h2').forEach(h=>{const c=h.nextElementSibling;"
+             "const any=[...c.querySelectorAll('.gterm')].some(x=>x.style.display!=='none');"
+             "h.style.display=any?'':'none';c.style.display=any?'':'none';});});</script>")
     return dict(slug="glossary", title="Glossary",
-                sub="The terms used across this terminal, in plain language.",
-                body=body, stance="info", headline=f"{len(terms)} terms")
+                sub="Every term used across this terminal, grouped and searchable, in plain language.",
+                body=body, stance="info", headline=f"{total} terms across {len(GLOSSARY)} sections")
 
 # ---------------------------------------------------------------- confluence + overview
+# Three pillars, each with weighted members. Weight = how much independent information the
+# signal carries (slow structural reads outrank fast noisy ones).
+PILLARS = {
+    "Trend & structure": {
+        "desc": "Is the market's own price action healthy? Direction, participation and the price of risk.",
+        "members": {"breadth": 3, "momentum": 3, "relative-strength": 2, "volatility": 2,
+                    "valuation": 2, "key-levels": 1, "correlation": 1},
+    },
+    "Timing & positioning": {
+        "desc": "Is the crowd leaning the wrong way? Sentiment, flows, positioning and the calendar.",
+        "members": {"sentiment": 2, "cot": 2, "crypto": 1, "seasonality": 1, "calendar": 1},
+    },
+    "Macro environment": {
+        "desc": "Is the backdrop paying you to take risk? Credit, liquidity, policy and the cycle.",
+        "members": {"credit-spreads": 3, "liquidity": 3, "financial-conditions": 3,
+                    "business-cycle": 2, "yield-curve": 2, "fed-path": 1, "election-cycle": 1},
+    },
+}
+SCORE = {"bullish": 1, "neutral": 0, "bearish": -1}
+
 def build_confluence(mods):
-    scored = [m for m in mods if m["stance"] in ("bullish", "bearish", "neutral")]
-    score = sum(1 if m["stance"] == "bullish" else -1 if m["stance"] == "bearish" else 0 for m in scored)
-    n = len(scored)
-    if score >= n * 0.35: verdict, vc = "Risk-on alignment", GREEN
-    elif score <= -n * 0.35: verdict, vc = "Risk-off alignment", RED
-    else: verdict, vc = "Mixed signals", AMBER
-    rows = [(f'<a href="/terminal/{m["slug"]}/"><b>{m["title"]}</b></a>',
-             f'<span class="pill" style="background:{STANCE_COL[m["stance"]]}22;color:{STANCE_COL[m["stance"]]}">{m["stance"]}</span>',
-             m["headline"]) for m in mods if m["stance"] != "info"]
+    by_slug = {m["slug"]: m for m in mods}
+    pillar_out, pillar_scores = [], {}
+    for pname, spec in PILLARS.items():
+        rows, num, den = [], 0.0, 0.0
+        for slug, w in spec["members"].items():
+            m = by_slug.get(slug)
+            if not m or m["stance"] == "info":
+                continue
+            s = SCORE[m["stance"]]
+            num += s * w
+            den += w
+            rows.append((m, w, s))
+        if not den:
+            continue
+        pscore = num / den  # -1..+1
+        pillar_scores[pname] = pscore
+        pcol = GREEN if pscore > 0.25 else (RED if pscore < -0.25 else AMBER)
+        plabel = "Bullish" if pscore > 0.25 else ("Bearish" if pscore < -0.25 else "Neutral")
+        bar = (f'<div style="background:#232a3a;border-radius:4px;height:8px;position:relative;margin:6px 0">'
+               f'<div style="position:absolute;left:50%;width:1px;height:8px;background:{MUT}"></div>'
+               f'<div style="position:absolute;left:{50 + min(0, pscore*50):.1f}%;width:{abs(pscore)*50:.1f}%;'
+               f'height:8px;background:{pcol};border-radius:4px"></div></div>')
+        rows.sort(key=lambda r: (-r[1], -r[2]))
+        rhtml = "".join(
+            f'<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px">'
+            f'<a href="/terminal/{m["slug"]}/" style="min-width:150px"><b>{m["title"]}</b></a>'
+            f'<span class="pill" style="background:{STANCE_COL[m["stance"]]}22;color:{STANCE_COL[m["stance"]]};font-size:10px">{m["stance"]}</span>'
+            f'<span class="muted" style="font-size:11px">weight {w}</span>'
+            f'<span class="muted" style="font-size:12px;margin-left:auto;text-align:right">{m["headline"]}</span></div>'
+            for m, w, _s in rows)
+        pillar_out.append(
+            f'<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline">'
+            f'<div><b>{pname}</b><div class="muted" style="font-size:12px">{spec["desc"]}</div></div>'
+            f'<div style="text-align:right"><div class="sval" style="color:{pcol}">{plabel}</div>'
+            f'<div class="muted" style="font-size:11px">{pscore:+.2f}</div></div></div>{bar}{rhtml}</div>')
+    total = sum(pillar_scores.values()) / len(pillar_scores) if pillar_scores else 0
+    agree = len([v for v in pillar_scores.values() if v > 0.25])
+    disagree = len([v for v in pillar_scores.values() if v < -0.25])
+    if agree == 3:
+        verdict, vc = "Full alignment — risk-on", GREEN
+        vtxt = ("All three pillars agree. This is the configuration that justifies committing serious capital: "
+                "price action, positioning and the macro backdrop are pulling the same way.")
+    elif disagree == 3:
+        verdict, vc = "Full alignment — risk-off", RED
+        vtxt = ("All three pillars agree on the downside. Capital preservation is the trade; the market will "
+                "still be here when at least two pillars turn.")
+    elif agree >= 2 and disagree == 0:
+        verdict, vc = "Constructive", GREEN
+        vtxt = ("Two pillars lean bullish with no pillar leaning against. A workable environment for risk, "
+                "though the neutral pillar names the thing that could break it.")
+    elif disagree >= 2 and agree == 0:
+        verdict, vc = "Deteriorating", RED
+        vtxt = ("Two pillars lean bearish. Reduce exposure ahead of the third confirming rather than after — "
+                "the third pillar is usually price, and it confirms last.")
+    else:
+        verdict, vc = "Conflicted", AMBER
+        vtxt = ("The pillars disagree, and that disagreement is itself the information. Slow signals "
+                "(valuation, cycle) fighting fast ones (momentum, flow) is the signature of a turning point — "
+                "half size, and let the tape resolve which is early and which is wrong.")
+    scored = [m for m in mods if m["stance"] != "info"]
     body = card(
         f'<div style="font-size:19px;font-weight:700;color:{vc}">{verdict}</div>'
-        f'<div class="muted" style="margin-top:3px">{sum(m["stance"]=="bullish" for m in scored)} bullish · '
+        f'<div class="muted" style="margin-top:3px">Weighted composite {total:+.2f} on a −1 to +1 scale · '
+        f'{sum(m["stance"]=="bullish" for m in scored)} bullish · '
         f'{sum(m["stance"]=="bearish" for m in scored)} bearish · '
-        f'{sum(m["stance"]=="neutral" for m in scored)} neutral, across {n} scored modules</div>',
-        "SIGNAL CONFLUENCE") + card(table(["Module", "Stance", "Current read"], rows)) + card(
-        "Confluence is the whole point of a terminal: any single indicator is noisy, but when trend, breadth, "
-        "credit, liquidity, and the macro clock agree, the signal quality compounds. The table above is a "
-        "simple equal-weight tally — read disagreements as information too (e.g. breadth bullish while credit "
-        "deteriorates = late-stage rally profile).", "WHY CONFLUENCE")
+        f'{sum(m["stance"]=="neutral" for m in scored)} neutral, across {len(scored)} scored modules</div>'
+        f'<div style="margin-top:8px">{vtxt}</div>', "SIGNAL CONFLUENCE")
+    body += "<h2>The three pillars</h2>" + "".join(pillar_out)
+    body += card(
+        "Confluence is context, not a signal service. The stance directions are deliberately coarse — "
+        "bullish, neutral, bearish — because pretending to more precision than the inputs carry is exactly how "
+        "black boxes lie. The transparency is the product: every read, its source page, and its weight are on "
+        "this screen.<br><br>"
+        "<b>Known limits, stated plainly.</b> The signals are not fully independent — momentum and relative "
+        "strength share DNA, so their agreement is worth less than agreement between, say, valuation and "
+        "credit. Weights are judgement, not optimisation. And the slow signals will disagree with the fast "
+        "ones at every genuine turning point; that disagreement is the information, not a bug to be averaged "
+        "away. This page exists to stop you cherry-picking the modules that happen to agree with the position "
+        "you already wanted to take.", "METHODOLOGY & HONESTY")
     return dict(slug="confluence", title="Confluence",
-                sub="All module signals in one place — alignment is the edge, disagreement is the warning.",
+                sub="Every module's signal, weighted into three pillars — alignment is the edge, disagreement is the warning.",
                 body=body, stance="info", headline=verdict)
 
 def build_overview(mods, confl):
-    cards = []
-    for m in [confl] + mods:
-        c = STANCE_COL[m["stance"]]
-        cards.append(f'<a href="/terminal/{m["slug"]}/" class="card"><div class="slabel">{m["title"].upper()}</div>'
-                     f'<div style="margin-top:4px;font-size:13px">{m["headline"]}</div>'
-                     f'<div style="margin-top:6px"><span class="pill" style="background:{c}22;color:{c}">'
-                     f'{m["stance"] if m["stance"] != "info" else "reference"}</span></div></a>')
-    body = f'<div class="ovgrid">{"".join(cards)}</div>'
+    slug_group = {}
+    for gname, items in GROUPS:
+        for slug, _ in items:
+            slug_group[slug] = gname
+    c = STANCE_COL["info"]
+    hero = (f'<a href="/terminal/confluence/" class="card" style="display:block">'
+            f'<div class="slabel">CONFLUENCE — THE ONE-LINE READ</div>'
+            f'<div style="font-size:19px;font-weight:700;margin-top:4px">{confl["headline"]}</div>'
+            f'<div class="muted" style="font-size:12px;margin-top:4px">Every module below, weighted into three '
+            f'pillars. Click through for the full breakdown.</div></a>')
+    sections = ""
+    for gname, items in GROUPS:
+        group_mods = [m for m in mods if slug_group.get(m["slug"]) == gname and m["slug"]]
+        if not group_mods:
+            continue
+        cards = []
+        for m in group_mods:
+            cc = STANCE_COL[m["stance"]]
+            cards.append(
+                f'<a href="/terminal/{m["slug"]}/" class="card"><div class="slabel">{m["title"].upper()}</div>'
+                f'<div style="margin-top:4px;font-size:13px">{m["headline"]}</div>'
+                f'<div style="margin-top:6px"><span class="pill" style="background:{cc}22;color:{cc}">'
+                f'{m["stance"] if m["stance"] != "info" else "reference"}</span></div></a>')
+        sections += f'<h2>{gname}</h2><div class="ovgrid">{"".join(cards)}</div>'
+    counts = {k: sum(1 for m in mods if m["stance"] == k) for k in ("bullish", "bearish", "neutral")}
+    strip = card(stat_grid([
+        ("Modules live", str(len(mods)), MUT),
+        ("Bullish", str(counts["bullish"]), GREEN),
+        ("Bearish", str(counts["bearish"]), RED),
+        ("Neutral", str(counts["neutral"]), AMBER)]), "AT A GLANCE")
+    body = hero + strip + sections
     return dict(slug="", title="Terminal Overview",
-                sub="Every module's current read at a glance — click through for the full analysis.",
+                sub="Every module's current read at a glance — click any card for the full analysis.",
                 body=body)
 
 # ---------------------------------------------------------------- main
