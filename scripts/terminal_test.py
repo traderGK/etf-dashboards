@@ -642,57 +642,234 @@ def m_valuation(px, gspc_m):
                 sub="How expensive the market is versus its own history — the slow force under everything else.",
                 body=body, stance=stance, headline=f"S&P {sgn(dev)} vs its long-run trend")
 
+CORR_ASSETS = [("SPY", "S&P 500"), ("QQQ", "NASDAQ"), ("IWM", "Small caps"),
+               ("TLT", "Long bonds"), ("GLD", "Gold"), ("DX-Y.NYB", "Dollar"),
+               ("BTC-USD", "Bitcoin"), ("ETH-USD", "Ether"), ("CL=F", "Crude"),
+               ("HG=F", "Copper"), ("HYG", "HY credit"), ("^VIX", "VIX")]
+
 def m_correlation(px):
-    names = ["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "HYG", "GLD", "DBC", "UUP", "BTC-USD"]
-    rets = px[names].pct_change().iloc[-63:]
-    cm = rets.corr()
-    def cell(v):
-        if v >= 0.99: return f'<td class="muted">—</td>'
+    syms = [s for s, _ in CORR_ASSETS]
+    extra = [s for s in syms if s not in px.columns]
+    dfx = px[[s for s in syms if s in px.columns]].copy()
+    if extra:
+        add = yf.download(extra, period="1y", interval="1d", auto_adjust=True,
+                          progress=False)["Close"]
+        if isinstance(add, pd.Series):
+            add = add.to_frame(extra[0])
+        dfx = dfx.join(add, how="outer")
+    rets = dfx[syms].pct_change()
+    rets = rets.dropna(how="any")  # align to sessions where every asset traded
+    cur = rets.iloc[-60:].corr()
+    prev = rets.iloc[-120:-60].corr()
+    names = {s: n for s, n in CORR_ASSETS}
+    def cell(a, b):
+        if a == b:
+            return '<td class="muted" style="text-align:center">·</td>'
+        v, pv = cur.loc[a, b], prev.loc[a, b]
+        d = v - pv
+        arrow = (f'<span style="color:{GOLD};font-size:9px"> ▲</span>' if d >= 0.30 else
+                 f'<span style="color:{GOLD};font-size:9px"> ▼</span>' if d <= -0.30 else "")
         c = GREEN if v > 0.5 else (RED if v < -0.3 else "var(--tx)")
-        return f'<td style="color:{c}">{v:+.2f}</td>'
-    hdr = "".join(f"<th>{n.replace('-USD','')}</th>" for n in names)
-    rows = "".join("<tr><td><b>" + n.replace("-USD", "") + "</b></td>" +
-                   "".join(cell(cm.loc[n, m]) for m in names) + "</tr>" for n in names)
-    sb = cm.loc["SPY", "TLT"]
-    stance = "info"
-    body = card(f"<table><tr><th></th>{hdr}</tr>{rows}</table>"
-                '<div class="legend">Pairwise correlation of daily returns, trailing 3 months. '
-                'Green &gt; +0.5 (moves together), red &lt; −0.3 (true diversifier).</div>',
-                "3-MONTH CORRELATION MATRIX") + card(
-        f"Stock–bond correlation is <b style='color:{GREEN if sb < 0 else AMBER}'>{sb:+.2f}</b>. "
-        "Negative = bonds hedge equity risk again (the classic 60/40 regime). Positive = both sell off "
-        "together, which is when portfolios that look diversified aren't — and when gold and the dollar "
-        "earn their place.", "THE PAIR THAT MATTERS MOST")
+        return (f'<td title="{names[a]} × {names[b]}: {pv:+.2f} → {v:+.2f} (Δ{d:+.2f})" '
+                f'style="color:{c};white-space:nowrap">{v:+.2f}{arrow}</td>')
+    hdr = "".join(f'<th style="white-space:nowrap">{n}</th>' for _, n in CORR_ASSETS)
+    trs = "".join(f"<tr><td style='white-space:nowrap'><b>{names[a]}</b></td>" +
+                  "".join(cell(a, b) for b, _ in CORR_ASSETS) + "</tr>"
+                  for a, _ in CORR_ASSETS)
+    matrix = (f'<div style="overflow-x:auto"><table style="font-size:12px"><tr><th></th>{hdr}</tr>{trs}</table></div>'
+              '<div class="legend">60-session rolling correlation of daily returns (sessions where all 12 '
+              'assets traded). Green &gt; +0.5, red &lt; −0.3. ▲▼ flags pairs that shifted ±0.30 or more '
+              'versus the prior 60 sessions — hover any cell for the exact change.</div>')
+    # regime shifts
+    shifts = []
+    for i, (a, _) in enumerate(CORR_ASSETS):
+        for b, _n in CORR_ASSETS[i + 1:]:
+            d = cur.loc[a, b] - prev.loc[a, b]
+            if abs(d) >= 0.30:
+                shifts.append((abs(d), a, b, prev.loc[a, b], cur.loc[a, b]))
+    shifts.sort(reverse=True)
+    sh_html = "".join(
+        f'<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>{names[a]} × {names[b]}</b> '
+        f'<span class="muted">({pv:+.2f} → {v:+.2f})</span><div class="muted" style="font-size:12px">' +
+        ("These two are converging into the same trade — diversification between them is disappearing."
+         if v > pv and v > 0.4 else
+         "The relationship is decoupling — any hedge that leaned on it needs a recheck." if v < pv else
+         "Co-movement is rebuilding after a period of independence.") + "</div></div>"
+        for _, a, b, pv, v in shifts[:6]) or '<span class="muted">No ±0.30 shifts this period.</span>'
+    # diversifier ranking
+    divs = sorted(((cur.loc[a].drop(a).abs().mean(), names[a]) for a, _ in CORR_ASSETS))
+    div_html = "".join(
+        f'<div style="display:flex;gap:8px;align-items:center;padding:2px 0"><span style="width:90px">{n}</span>'
+        f'<div style="flex:1;background:#232a3a;border-radius:3px;height:8px">'
+        f'<div style="width:{v*100:.0f}%;background:{GREEN if v<0.42 else (AMBER if v<0.55 else RED)};height:8px;border-radius:3px"></div></div>'
+        f'<span class="muted" style="width:40px;text-align:right">{v:.2f}</span></div>' for v, n in divs)
+    sb = cur.loc["SPY", "TLT"]
+    body = card(matrix, "CROSS-ASSET CORRELATION MATRIX · 60 SESSIONS") + \
+        "<h2>Regime shifts — last 60 sessions vs the 60 before</h2>" + card(sh_html) + \
+        "<h2>Diversifier ranking</h2>" + card(
+            div_html + '<div class="legend">Average |correlation| against the other 11 assets — lowest bar '
+            '= the asset actually adding balance to a book right now, measured rather than assumed.</div>') + \
+        card("<ul class='pb'>"
+             f"<li><b>Stock–bond is the keystone pair</b> — currently {sb:+.2f}. Negative means bonds still "
+             "cushion equity drawdowns; positive (as in 2022) removes the shock absorber and changes every "
+             "portfolio's risk math.</li>"
+             "<li><b>Crypto–NASDAQ measures the narrative</b> — high correlation means crypto is trading as "
+             "leveraged tech; a decoupling means its own drivers (liquidity, flows, halving cycle) are in "
+             "charge. Check it before calling BTC diversification.</li>"
+             "<li><b>Everything → 1 is the fire alarm</b> — in a panic, correlations converge and "
+             "diversification fails exactly when it's needed; a uniformly green matrix with a deep-red VIX "
+             "row is the crash signature.</li></ul>", "HOW TO READ IT")
     return dict(slug="correlation", title="Correlation Matrix",
-                sub="What actually diversifies right now — trailing co-movement across the major assets.",
-                body=body, stance=stance, headline=f"Stock–bond correlation {sb:+.2f}")
+                sub="What moves with what — 12 assets, shift detection, and a measured diversifier ranking.",
+                body=body, stance="info",
+                headline=f"Stock–bond {sb:+.2f} · best diversifier: {divs[0][1]} ({divs[0][0]:.2f})")
+
+MOM_ASSETS = [("^TNX", "10y yield", "rates"), ("TLT", "Long bonds", "rates"),
+              ("SPY", "S&P 500", "indices"), ("QQQ", "NASDAQ 100", "indices"),
+              ("DIA", "Dow", "indices"), ("IWM", "Russell 2000", "indices"),
+              ("DX-Y.NYB", "US dollar", "fx"), ("EURUSD=X", "EUR/USD", "fx"),
+              ("BTC-USD", "Bitcoin", "crypto"), ("ETH-USD", "Ethereum", "crypto"),
+              ("SOL-USD", "Solana", "crypto"), ("CL=F", "Crude oil", "energy"),
+              ("NG=F", "Nat gas", "energy"), ("GC=F", "Gold", "metals"),
+              ("SI=F", "Silver", "metals"), ("HG=F", "Copper", "metals"),
+              ("^VIX", "VIX", "vol")]
+
+def _rsi(s, n=14):
+    d = s.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
+    return 100 - 100 / (1 + up / dn)
+
+MOM_PLAYS = {
+    "Trending up": "Pullback and breakout entries with the trend are supported; the stop goes under the last higher low, not under the noise.",
+    "Trending down": "Rallies are for selling or standing aside — knife-catching against four aligned timeframes is the lowest-expectancy trade there is.",
+    "Extended": "Trail, don't initiate: momentum this stretched rewards holders and punishes chasers. New entries wait for the first real pullback.",
+    "Washout": "Mean-reversion only — washouts bounce hard, but the bounce is a trade, not a trend, until the score rebuilds through 50.",
+    "Chop": "Stand aside or fade extremes small. Momentum styles bleed here; let the TF blocks realign before pressing.",
+}
+
+MOM_JS = r"""
+(function(){
+const R=__ROWS__,PLAYS=__PLAYS__,GRN='#4caf7d',RED='#e05555',GOLDC='#d4af5a',MUT='#8891a5';
+let cat='all',open=null;
+const wrap=document.getElementById('momw');
+const CATS=['rates','indices','fx','crypto','energy','metals','vol'];
+function blocks(r){return ['t','w','m','q'].map(k=>'<span style="color:'+(r[k]>=0?GRN:RED)+'">▮</span>').join('');}
+function pc(v,d){return '<span style="color:'+(v>=0?GRN:RED)+'">'+(v>=0?'+':'')+v.toFixed(d===undefined?1:d)+'%</span>';}
+function render(){
+ const rows=R.filter(r=>cat==='all'||r.cat===cat);
+ let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+
+  [['all','All ('+R.length+')'],...CATS.map(c=>[c,c[0].toUpperCase()+c.slice(1)])]
+  .map(([k,l])=>'<button data-c="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 10px;border-radius:14px;border:1px solid '+
+   (k===cat?GOLDC:'#232a3a')+';background:'+(k===cat?'rgba(212,175,90,.12)':'transparent')+';color:'+(k===cat?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
+ h+='<div style="overflow-x:auto"><table><tr><th>Asset (ranked)</th><th>Score</th><th>Today</th><th>1W</th><th>1M</th><th>3M</th><th>RSI</th><th>TF align</th><th>52w</th><th>Flags</th><th>Regime</th></tr>';
+ rows.forEach((r,i)=>{
+  const rc=r.regime==='Trending up'?GRN:(r.regime==='Trending down'?RED:(r.regime==='Chop'?MUT:GOLDC));
+  h+='<tr data-i="'+i+'" style="cursor:pointer"><td style="white-space:nowrap"><b>'+r.n+'</b> <span class="muted" style="font-size:10px">'+r.cat+'</span></td>'+
+   '<td><b style="color:'+(r.score>=65?GRN:(r.score<=35?RED:'#d6dae3'))+'">'+r.score+'</b></td>'+
+   '<td>'+pc(r.t,2)+'</td><td>'+pc(r.w)+'</td><td>'+pc(r.m)+'</td><td>'+pc(r.q)+'</td>'+
+   '<td style="color:'+(r.rsi>70?RED:(r.rsi<30?GRN:'#d6dae3'))+'">'+r.rsi.toFixed(1)+'</td>'+
+   '<td style="letter-spacing:1px">'+blocks(r)+'</td>'+
+   '<td><div style="width:56px;background:#232a3a;height:6px;border-radius:3px"><div style="width:'+(r.p52*100).toFixed(0)+'%;background:'+GOLDC+';height:6px;border-radius:3px"></div></div></td>'+
+   '<td style="color:'+GOLDC+'">'+(r.acc===1?'▲ ':'')+(r.acc===-1?'▼ ':'')+(r.div?'◆':'')+'</td>'+
+   '<td style="color:'+rc+';white-space:nowrap">'+r.regime+'</td></tr>';
+  if(open===i)h+='<tr><td colspan="11" style="background:rgba(212,175,90,.05);font-size:12px;color:'+MUT+'">'+
+   '<b style="color:'+GOLDC+'">'+r.regime+' playstyle:</b> '+PLAYS[r.regime]+'</td></tr>';});
+ h+='</table></div>';
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>{cat=b.dataset.c;open=null;render();});
+ wrap.querySelectorAll('tr[data-i]').forEach(t=>t.onclick=()=>{const i=+t.dataset.i;open=open===i?null:i;render();});
+}
+render();
+})();
+"""
 
 def m_momentum(px):
-    rows = []
-    for t in ["SPY", "QQQ", "IWM", "DIA", "EFA", "EEM", "TLT", "HYG", "GLD", "SLV", "USO", "DBC", "UUP", "BTC-USD", "ETH-USD"]:
-        s = px[t].dropna()
-        def r(d): return (s.iloc[-1] / s.iloc[-d - 1] - 1) * 100
-        m121 = (s.iloc[-22] / s.iloc[-253] - 1) * 100 if len(s) > 253 else float("nan")
-        rows.append((t, r(21), r(63), r(126), m121,
-                     s.iloc[-1] > s.rolling(200).mean().iloc[-1]))
-    spy = px["SPY"].dropna()
-    spy_m = spy.resample("ME").last()
-    sig10 = spy_m.iloc[-1] > spy_m.rolling(10).mean().iloc[-1]
-    stance = "bullish" if sig10 else "bearish"
-    body = card(table(["Asset", "1m", "3m", "6m", "12-1 mom", "> 200d"],
-                      [(f"<b>{t.replace('-USD','')}</b> <span class='muted'>{ANAMES.get(t,'')}</span>",
-                        cnum(a), cnum(b), cnum(c),
-                        cnum(d) if not math.isnan(d) else "—", dot(e))
-                       for t, a, b, c, d, e in rows]), "CROSS-ASSET MOMENTUM") + card(
-        f"The classic 10-month moving-average filter on the S&P is currently "
-        f"<b style='color:{GREEN if sig10 else RED}'>{'RISK-ON (price above)' if sig10 else 'RISK-OFF (price below)'}</b>. "
-        "It's a blunt tool that whipsaws in chop, but it has kept investors out of every major bear market for "
-        "a century. 12-1 momentum (last year excluding the latest month) is the academic standard: own what's "
-        "already working, skip the most recent month to dodge mean-reversion.", "THE TWO FILTERS THAT MATTER")
+    syms = [s for s, *_ in MOM_ASSETS]
+    hist = yf.download(syms, period="2y", interval="1d", auto_adjust=True,
+                       progress=False)["Close"].ffill(limit=3)
+    rows, callouts = [], []
+    for sym, name, catg in MOM_ASSETS:
+        s = hist[sym].dropna()
+        if len(s) < 260:
+            continue
+        last = float(s.iloc[-1])
+        def ret(d):
+            return float((s.iloc[-1] / s.iloc[-d - 1] - 1) * 100)
+        t, w, m1, q = ret(1), ret(5), ret(21), ret(63)
+        rsi = float(_rsi(s).iloc[-1])
+        s20, s50, s200 = (float(s.rolling(k).mean().iloc[-1]) for k in (20, 50, 200))
+        struct = (7.5 * (last > s20) + 7.5 * (last > s50) + 7.5 * (last > s200) +
+                  7.5 * (s20 > s50 > s200))
+        roc21 = s.pct_change(21).dropna().iloc[-252:]
+        rocp = float((roc21 < roc21.iloc[-1]).mean()) * 20
+        lo52, hi52 = float(s.iloc[-252:].min()), float(s.iloc[-252:].max())
+        p52 = (last - lo52) / (hi52 - lo52) if hi52 > lo52 else 0.5
+        macd = s.ewm(span=12).mean() - s.ewm(span=26).mean()
+        sig = macd.ewm(span=9).mean()
+        macd_pts = 7.5 * (macd.iloc[-1] > sig.iloc[-1]) + 7.5 * (macd.iloc[-1] > 0)
+        score = round(struct + rsi / 100 * 20 + rocp + p52 * 15 + macd_pts)
+        # acceleration: 5-day pace vs the month's run rate
+        pace5, pace21 = w / 5, m1 / 21
+        acc = 1 if pace5 - pace21 > 0.08 else (-1 if pace21 - pace5 > 0.08 else 0)
+        # RSI divergence at fresh 20d extremes
+        div = False
+        rsis = _rsi(s)
+        if last >= float(s.iloc[-20:].max()) - 1e-9:
+            prior = s.iloc[-120:-20]
+            if len(prior) and float(rsis.iloc[-1]) < float(rsis.loc[prior.idxmax()]) - 2:
+                div = True
+        elif last <= float(s.iloc[-20:].min()) + 1e-9:
+            prior = s.iloc[-120:-20]
+            if len(prior) and float(rsis.iloc[-1]) > float(rsis.loc[prior.idxmin()]) + 2:
+                div = True
+        if rsi > 75 and p52 > 0.95:
+            regime = "Extended"
+        elif rsi < 25:
+            regime = "Washout"
+        elif score >= 65 and last > s50:
+            regime = "Trending up"
+        elif score <= 35:
+            regime = "Trending down"
+        else:
+            regime = "Chop"
+        if acc == 1:
+            callouts.append(f"▲ Momentum building in {name} — this week is outrunning the monthly trend.")
+        if div:
+            callouts.append(f"◆ RSI divergence on {name} at a fresh 20-day extreme — reversal watchlist.")
+        rows.append(dict(n=name, cat=catg, score=score, t=round(t, 2), w=round(w, 1),
+                         m=round(m1, 1), q=round(q, 1), rsi=round(rsi, 1),
+                         p52=round(p52, 2), acc=acc, div=div, regime=regime))
+    rows.sort(key=lambda r: -r["score"])
+    spy_m = px["SPY"].dropna().resample("ME").last()
+    sig10 = bool(spy_m.iloc[-1] > spy_m.rolling(10).mean().iloc[-1])
+    co_html = "".join(f'<div style="color:{GOLD};font-size:13px;padding:2px 0">{c}</div>'
+                      for c in callouts[:5]) or '<span class="muted">No acceleration or divergence callouts this run.</span>'
+    payload = json.dumps(rows, separators=(",", ":"))
+    body = card(co_html, "SCANNER CALLOUTS — WHAT SURFACED ITSELF") + card(
+        '<div id="momw">loading…</div><script>' +
+        MOM_JS.replace("__ROWS__", payload).replace("__PLAYS__", json.dumps(MOM_PLAYS)) +
+        "</script>",
+        f"{len(rows)} ASSETS, FULL MOMENTUM STACK · CLICK A ROW FOR ITS PLAYSTYLE") + card(
+        "<ul class='pb'>"
+        "<li><b>Score (0–100)</b> = 30% trend structure (price vs the 20/50/200-day averages and their "
+        "stacking) + 20% RSI(14) + 20% one-month rate-of-change percentile vs the asset's own year + "
+        "15% 52-week range position + 15% MACD(12,26,9) state.</li>"
+        "<li><b>TF align</b> — the four blocks are today / 1-week / 1-month / 3-month direction. Four green "
+        "= every horizon pushing the same way; mixed = chop, where momentum styles lose their edge.</li>"
+        "<li><b>Flags</b> — ▲ the 5-day pace is outrunning the month (freshest momentum); ▼ the week is "
+        "fading versus the month; ◆ a fresh 20-day price extreme that RSI refused to confirm.</li>"
+        "<li><b>Use the spread</b> — pairing the strongest against the weakest name inside a group is the "
+        "cleanest relative-value expression of this table.</li></ul>"
+        f"<div style='margin-top:8px'>The slow filter behind it all: the S&P vs its 10-month average is "
+        f"<b style='color:{GREEN if sig10 else RED}'>{'RISK-ON' if sig10 else 'RISK-OFF'}</b> — blunt, "
+        "whipsaw-prone, and it has still kept accounts out of every major bear market for a century.</div>",
+        "METHODOLOGY")
+    top = rows[0]
     return dict(slug="momentum", title="Momentum",
-                sub="What's working across assets and timeframes — trend as a signal, not a story.",
-                body=body, stance=stance,
-                headline=f"10-month filter: {'risk-on' if sig10 else 'risk-off'}")
+                sub="The full momentum stack across 17 assets — scored, ranked, and scanned for what's building, fading, and lying.",
+                body=body, stance="bullish" if sig10 else "bearish",
+                headline=f"Strongest: {top['n']} ({top['score']}) · 10-month filter {'risk-on' if sig10 else 'risk-off'}")
 
 SEAS_INSTRUMENTS = [("ES", "S&P 500 E-mini", "ES=F"), ("GC", "Gold futures", "GC=F"),
                     ("BTC", "Bitcoin", "BTC-USD"), ("NG", "Natural gas", "NG=F")]
