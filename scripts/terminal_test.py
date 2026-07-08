@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""TraderGK research terminal generator -> test/ (unlinked test area).
+"""TraderGK research terminal generator -> terminal/ (private, unlinked).
 
 Builds a multi-page market-analysis terminal from free data sources:
   Yahoo Finance daily closes, FRED public CSV endpoints, CFTC public COT API.
 Every module is wrapped so one failing data source never kills the build —
 its page just shows "data unavailable this run".
 
-Run:  python3 scripts/terminal_test.py     (writes test/index.html + test/<slug>/)
+Run:  python3 scripts/terminal_test.py     (writes terminal/index.html + terminal/<slug>/)
 Standalone — does NOT touch data.json or the trading engine.
 """
 import json
@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 import pandas as pd
 import yfinance as yf
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test")
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "terminal")
 NOW = datetime.now(timezone.utc)
 STAMP = NOW.strftime("%d %b %Y, %H:%M UTC")
 
@@ -210,12 +210,12 @@ label.cl { display:inline-block; font-size:12px; color:var(--muted); margin:6px 
 """
 
 def nav_html(active):
-    out = ['<div class="brand">TraderGK <small>research terminal · test</small></div>']
+    out = ['<div class="brand">TraderGK <small>research terminal</small></div>']
     for gname, items in GROUPS:
         out.append(f'<div class="g">{gname}</div>')
         for slug, name in items:
             on = ' class="on"' if slug == active else ""
-            out.append(f'<a href="/test/{slug + "/" if slug else ""}"{on}>{name}</a>')
+            out.append(f'<a href="/terminal/{slug + "/" if slug else ""}"{on}>{name}</a>')
     return "".join(out)
 
 def write_page(slug, title, subtitle, body):
@@ -225,13 +225,13 @@ def write_page(slug, title, subtitle, body):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>{title} — TraderGK terminal test</title><style>{CSS}</style></head>
+<title>{title} — TraderGK terminal</title><style>{CSS}</style></head>
 <body><div class="layout"><nav>{nav_html(slug)}</nav><main>
-<h1>{title} <span class="tag">· internal test</span></h1>
+<h1>{title} <span class="tag">· private</span></h1>
 <div class="sub">{subtitle}<br>Snapshot generated <b>{STAMP}</b> · free public data
 (Yahoo Finance, FRED, CFTC) · regenerated on demand</div>
 {body}
-<div class="foot">TraderGK research · unlinked test area · education only, not financial advice.
+<div class="foot">TraderGK research · private page — reachable by direct link only · education only, not financial advice.
 Data may be delayed or approximate; nothing here is a recommendation.</div>
 </main></div></body></html>"""
     with open(path, "w") as f:
@@ -972,7 +972,7 @@ def build_confluence(mods):
     if score >= n * 0.35: verdict, vc = "Risk-on alignment", GREEN
     elif score <= -n * 0.35: verdict, vc = "Risk-off alignment", RED
     else: verdict, vc = "Mixed signals", AMBER
-    rows = [(f'<a href="/test/{m["slug"]}/"><b>{m["title"]}</b></a>',
+    rows = [(f'<a href="/terminal/{m["slug"]}/"><b>{m["title"]}</b></a>',
              f'<span class="pill" style="background:{STANCE_COL[m["stance"]]}22;color:{STANCE_COL[m["stance"]]}">{m["stance"]}</span>',
              m["headline"]) for m in mods if m["stance"] != "info"]
     body = card(
@@ -993,7 +993,7 @@ def build_overview(mods, confl):
     cards = []
     for m in [confl] + mods:
         c = STANCE_COL[m["stance"]]
-        cards.append(f'<a href="/test/{m["slug"]}/" class="card"><div class="slabel">{m["title"].upper()}</div>'
+        cards.append(f'<a href="/terminal/{m["slug"]}/" class="card"><div class="slabel">{m["title"].upper()}</div>'
                      f'<div style="margin-top:4px;font-size:13px">{m["headline"]}</div>'
                      f'<div style="margin-top:6px"><span class="pill" style="background:{c}22;color:{c}">'
                      f'{m["stance"] if m["stance"] != "info" else "reference"}</span></div></a>')
