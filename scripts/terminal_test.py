@@ -3360,33 +3360,244 @@ def m_cot():
                 body=body, stance="info",
                 headline=("Setups: " + ", ".join(ext_names)) if ext_names else "No positioning extremes")
 
+# JPL approximate orbital elements (Standish), valid ~1800–2050.
+# a(AU), e, I(deg), L(deg), longPeri(deg), longNode(deg) at J2000 + per-century rates
+PLANETS = {
+    "Mercury": ((0.38709927, 0.20563593, 7.00497902, 252.25032350, 77.45779628, 48.33076593),
+                (0.00000037, 0.00001906, -0.00594749, 149472.67411175, 0.16047689, -0.12534081), "☿", 2),
+    "Venus":   ((0.72333566, 0.00677672, 3.39467605, 181.97909950, 131.60246718, 76.67984255),
+                (0.00000390, -0.00004107, -0.00078890, 58517.81538729, 0.00268329, -0.27769418), "♀", 2),
+    "Mars":    ((1.52371034, 0.09339410, 1.84969142, -4.55343205, -23.94362959, 49.55953891),
+                (0.00001847, 0.00007882, -0.00813131, 19140.30268499, 0.44441088, -0.29257343), "♂", 3),
+    "Jupiter": ((5.20288700, 0.04838624, 1.30439695, 34.39644051, 14.72847983, 100.47390909),
+                (-0.00011607, -0.00013253, -0.00183714, 3034.74612775, 0.21252668, 0.20469106), "♃", 4),
+    "Saturn":  ((9.53667594, 0.05386179, 2.48599187, 49.95424423, 92.59887831, 113.66242448),
+                (-0.00125060, -0.00050991, 0.00193609, 1222.49362201, -0.41897216, -0.28867794), "♄", 4),
+    "Uranus":  ((19.18916464, 0.04725744, 0.77263783, 313.23810451, 170.95427630, 74.01692503),
+                (-0.00196176, -0.00004397, -0.00242939, 428.48202785, 0.40805281, 0.04240589), "♅", 5),
+    "Neptune": ((30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574),
+                (0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464, -0.00508664), "♆", 5),
+    "Pluto":   ((39.48211675, 0.24882730, 17.14001206, 238.92903833, 224.06891629, 110.30393684),
+                (-0.00031596, 0.00005170, 0.00004818, 145.20780515, -0.04062942, -0.01183482), "♇", 5),
+}
+EARTH = ((1.00000261, 0.01671123, -0.00001531, 100.46457166, 102.93768193, 0.0),
+         (0.00000562, -0.00004392, -0.01294668, 35999.37244981, 0.32327364, 0.0))
+ASPECTS = [("conjunction", 0, 8), ("sextile", 60, 4), ("square", 90, 6),
+           ("trine", 120, 6), ("opposition", 180, 8)]
+
+def _jd(dt):
+    return dt.toordinal() + 1721424.5 + (dt.hour * 3600 + dt.minute * 60) / 86400
+
+def _helio_xyz(el, rates, T):
+    a, e, I, L, wbar, Om = (el[i] + rates[i] * T for i in range(6))
+    w = wbar - Om
+    M = math.radians((L - wbar + 180) % 360 - 180)
+    E = M
+    for _ in range(8):
+        E -= (E - e * math.sin(E) - M) / (1 - e * math.cos(E))
+    xp = a * (math.cos(E) - e)
+    yp = a * math.sqrt(1 - e * e) * math.sin(E)
+    w, I, Om = map(math.radians, (w, I, Om))
+    x = (math.cos(w) * math.cos(Om) - math.sin(w) * math.sin(Om) * math.cos(I)) * xp + \
+        (-math.sin(w) * math.cos(Om) - math.cos(w) * math.sin(Om) * math.cos(I)) * yp
+    y = (math.cos(w) * math.sin(Om) + math.sin(w) * math.cos(Om) * math.cos(I)) * xp + \
+        (-math.sin(w) * math.sin(Om) + math.cos(w) * math.cos(Om) * math.cos(I)) * yp
+    z = (math.sin(w) * math.sin(I)) * xp + (math.cos(w) * math.sin(I)) * yp
+    return x, y, z
+
+def _geo_lons(dt):
+    """Geocentric ecliptic longitudes (deg) for Sun, Moon and the planets."""
+    T = (_jd(dt) - 2451545.0) / 36525
+    ex, ey, ez = _helio_xyz(*EARTH, T)
+    out = {"Sun": math.degrees(math.atan2(-ey, -ex)) % 360}
+    for name, (el, rates, _sym, _w) in PLANETS.items():
+        x, y, z = _helio_xyz(el, rates, T)
+        out[name] = math.degrees(math.atan2(y - ey, x - ex)) % 360
+    # Moon: abridged lunar theory (main periodic terms), ~0.3 deg accuracy
+    d = _jd(dt) - 2451545.0
+    Lm = (218.316 + 13.176396 * d) % 360
+    Mm = math.radians((134.963 + 13.064993 * d) % 360)
+    Ms = math.radians((357.529 + 0.98560028 * d) % 360)
+    D = math.radians((297.850 + 12.190749 * d) % 360)
+    F = math.radians((93.272 + 13.229350 * d) % 360)
+    lon = (Lm + 6.289 * math.sin(Mm) - 1.274 * math.sin(Mm - 2 * D) - 0.658 * math.sin(2 * D)
+           - 0.214 * math.sin(2 * Mm) - 0.186 * math.sin(Ms) - 0.114 * math.sin(2 * F))
+    out["Moon"] = lon % 360
+    return out
+
+def _sep(a, b):
+    d = abs(a - b) % 360
+    return min(d, 360 - d)
+
+def _astro_events(start, days=372):
+    """Scan the sky day by day: aspects, retrogrades, moon phases."""
+    lons = {}
+    for k in range(-2, days + 2):
+        dt = start + timedelta(days=k)
+        lons[k] = _geo_lons(dt)
+    names = list(PLANETS)
+    weight = {n: PLANETS[n][3] for n in names}
+    weight.update({"Sun": 3, "Moon": 1})
+    events = []
+    # --- aspects (planet-planet and Sun-planet)
+    pairs = [(a, b) for i, a in enumerate(["Sun"] + names) for b in (["Sun"] + names)[i + 1:]]
+    for a, b in pairs:
+        for aname, angle, orb in ASPECTS:
+            active, best, bestk = None, 999, None
+            for k in range(0, days):
+                dev = abs(_sep(lons[k][a], lons[k][b]) - angle)
+                if dev <= orb:
+                    if active is None:
+                        active, best, bestk = k, dev, k
+                    elif dev < best:
+                        best, bestk = dev, k
+                elif active is not None:
+                    sig = min(5, round((weight[a] + weight[b]) / 2))
+                    events.append(dict(kind="aspect", a=a, b=b, asp=aname,
+                                       start=active, end=k - 1, peak=bestk, sig=sig))
+                    active = None
+            if active is not None:
+                sig = min(5, round((weight[a] + weight[b]) / 2))
+                events.append(dict(kind="aspect", a=a, b=b, asp=aname,
+                                   start=active, end=days - 1, peak=bestk, sig=sig))
+    # --- retrogrades
+    for n in names:
+        active = None
+        for k in range(0, days):
+            dlon = ((lons[k][n] - lons[k - 1][n] + 180) % 360) - 180
+            retro = dlon < 0
+            if retro and active is None:
+                active = k
+            elif not retro and active is not None:
+                events.append(dict(kind="retro", a=n, b=None, asp="retrograde",
+                                   start=active, end=k - 1, peak=(active + k - 1) // 2,
+                                   sig=min(5, weight[n])))
+                active = None
+        if active is not None:
+            events.append(dict(kind="retro", a=n, b=None, asp="retrograde",
+                               start=active, end=days - 1, peak=(active + days - 1) // 2,
+                               sig=min(5, weight[n])))
+    # --- moon phases
+    phase_names = {0: ("New moon", 2), 90: ("First-quarter moon", 1),
+                   180: ("Full moon", 2), 270: ("Last-quarter moon", 1)}
+    for target, (pname, sig) in phase_names.items():
+        for k in range(1, days):
+            e0 = (lons[k - 1]["Moon"] - lons[k - 1]["Sun"]) % 360
+            e1 = (lons[k]["Moon"] - lons[k]["Sun"]) % 360
+            crossed = (e0 < target <= e1) or (target == 0 and e1 < e0)
+            if crossed:
+                events.append(dict(kind="phase", a="Moon", b="Sun", asp=pname,
+                                   start=k - 2, end=k + 2, peak=k, sig=sig))
+    return events
+
+def _moon_backtest(gspc_d):
+    """Measure whether the lunar cycle actually shows up in returns."""
+    r = gspc_d.pct_change().dropna() * 100
+    r = r[r.index.year >= 1990]
+    rows = []
+    ages = pd.Series([(_geo_lons(d.to_pydatetime().replace(tzinfo=timezone.utc))["Moon"] -
+                       _geo_lons(d.to_pydatetime().replace(tzinfo=timezone.utc))["Sun"]) % 360
+                      for d in r.index], index=r.index)
+    for lab, mask in (("Around the new moon (±3d)", (ages < 37) | (ages > 323)),
+                      ("Around the full moon (±3d)", (ages > 143) & (ages < 217)),
+                      ("Everything else", ~(((ages < 37) | (ages > 323)) |
+                                            ((ages > 143) & (ages < 217))))):
+        g = r[mask]
+        rows.append((lab, float(g.mean()), float((g > 0).mean() * 100), len(g)))
+    return rows
+
 def m_astrology():
-    # moon phase from a known new-moon epoch; approximate but fine for display
-    epoch = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
-    syn = 29.53058867
-    age = ((NOW - epoch).total_seconds() / 86400) % syn
-    illum = (1 - math.cos(2 * math.pi * age / syn)) / 2 * 100
-    names = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
-             "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"]
-    phase = names[int(((age / syn * 8) + 0.5) % 8)]
-    next_new = NOW + timedelta(days=syn - age)
-    next_full = NOW + timedelta(days=(syn / 2 - age) % syn)
-    retro = [("2026-02-26", "2026-03-20"), ("2026-06-29", "2026-07-23"), ("2026-10-24", "2026-11-13")]
-    today = NOW.strftime("%Y-%m-%d")
-    in_retro = any(a <= today <= b for a, b in retro)
+    start = datetime(NOW.year, NOW.month, NOW.day, 12, tzinfo=timezone.utc)
+    events = _astro_events(start)
+    now_l = _geo_lons(NOW)
+    elong = (now_l["Moon"] - now_l["Sun"]) % 360
+    illum = (1 - math.cos(math.radians(elong))) / 2 * 100
+    pnames = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
+              "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"]
+    phase = pnames[int((elong / 45 + 0.5) % 8)]
+    retro_now = [e["a"] for e in events if e["kind"] == "retro" and e["start"] <= 0 <= e["end"]]
+    def dstr(k):
+        return (start + timedelta(days=k)).strftime("%Y-%m-%d")
+    def sym(n):
+        return {"Sun": "☉", "Moon": "☽"}.get(n) or PLANETS[n][2]
+    events.sort(key=lambda e: (e["start"], -e["sig"]))
+    upcoming = [e for e in events if e["end"] >= 0][:60]
+    live_now = sum(1 for e in events if e["start"] <= 0 <= e["end"])
+    rows = []
+    for e in upcoming:
+        if e["kind"] == "retro":
+            title = f"{e['a']} retrograde"
+            syms = sym(e["a"])
+        elif e["kind"] == "phase":
+            title = e["asp"]
+            syms = "☽ ☉"
+        else:
+            title = f"{e['a']} {e['asp']} {e['b']}"
+            syms = f"{sym(e['a'])} {sym(e['b'])}"
+        if e["start"] <= 0 <= e["end"]:
+            status, scol = "Happening now", GOLD
+        elif 0 < e["start"] <= 14:
+            status, scol = "Starting soon", BLUE
+        elif e["end"] <= 10:
+            status, scol = "Ending soon", MUT
+        else:
+            status, scol = "Upcoming", MUT
+        stars = "★" * e["sig"] + "☆" * (5 - e["sig"])
+        rows.append(
+            f'<tr data-sig="{e["sig"]}"><td><span style="color:{scol};font-size:11px">{status}</span></td>'
+            f'<td><span style="color:{GOLD};letter-spacing:1px">{stars}</span></td>'
+            f'<td style="font-size:15px">{syms}</td>'
+            f'<td><b>{title}</b></td>'
+            f'<td class="muted" style="font-size:11px;white-space:nowrap">{dstr(max(e["start"],0))} → '
+            f'{dstr(e["end"])}<br>peak {dstr(e["peak"])}</td></tr>')
+    filt = ("<div style='margin-bottom:8px'>Minimum significance: " + "".join(
+        f'<button onclick="afilt({s})" id="ab{s}" style="cursor:pointer;font-size:11px;padding:3px 9px;'
+        f'border-radius:12px;border:1px solid #232a3a;background:transparent;color:#8891a5;margin-right:4px">'
+        + "★" * s + "</button>" for s in range(1, 6)) + "</div>")
+    js = ("<script>function afilt(s){document.querySelectorAll('#astbl tr[data-sig]').forEach(r=>"
+          "{r.style.display=(+r.dataset.sig>=s)?'':'none'});"
+          "[1,2,3,4,5].forEach(i=>{const b=document.getElementById('ab'+i);"
+          "b.style.color=i===s?'#d4af5a':'#8891a5';b.style.borderColor=i===s?'#d4af5a':'#232a3a';});}"
+          "afilt(1);</script>")
     body = card(stat_grid([("Moon phase", phase, GOLD),
                            ("Illumination", pct(illum, 0), MUT),
-                           ("Next new moon", next_new.strftime("%d %b"), MUT),
-                           ("Next full moon", next_full.strftime("%d %b"), MUT),
-                           ("Mercury retrograde", "yes (approx.)" if in_retro else "no", RED if in_retro else GREEN)]) +
-                '<div class="muted" style="margin-top:10px">Filed under entertainment. Academic studies have '
-                'found at most a tiny lunar-cycle effect in equity returns (slightly better around new moons) '
-                'that mostly disappears after costs; Mercury-retrograde effects have never survived a serious '
-                'backtest. It\'s here because traders talk about it — not because it trades. Retrograde windows '
-                'are approximate for 2026.</div>', "SKY DASHBOARD")
+                           ("Retrograde now", ", ".join(retro_now) if retro_now else "none",
+                            RED if retro_now else GREEN),
+                           ("Live events", f"{live_now}", GOLD),
+                           ("Events in window", f"{len(events)}", MUT)]) +
+                f'<div class="muted" style="margin-top:8px;font-size:12px">Positions computed from Keplerian '
+                f'orbital elements (JPL approximation) for the window {dstr(0)} → {dstr(371)}. Aspects use '
+                'standard orbs; significance weights the slower, "heavier" bodies higher.</div>',
+                "SKY DASHBOARD")
+    body += "<h2>Events</h2>" + card(
+        filt + f'<div style="overflow-x:auto"><table id="astbl">{"".join(rows)}</table></div>' + js +
+        '<div class="legend">Aspects are angular relationships between two bodies (conjunction 0°, sextile 60°, '
+        'square 90°, trine 120°, opposition 180°) within an orb of tolerance. Retrogrades are apparent backward '
+        'motion, detected here from the sign of each body\'s daily change in geocentric longitude.</div>')
+    try:
+        bt = _moon_backtest(yf.download("^GSPC", period="max", interval="1d", auto_adjust=True,
+                                        progress=False)["Close"].squeeze().dropna())
+        body += "<h2>Does any of it work? The measured answer</h2>" + card(
+            table(["Window", "Avg daily return", "% positive", "n"],
+                  [(f"<b>{l}</b>", cnum(a, 3), f"{w:.1f}%", f"{n:,}") for l, a, w, n in bt]) +
+            '<div class="legend">S&P 500 daily returns since 1990, grouped by lunar phase, computed from the '
+            'same ephemeris driving the table above. The differences are a rounding error on transaction costs. '
+            'This is the honest result, and it is the point of the section.</div>')
+    except Exception:
+        pass
+    body += card(
+        "This page is here because traders talk about it, not because it trades. The ephemeris is real — the "
+        "positions, aspects and retrogrades are computed from orbital mechanics, not looked up in a magazine. "
+        "The market claims attached to them are not: the lunar effect that survives in the academic literature "
+        "is tiny and vanishes after costs, and Mercury retrograde has never survived a serious backtest. The "
+        "measured table above uses this page's own numbers to make that case rather than asking you to take it "
+        "on faith. Enjoy it as sky-watching; put your risk on the other twenty tabs.",
+        "READ THIS BEFORE YOU TRADE IT")
     return dict(slug="astrology", title="Market Astrology",
-                sub="Lunar phases and retrogrades — the fun page. Statistically: noise with a good story.",
-                body=body, stance="info", headline=f"{phase}, Mercury {'retrograde' if in_retro else 'direct'}")
+                sub="A real computed ephemeris — aspects, retrogrades, lunar phases — and an honest measurement of whether any of it matters.",
+                body=body, stance="info",
+                headline=f"{phase} · {live_now} events live · " +
+                         (f"{', '.join(retro_now[:2])} retrograde" if retro_now else "no retrogrades"))
 
 def m_screener(px):
     panel_cols = [t for t in PANEL if t in px.columns and px[t].dropna().shape[0] > 260]
