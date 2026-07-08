@@ -210,15 +210,82 @@ for etf in ETF_TICKERS:
 print(f"\nTotal unique holding tickers discovered: {len(all_holding_tks)}")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STEP 1.6 — FULL holdings for SSGA/SPDR funds (daily XLSX feed). Powers the
-# website's deep Fast-Movers scan + the expandable holdings table. Fail-safe by
-# design: any per-fund error → that fund simply has no deep list and the site
-# falls back to the top-10 behaviour. Does NOT touch stock_parent / the setups
-# universe — that still derives from etf_holdings_map (top 10) only.
+# STEP 1.6 — DEEP holdings for EVERY equity ETF. Powers the website's deep
+# Fast-Movers scan + the expandable holdings table (rows 11-25). Two sources:
+#   - SSGA/SPDR funds: official daily XLSX (up to 120 rows, exact weights)
+#   - all other equity ETFs: stockanalysis.com JSON (top 25 rows, any provider)
+# DAILY-CACHED: results persist in data.json (etf_full + etf_full_meta) and
+# each fund is re-fetched only when its cache is >20 h old, max 6 funds per
+# run — gentle on the sources, and a source outage never strips the site
+# (last-good rows win). Prices for the deep tickers still refresh EVERY run
+# via STEP 3, so Fast Movers stay live. Fail-safe by design: any per-fund
+# error → keep cached rows / fall back to top-10. Does NOT touch stock_parent
+# / the setups universe — that still derives from etf_holdings_map (top 10).
 # ──────────────────────────────────────────────────────────────────────────────
-SSGA_FULL_FUNDS = ['XLK','XLF','XLE','XLV','XLI','XLC','XLU','XLY','XLP','XLRE','XLB','SPY','XBI']
-etf_full_map = {}
-print("Fetching full SSGA holdings (deep scan)...")
+SSGA_FULL_FUNDS = ['XLK','XLF','XLE','XLV','XLI','XLC','XLU','XLY','XLP','XLRE','XLB',
+                   'SPY','XBI','XAR']
+NO_EQUITY_ETFS  = {'GLD','IBIT','SHY','TLT','LQD','HYG'}   # bonds/commodities — no stock holdings
+
+# Last-good cache from the previous run's data.json (repo checkout)
+etf_full_map, etf_full_meta = {}, {}
+try:
+    with open('data.json') as _f:
+        _prev = json.load(_f)
+    if isinstance(_prev.get('etf_full'), dict):      etf_full_map  = _prev['etf_full']
+    if isinstance(_prev.get('etf_full_meta'), dict): etf_full_meta = _prev['etf_full_meta']
+except Exception:
+    pass
+
+def _fetch_ssga_full(_etf, _rq, _io):
+    """Official SSGA daily-holdings XLSX → [{t,n,w},…] or None on failure."""
+    _url = (f"https://www.ssga.com/us/en/intermediary/library-content/"
+            f"products/fund-data/etfs/us/holdings-daily-us-en-{_etf.lower()}.xlsx")
+    _r = _rq.get(_url, timeout=25, headers={'User-Agent': 'Mozilla/5.0'})
+    if _r.status_code != 200 or len(_r.content) < 5000:
+        return None
+    _df = pd.read_excel(_io.BytesIO(_r.content), header=4)  # row 4 = Name/Ticker/…/Weight
+    _cols = {str(c).strip().lower(): c for c in _df.columns}
+    if not all(k in _cols for k in ('name', 'ticker', 'weight')):
+        return None
+    _rows = []
+    for _, _rr in _df.iterrows():
+        _t = str(_rr[_cols['ticker']]).strip().upper()
+        if not valid_tk(_t) or _t == _etf or _t in EXCLUDE_TICKERS:
+            continue
+        try:
+            _w = float(_rr[_cols['weight']])
+        except (TypeError, ValueError):
+            continue
+        if not (_w == _w) or _w <= 0:   # NaN / cash lines
+            continue
+        _n = str(_rr[_cols['name']]).strip().title().replace("'S", "'s")
+        _rows.append({'t': _t, 'n': _n, 'w': round(_w, 2)})
+    _rows.sort(key=lambda x: -x['w'])
+    return _rows
+
+def _fetch_sa_full(_etf, _rq):
+    """stockanalysis.com top-25 holdings JSON → [{t,n,w},…] or None on failure."""
+    _r = _rq.get(f"https://stockanalysis.com/api/symbol/e/{_etf}/holdings",
+                 timeout=20, headers={'User-Agent': 'Mozilla/5.0'})
+    if _r.status_code != 200:
+        return None
+    _hs = ((_r.json() or {}).get('data') or {}).get('holdings') or []
+    _rows = []
+    for _h in _hs:
+        _t = str(_h.get('s') or '').lstrip('$').strip().upper()
+        if not valid_tk(_t) or _t == _etf or _t in EXCLUDE_TICKERS:
+            continue
+        try:
+            _w = float(str(_h.get('as') or '').rstrip('%'))
+        except ValueError:
+            continue
+        if _w <= 0:
+            continue
+        _rows.append({'t': _t, 'n': str(_h.get('n') or _t).strip(), 'w': round(_w, 2)})
+    _rows.sort(key=lambda x: -x['w'])
+    return _rows
+
+print("Refreshing deep ETF holdings (daily-cached)...")
 try:
     import io as _io, requests as _rq
     try:
@@ -226,41 +293,37 @@ try:
     except ImportError:
         subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet', 'openpyxl'],
                        check=True, timeout=120)
-    for _etf in SSGA_FULL_FUNDS:
+    _now_ms = int(time.time() * 1000)
+    _stale = [e for e in ETF_TICKERS
+              if e not in NO_EQUITY_ETFS
+              and _now_ms - int(etf_full_meta.get(e, 0)) > 20 * 3600 * 1000]
+    # SSGA (official) first, then longest-unrefreshed first; max 6 per run
+    _stale.sort(key=lambda e: (e not in SSGA_FULL_FUNDS, int(etf_full_meta.get(e, 0))))
+    _done = 0
+    for _etf in _stale[:6]:
         try:
-            _url = (f"https://www.ssga.com/us/en/intermediary/library-content/"
-                    f"products/fund-data/etfs/us/holdings-daily-us-en-{_etf.lower()}.xlsx")
-            _r = _rq.get(_url, timeout=25, headers={'User-Agent': 'Mozilla/5.0'})
-            if _r.status_code != 200 or len(_r.content) < 5000:
+            _rows = (_fetch_ssga_full(_etf, _rq, _io) if _etf in SSGA_FULL_FUNDS
+                     else _fetch_sa_full(_etf, _rq))
+            if _rows is None:
+                print(f"  deep {_etf}: fetch failed — keeping cached/top-10")
                 continue
-            _df = pd.read_excel(_io.BytesIO(_r.content), header=4)  # row 4 = Name/Ticker/…/Weight
-            _cols = {str(c).strip().lower(): c for c in _df.columns}
-            if not all(k in _cols for k in ('name', 'ticker', 'weight')):
-                continue
-            _rows = []
-            for _, _rr in _df.iterrows():
-                _t = str(_rr[_cols['ticker']]).strip().upper()
-                if not valid_tk(_t) or _t == _etf or _t in EXCLUDE_TICKERS:
-                    continue
-                try:
-                    _w = float(_rr[_cols['weight']])
-                except (TypeError, ValueError):
-                    continue
-                if not (_w == _w) or _w <= 0:   # NaN / cash lines
-                    continue
-                _n = str(_rr[_cols['name']]).strip().title().replace("'S", "'s")
-                _rows.append({'t': _t, 'n': _n, 'w': round(_w, 2)})
-            _rows.sort(key=lambda x: -x['w'])
-            if len(_rows) >= 15:                # only publish genuinely deep lists
+            etf_full_meta[_etf] = _now_ms          # fetched OK — don't retry all day
+            if len(_rows) >= 12:                   # only publish genuinely deep lists
                 etf_full_map[_etf] = _rows[:120]
-                for _h in etf_full_map[_etf]:
-                    all_holding_tks.add(_h['t'])  # ensure they get prices in STEP 3
+                _done += 1
+            else:
+                etf_full_map.pop(_etf, None)       # shallow (bond fund etc.) — no deep list
         except Exception as _e:
-            print(f"  full holdings {_etf} FAILED (fallback to top-10): {_e}")
+            print(f"  deep {_etf} FAILED (keeping cached/top-10): {_e}")
+    for _v in etf_full_map.values():               # cached AND fresh tickers get prices
+        for _h in _v:
+            if valid_tk(_h.get('t', '')):
+                all_holding_tks.add(_h['t'])
+    print(f"Deep holdings: refreshed {_done} of {len(_stale)} stale; "
+          f"cache now {len(etf_full_map)} funds, "
+          f"{sum(len(v) for v in etf_full_map.values())} rows")
 except Exception as _e:
-    print(f"  full-holdings step skipped entirely: {_e}")
-print(f"Full SSGA holdings: {len(etf_full_map)} funds, "
-      f"{sum(len(v) for v in etf_full_map.values())} rows")
+    print(f"  deep-holdings step skipped entirely: {_e}")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # STEP 2 — Ratio signal computation (1-year data for SMA-20 / SMA-50)
@@ -1173,7 +1236,8 @@ output = {
     "data":          results,
     "ticker_prices": ticker_prices,
     "etf_holdings":  etf_holdings_map,
-    "etf_full":      etf_full_map,      # SSGA deep holdings — Fast Movers full scan + expandable table
+    "etf_full":      etf_full_map,      # deep holdings (all equity ETFs) — Fast Movers full scan + expandable table
+    "etf_full_meta": etf_full_meta,     # per-fund fetch timestamps for the daily cache rotation
     "bp_scores":     bp_scores,          # pre-computed ETF/SPY relative strength — no CORS needed
     # NOTE: "setups" is intentionally NOT in the public data.json. Today's Setups /
     # alerts are protected: they are pushed to a private Cloudflare KV store below
