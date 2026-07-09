@@ -156,6 +156,195 @@ def table(headers, rows):
 
 STANCE_COL = {"bullish": GREEN, "bearish": RED, "neutral": AMBER, "info": MUT}
 
+# ---------------------------------------------------------------- interactive "analyse any ticker" tools
+PROXY_URL = "https://tradergk-data.goktukocak-b1b.workers.dev"
+
+# Shared client-side analytics library + per-tool renderers. Fetches OHLCV from
+# the CORS data-proxy and computes standard statistics in the browser, so any
+# ticker can be analysed live on a static page.
+TG_TOOLS_JS = r"""
+window.__TG=window.__TG||(function(){
+const PROXY="__PROXY__",GRN='#4caf7d',RED='#e05555',GOLDC='#d4af37',BLU='#5aa2d4',MUT='#606060',TX='#e6e6e6';
+async function chart(sym,range){range=range||"2y";
+ const r=await fetch(PROXY+"/chart?symbol="+encodeURIComponent(sym)+"&range="+range+"&interval=1d");
+ if(!r.ok)throw new Error("No data for "+sym);
+ const d=await r.json(); if(d.error)throw new Error(d.error);
+ const out={sym:d.symbol,name:d.name,price:d.price,ts:[],o:[],h:[],l:[],c:[],v:[]};
+ for(let i=0;i<d.c.length;i++){if(d.c[i]==null)continue;
+  out.ts.push(d.ts[i]);out.o.push(d.o[i]);out.h.push(d.h[i]);out.l.push(d.l[i]);out.c.push(d.c[i]);out.v.push(d.v[i]||0);}
+ if(out.c.length<20)throw new Error("Too little history for "+sym);
+ return out;}
+function rets(c){const r=[];for(let i=1;i<c.length;i++)r.push(c[i]/c[i-1]-1);return r;}
+function stdev(a){if(a.length<2)return 0;const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length);}
+function annVol(c,n){if(c.length<n+1)return null;return stdev(rets(c.slice(-n-1)))*Math.sqrt(252)*100;}
+function sma(a,n){if(a.length<n)return null;let s=0;for(let k=a.length-n;k<a.length;k++)s+=a[k];return s/n;}
+function pctile(arr,v){const s=arr.filter(x=>x!=null&&isFinite(x));if(!s.length)return null;return s.filter(x=>x<v).length/s.length*100;}
+function fmt(v){return v>=1000?v.toLocaleString(undefined,{maximumFractionDigits:0}):v.toLocaleString(undefined,{maximumFractionDigits:2});}
+function sc(v,d){d=d==null?2:d;return '<span style="color:'+(v>=0?GRN:RED)+'">'+(v>=0?'+':'−')+Math.abs(v).toFixed(d)+'%</span>';}
+function esc(s){return String(s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
+function line(series,colors,opts){opts=opts||{};const W=760,H=200,P=34;
+ let all=[];series.forEach(s=>s.forEach(v=>{if(v!=null)all.push(v);}));
+ if(opts.hl)opts.hl.forEach(h=>all.push(h[0]));
+ let lo=opts.lo!=null?opts.lo:Math.min(...all),hi=opts.hi!=null?opts.hi:Math.max(...all);const rg=(hi-lo)||1;
+ const Y=v=>P+(H-2*P)*(1-(v-lo)/rg);
+ let g='<rect x="'+P+'" y="'+P+'" width="'+(W-2*P)+'" height="'+(H-2*P)+'" fill="none" stroke="#2a2a2a"/>';
+ (opts.hl||[]).forEach(h=>{g+='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+Y(h[0])+'" y2="'+Y(h[0])+'" stroke="'+h[1]+'" stroke-width="0.6" stroke-dasharray="3 4"/><text x="'+(W-P+3)+'" y="'+(Y(h[0])+3)+'" fill="'+h[1]+'" font-size="9">'+h[2]+'</text>';});
+ series.forEach((s,si)=>{const n=s.length;let pts=[];s.forEach((v,i)=>{if(v!=null)pts.push((P+(W-2*P)*i/(n-1)).toFixed(1)+','+Y(v).toFixed(1));});
+  g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+colors[si]+'" stroke-width="1.6"/>';});
+ return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+g+'</svg>';}
+function bars(labels,vals,hi){const W=760,H=190,P=30;const lo=Math.min(0,...vals),h2=Math.max(0,...vals),rg=(h2-lo)||1;
+ const Y=v=>P+(H-2*P)*(1-(v-lo)/rg),y0=Y(0),bw=(W-2*P)/vals.length*0.62;
+ let g='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+y0+'" y2="'+y0+'" stroke="'+MUT+'" stroke-width="0.7"/>';
+ vals.forEach((v,i)=>{const x=P+(W-2*P)*(i+0.19)/vals.length,yy=Y(v),c=i===hi?GOLDC:(v>=0?GRN:RED);
+  g+='<rect x="'+x.toFixed(1)+'" y="'+Math.min(yy,y0).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(Math.abs(y0-yy),1).toFixed(1)+'" fill="'+c+'" opacity="0.85"/>';
+  g+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-8)+'" fill="'+MUT+'" font-size="9" text-anchor="middle">'+labels[i]+'</text>';});
+ return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+g+'</svg>';}
+function box(mount,ph,fn){const el=document.getElementById(mount);
+ el.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+  '<input id="'+mount+'-in" placeholder="'+ph+'" style="flex:1;min-width:160px;background:#0b0b0b;border:1px solid #2a2a2a;border-radius:4px;color:#e6e6e6;padding:8px 10px;font-family:\'JetBrains Mono\',monospace;font-size:13px">'+
+  '<button id="'+mount+'-go" style="cursor:pointer;background:'+GOLDC+';color:#0b0b0b;border:0;border-radius:4px;padding:8px 18px;font-weight:600;font-size:12px">Analyse</button></div>'+
+  '<div id="'+mount+'-out"></div>';
+ const inp=document.getElementById(mount+'-in'),out=document.getElementById(mount+'-out');
+ async function run(){const q=inp.value.trim();if(!q)return;out.innerHTML='<span class="muted">Analysing '+esc(q)+'…</span>';
+  try{await fn(q,out);}catch(e){out.innerHTML='<span style="color:'+RED+'">'+esc(e.message||String(e))+'</span>';}}
+ document.getElementById(mount+'-go').onclick=run;
+ inp.addEventListener('keydown',e=>{if(e.key==='Enter')run();});
+}
+return {chart,rets,stdev,annVol,sma,pctile,fmt,sc,esc,line,bars,box,GRN,RED,GOLDC,BLU,MUT};
+})();
+"""
+
+def tg_lib():
+    return "<script>" + TG_TOOLS_JS.replace("__PROXY__", PROXY_URL) + "</script>"
+
+def tg_tool(mount, heading, sub, placeholder, fn_js):
+    """Emit an <h2> + card with an analyse-box that runs fn_js(q,out) on a ticker."""
+    script = ("<script>(function(){const T=window.__TG;"
+              "function cell(l,v,c){return '<div><div class=\"slabel\">'+l+'</div>"
+              "<div class=\"sval\" style=\"color:'+(c||'#e6e6e6')+'\">'+v+'</div></div>';}"
+              "T.box('" + mount + "'," + json.dumps(placeholder) + ",async(q,out)=>{" + fn_js + "});"
+              "})();</script>").replace("__PROXY__", PROXY_URL)
+    return (f'<h2>{heading}</h2>'
+            f'<div class="card"><div class="muted" style="font-size:12px;margin-bottom:8px">{sub}</div>'
+            f'<div id="{mount}">loading…</div></div>' + tg_lib() + script)
+
+# --- per-tool analytics (run client-side in the browser) ---
+TOOL_VOL = r"""
+const d=await T.chart(q,'2y');const c=d.c;
+const rv20=T.annVol(c,20),rv60=T.annVol(c,60),rv120=T.annVol(c,120);
+const hist=[];for(let i=21;i<c.length;i++)hist.push(T.stdev(T.rets(c.slice(i-20,i+1)))*Math.sqrt(252)*100);
+const p=T.pctile(hist,rv20);
+const em=rv20/Math.sqrt(52);
+const regime=p<25?'Compressed — vol is coiled':p>75?'Elevated — vol is rich':'Mid-range';
+const rc=p<25?T.GRN:(p>75?T.RED:'#e0a94c');
+let h='<div style="font-size:17px;font-weight:700;color:#fff">'+T.esc(d.name)+' <span style="color:'+T.MUT+';font-size:13px">'+d.sym+' · '+T.fmt(d.price)+'</span></div>';
+h+='<div class="stats" style="margin-top:10px">'+
+ cell('Realized vol 20d',rv20.toFixed(1)+'%',rc)+
+ cell('Realized vol 60d',rv60!=null?rv60.toFixed(1)+'%':'—',T.MUT)+
+ cell('Realized vol 120d',rv120!=null?rv120.toFixed(1)+'%':'—',T.MUT)+
+ cell('20d vol · 2y percentile',(p!=null?p.toFixed(0):'—')+'th',rc)+
+ cell('1-week expected move','±'+em.toFixed(1)+'%',T.MUT)+'</div>';
+h+='<div style="margin-top:6px;color:'+rc+';font-weight:600">'+regime+'</div>';
+h+='<div style="margin-top:10px">'+T.line([hist.slice(-252)],[T.BLU])+'</div>';
+h+='<div class="legend">20-day realized (annualised) volatility over the last year. Percentile is against this ticker’s own 2-year range. Expected move = realized-vol ±1σ for the week (a realized proxy, not the option-implied move).</div>';
+try{const o=await fetch('__PROXY__/options?symbol='+encodeURIComponent(q));const oj=await o.json();
+ if(oj.chain&&oj.chain[0]&&oj.price){const ch=oj.chain[0],spot=oj.price;
+  const atm=ch.calls.reduce((a,b)=>Math.abs(b.k-spot)<Math.abs(a.k-spot)?b:a,ch.calls[0]);
+  const put=ch.puts.find(x=>x.k===atm.k);
+  const iv=atm.iv*100,emOpt=(atm.last+(put?put.last:0))/spot*100;
+  const exp=new Date(ch.expiry*1000).toISOString().slice(0,10);
+  h+='<div style="border-top:1px solid #2a2a2a;margin-top:10px;padding-top:10px"><div class="slabel">LIVE OPTIONS · nearest expiry '+exp+'</div>'+
+   '<div style="margin-top:6px;font-size:13px">ATM implied vol <b>'+iv.toFixed(1)+'%</b> · option-implied move to expiry <b>±'+emOpt.toFixed(2)+'%</b> · implied − realized <b style="color:'+((iv-rv20)>0?T.GRN:T.RED)+'">'+(iv-rv20>0?'+':'')+(iv-rv20).toFixed(1)+' pts</b></div></div>';}
+}catch(e){}
+out.innerHTML=h;
+"""
+
+TOOL_LEVELS = r"""
+const d=await T.chart(q,'2y');const c=d.c,hi=d.h,lo=d.l,v=d.v,spot=c[c.length-1];
+const f=x=>spot>2000?Math.round(x).toLocaleString():x.toFixed(2);
+const lv=[];
+[[20,'20-day MA'],[50,'50-day MA'],[100,'100-day MA'],[200,'200-day MA']].forEach(m=>{const s=T.sma(c,m[0]);if(s)lv.push([m[1],s]);});
+const last252c=c.slice(-252),last252h=hi.slice(-252),last252l=lo.slice(-252);
+lv.push(['52-week high',Math.max(...last252h)]);lv.push(['52-week low',Math.min(...last252l)]);
+lv.push(['Prior day high',hi[hi.length-2]]);lv.push(['Prior day low',lo[lo.length-2]]);
+// volume profile POC/VAH/VAL over last 3 months
+const n3=Math.min(63,c.length);const cc=c.slice(-n3),vv=v.slice(-n3);
+const pmin=Math.min(...cc),pmax=Math.max(...cc),bins=24,step=(pmax-pmin)/bins||1;const hb=new Array(bins).fill(0);
+cc.forEach((p,i)=>{let b=Math.min(bins-1,Math.floor((p-pmin)/step));hb[b]+=vv[i];});
+let poc=0;for(let i=1;i<bins;i++)if(hb[i]>hb[poc])poc=i;
+lv.push(['3-month POC',pmin+(poc+0.5)*step]);
+// AVWAP from 52w low
+const li=last252c.indexOf(Math.min(...last252c));const startIdx=c.length-252+li;
+let pv=0,vs=0;for(let i=Math.max(0,startIdx);i<c.length;i++){pv+=c[i]*v[i];vs+=v[i];}
+if(vs)lv.push(['AVWAP from 52w low',pv/vs]);
+// cluster within 0.6%
+lv.sort((a,b)=>a[1]-b[1]);const cl=[];
+lv.forEach(x=>{if(cl.length&&Math.abs(x[1]-cl[cl.length-1].p)/cl[cl.length-1].p<0.006){const g=cl[cl.length-1];g.labs.push(x[0]);g.p=(g.p*(g.labs.length-1)+x[1])/g.labs.length;}else cl.push({p:x[1],labs:[x[0]]});});
+const above=cl.filter(x=>x.p>spot).slice(0,6),below=cl.filter(x=>x.p<=spot).reverse().slice(0,7);
+function ladder(arr,up){return arr.map(g=>{const dd=(g.p/spot-1)*100;return '<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid #2a2a2a"><b style="min-width:80px">'+f(g.p)+'</b><span style="color:'+(up?T.GRN:T.RED)+';min-width:60px">'+(dd>=0?'+':'−')+Math.abs(dd).toFixed(2)+'%</span><span class="pill" style="background:rgba(212,175,55,'+Math.min(.06*g.labs.length,.35)+');color:'+T.GOLDC+';min-width:22px;text-align:center">'+g.labs.length+'</span><span class="muted" style="font-size:12px">'+g.labs.join(' · ')+'</span></div>';}).join('');}
+let h='<div style="font-size:17px;font-weight:700;color:#fff">'+T.esc(d.name)+' <span style="color:'+T.MUT+';font-size:13px">'+d.sym+' · '+f(spot)+'</span></div>';
+const a50=T.sma(c,50),a200=T.sma(c,200);
+h+='<div class="muted" style="margin-top:4px">Daily trend: <b style="color:'+(spot>a50?T.GRN:T.RED)+'">'+(spot>a50?'above':'below')+' 50-day</b> · <b style="color:'+(spot>a200?T.GRN:T.RED)+'">'+(spot>a200?'above':'below')+' 200-day</b></div>';
+h+='<div class="slabel" style="margin-top:12px">RESISTANCE ABOVE</div>'+(above.length?ladder(above,true):'<div class="muted">— at highs</div>');
+h+='<div class="slabel" style="margin-top:10px">SUPPORT BELOW</div>'+(below.length?ladder(below,false):'<div class="muted">— at lows</div>');
+h+='<div class="legend">Levels from moving averages, prior extremes, 52-week range, 3-month volume POC and the anchored VWAP off the 52-week low — clustered within 0.6% and scored by how many methods agree. A score of 3+ is real structure.</div>';
+out.innerHTML=h;
+"""
+
+TOOL_CORR = r"""
+const syms=q.split(/[ ,]+/).map(s=>s.trim().toUpperCase()).filter(Boolean).slice(0,8);
+if(syms.length<2)throw new Error('Enter 2–8 tickers, comma or space separated');
+out.innerHTML='<span class="muted">Fetching '+syms.length+' tickers…</span>';
+const data={};for(const s of syms){try{const d=await T.chart(s,'1y');const m={};for(let i=0;i<d.ts.length;i++)m[new Date(d.ts[i]*1000).toISOString().slice(0,10)]=d.c[i];data[s]=m;}catch(e){}}
+const ok=Object.keys(data);if(ok.length<2)throw new Error('Could not load enough of those tickers');
+// common dates
+let dates=null;ok.forEach(s=>{const ks=Object.keys(data[s]);dates=dates?dates.filter(d=>data[s][d]!=null):ks;});
+dates.sort();dates=dates.slice(-126);
+const R={};ok.forEach(s=>{const r=[];for(let i=1;i<dates.length;i++){const a=data[s][dates[i]],b=data[s][dates[i-1]];r.push(a&&b?a/b-1:0);}R[s]=r;});
+function corr(a,b){const n=a.length;let sa=0,sb=0;for(let i=0;i<n;i++){sa+=a[i];sb+=b[i];}sa/=n;sb/=n;let num=0,da=0,db=0;for(let i=0;i<n;i++){num+=(a[i]-sa)*(b[i]-sb);da+=(a[i]-sa)**2;db+=(b[i]-sb)**2;}return num/Math.sqrt(da*db||1);}
+let h='<div style="overflow-x:auto"><table style="font-size:12px"><tr><th></th>'+ok.map(s=>'<th>'+s+'</th>').join('')+'</tr>';
+ok.forEach(a=>{h+='<tr><td><b>'+a+'</b></td>'+ok.map(b=>{if(a===b)return '<td class="muted" style="text-align:center">·</td>';const v=corr(R[a],R[b]);const col=v>0.5?T.GRN:(v<-0.3?T.RED:'#e6e6e6');return '<td style="color:'+col+'">'+(v>=0?'+':'−')+Math.abs(v).toFixed(2)+'</td>';}).join('')+'</tr>';});
+h+='</table></div>';
+// diversifier ranking
+const avg=ok.map(a=>{let s=0,n=0;ok.forEach(b=>{if(a!==b){s+=Math.abs(corr(R[a],R[b]));n++;}});return[a,s/n];}).sort((x,y)=>x[1]-y[1]);
+h+='<div class="slabel" style="margin-top:12px">DIVERSIFIER RANKING (avg |correlation|)</div>';
+h+=avg.map(x=>'<div style="display:flex;gap:8px;align-items:center;padding:2px 0"><span style="width:90px">'+x[0]+'</span><div style="flex:1;background:#2a2a2a;height:8px;border-radius:3px"><div style="width:'+(x[1]*100).toFixed(0)+'%;background:'+(x[1]<0.42?T.GRN:(x[1]<0.55?'#e0a94c':T.RED))+';height:8px;border-radius:3px"></div></div><span class="muted" style="width:40px;text-align:right">'+x[1].toFixed(2)+'</span></div>').join('');
+h+='<div class="legend">60-session correlation of daily returns for the tickers you entered. Lowest average |correlation| = the best diversifier in your set. Green &gt; +0.5, red &lt; −0.3.</div>';
+out.innerHTML=h;
+"""
+
+TOOL_SEASON = r"""
+const d=await T.chart(q,'max');const c=d.c,ts=d.ts;
+// monthly returns
+const byMonthClose={};for(let i=0;i<ts.length;i++){const dt=new Date(ts[i]*1000);const k=dt.getUTCFullYear()+'-'+dt.getUTCMonth();byMonthClose[k]=c[i];}
+const keys=Object.keys(byMonthClose).sort((a,b)=>{const[ay,am]=a.split('-').map(Number),[by,bm]=b.split('-').map(Number);return ay-by||am-bm;});
+const mret={};for(let i=1;i<keys.length;i++){const[y,m]=keys[i].split('-').map(Number);const r=byMonthClose[keys[i]]/byMonthClose[keys[i-1]]-1;(mret[m]=mret[m]||[]).push(r);}
+const avg=[],win=[];for(let m=0;m<12;m++){const a=mret[m]||[];avg.push(a.length?a.reduce((x,y)=>x+y,0)/a.length*100:0);win.push(a.length?a.filter(x=>x>0).length/a.length*100:0);}
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const cm=new Date().getUTCMonth();
+const yrs=Math.round((ts[ts.length-1]-ts[0])/(365.25*86400));
+let h='<div style="font-size:17px;font-weight:700;color:#fff">'+T.esc(d.name)+' <span style="color:'+T.MUT+';font-size:13px">'+d.sym+' · '+yrs+'y of data</span></div>';
+h+='<div style="margin-top:10px">'+T.bars(MN,avg,cm)+'</div>';
+h+='<div class="muted" style="margin-top:6px"><b>'+MN[cm]+'</b> has averaged <b style="color:'+(avg[cm]>=0?T.GRN:T.RED)+'">'+(avg[cm]>=0?'+':'')+avg[cm].toFixed(2)+'%</b> with a '+win[cm].toFixed(0)+'% positive rate.</div>';
+h+='<div class="legend">Average calendar-month return over the ticker’s full history · gold bar = current month. A tilt, not a guarantee.</div>';
+out.innerHTML=h;
+"""
+
+TOOL_CAL = r"""
+const d=await T.chart(q,'10y');const c=d.c,ts=d.ts;
+const dow=[[],[],[],[],[]];
+for(let i=1;i<c.length;i++){const wd=new Date(ts[i]*1000).getUTCDay();if(wd>=1&&wd<=5)dow[wd-1].push(c[i]/c[i-1]-1);}
+const davg=dow.map(a=>a.length?a.reduce((x,y)=>x+y,0)/a.length*100:0);
+// trading day of month
+const tdm={};let curMo=-1,td=0;
+for(let i=1;i<c.length;i++){const dt=new Date(ts[i]*1000),mo=dt.getUTCMonth();if(mo!==curMo){curMo=mo;td=0;}td++;if(td<=23)(tdm[td]=tdm[td]||[]).push(c[i]/c[i-1]-1);}
+const tavg=[];for(let t=1;t<=23;t++){const a=tdm[t]||[];tavg.push(a.length>=5?a.reduce((x,y)=>x+y,0)/a.length*100:0);}
+let h='<div style="font-size:17px;font-weight:700;color:#fff">'+T.esc(d.name)+' <span style="color:'+T.MUT+';font-size:13px">'+d.sym+'</span></div>';
+h+='<div class="slabel" style="margin-top:10px">AVERAGE RETURN BY DAY OF WEEK</div>'+T.bars(['Mon','Tue','Wed','Thu','Fri'],davg,-1);
+h+='<div class="slabel" style="margin-top:12px">AVERAGE RETURN BY TRADING DAY OF MONTH</div>'+T.bars(Array.from({length:23},(_,i)=>i%2?'':String(i+1)),tavg,-1);
+h+='<div class="legend">Weekday and trading-day-of-month drift over ~10 years. Small per-instance edges, best as entry-timing tie-breakers.</div>';
+out.innerHTML=h;
+"""
+
 # ---------------------------------------------------------------- page shell
 GROUPS = [
     ("Overview", [("", "Overview"), ("confluence", "Confluence")]),
@@ -649,6 +838,10 @@ def m_volatility(px):
         'entry day, daily observations since 1990. The famous asymmetry: the highest-VIX bucket has the '
         'BEST average forward return (panic gets bought) but also the widest spread of outcomes — the 2008 '
         'tail lives inside it. Low VIX earns less, far more reliably.</div>')
+    body += tg_tool("tgvol", "Analyse any ticker's volatility",
+                    "Realized-vol stack, percentile, expected move and — where available — live ATM implied "
+                    "vol, for any stock, ETF or coin.",
+                    "Any ticker — AAPL, NVDA, TSLA, SPY, BTC-USD…", TOOL_VOL)
     return dict(slug="volatility", title="Volatility Regime",
                 sub="The price of risk read three ways: what options price, what the market delivers, and how dealers are positioned.",
                 body=body, stance=stance,
@@ -1084,6 +1277,10 @@ def m_key_levels(px):
         "many methods agree. One moving average is a line on a chart; a price where the 3-month POC, an "
         "anchored VWAP and a put wall coincide is real structure. Mark the 5+ scores on your TradingView "
         "chart before the open and trade the reactions.", "THE 60-SECOND VERSION")
+    body += tg_tool("tglev", "Analyse any ticker's levels",
+                    "The same six-method confluence ladder — moving averages, prior extremes, 52-week range, "
+                    "volume POC and anchored VWAP — computed live for any ticker you type.",
+                    "Any ticker — AAPL, NVDA, TSLA, SPY, BTC-USD…", TOOL_LEVELS)
     spy = px["SPY"].dropna()
     return dict(slug="key-levels", title="Key Levels",
                 sub="Six level-generation methods, clustered and scored into one confluence ladder — per ticker.",
@@ -1377,6 +1574,10 @@ def m_correlation(px):
              "<li><b>Everything → 1 is the fire alarm</b> — in a panic, correlations converge and "
              "diversification fails exactly when it's needed; a uniformly green matrix with a deep-red VIX "
              "row is the crash signature.</li></ul>", "HOW TO READ IT")
+    body += tg_tool("tgcorr", "Check your own tickers",
+                    "Type 2–8 symbols (your actual positions) and get their live 60-session correlation "
+                    "matrix and a diversifier ranking — not proxies, the real tickers.",
+                    "AAPL, MSFT, GLD, TLT, BTC-USD…", TOOL_CORR)
     return dict(slug="correlation", title="Correlation Matrix",
                 sub="What moves with what — 12 assets, shift detection, and a measured diversifier ranking.",
                 body=body, stance="info",
@@ -1714,6 +1915,10 @@ def m_seasonality(gspc_m):
         "already wanted to take, not as a trade on its own. The classics: Nov–Apr carries most of the equity "
         "market's annual return, September is the only reliably negative month, and October is a bottom-maker, "
         "not a top-maker.", "THIS MONTH IN CONTEXT")
+    body += tg_tool("tgseas", "Any ticker's seasonality",
+                    "Monthly return tendencies computed live over a ticker's full history — your exact stock, "
+                    "ETF or coin, not a proxy.",
+                    "Any ticker — AAPL, NVDA, TSLA, SPY, BTC-USD…", TOOL_SEASON)
     return dict(slug="seasonality", title="Seasonality",
                 sub="The calendar's recurring footprint — year-path overlays, monthly drift, and day-of-month patterns across four instruments.",
                 body=body, stance=stance,
@@ -1841,6 +2046,9 @@ def m_calendar(gspc_d):
         "Each is measured from ~10 years of daily bars per asset, with sample sizes shown. These edges are "
         "small per instance but persistent across hundreds of observations: they're tie-breakers for WHEN "
         "to execute a decision already made, never the reason for the decision.", "THE 60-SECOND VERSION")
+    body += tg_tool("tgcal", "Any ticker's calendar effects",
+                    "Day-of-week and trading-day-of-month drift computed live over ~10 years for any ticker.",
+                    "Any ticker — AAPL, NVDA, TSLA, SPY, BTC-USD…", TOOL_CAL)
     return dict(slug="calendar", title="Calendar Effects",
                 sub="Day-of-week, day-of-month and named-window rhythms, measured per asset over ~10 years.",
                 body=body, stance="info",
