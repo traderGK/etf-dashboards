@@ -2065,6 +2065,34 @@ def m_yield_curve():
     else:
         regime = "Bear steepener"
     desc, favours, pressures, watch = CURVE_PLAYS[regime]
+    # regime quadrant scatter: Δ2y (x) vs Δ10y (y), ~6-month trail
+    d2s = ((df["2Y"] - df["2Y"].shift(21)) * 100).dropna()
+    d10s = ((df["10Y"] - df["10Y"].shift(21)) * 100).dropna()
+    qboth = pd.concat([d2s, d10s], axis=1).dropna().iloc[-126:]
+    qtrail = list(zip(qboth.iloc[:, 0].tolist(), qboth.iloc[:, 1].tolist()))[::5]
+    if not qtrail or (d2, d10) != qtrail[-1]:
+        qtrail.append((d2, d10))
+    QS = 400
+    span = max(6.0, max(abs(v) for pt in qtrail for v in pt) * 1.15)
+    QX = lambda v: 40 + (QS - 80) * (v + span) / (2 * span)
+    QY = lambda v: QS - 40 - (QS - 80) * (v + span) / (2 * span)
+    qcx, qcy = QX(0), QY(0)
+    qg = (f'<rect x="40" y="40" width="{QS-80}" height="{QS-80}" fill="none" stroke="#2a2a2a"/>'
+          f'<line x1="{qcx}" x2="{qcx}" y1="40" y2="{QS-40}" stroke="{MUT}" stroke-width="0.6"/>'
+          f'<line x1="40" x2="{QS-40}" y1="{qcy}" y2="{qcy}" stroke="{MUT}" stroke-width="0.6"/>'
+          f'<text x="46" y="56" fill="{RED}" font-size="10" font-weight="600">BULL STEEPENER</text>'
+          f'<text x="{QS-46}" y="56" text-anchor="end" fill="{RED}" font-size="10" font-weight="600">BEAR STEEPENER</text>'
+          f'<text x="46" y="{QS-46}" fill="{GREEN}" font-size="10" font-weight="600">BULL FLATTENER</text>'
+          f'<text x="{QS-46}" y="{QS-46}" text-anchor="end" fill="{AMBER}" font-size="10" font-weight="600">BEAR FLATTENER</text>'
+          f'<text x="{QS/2}" y="{QS-8}" text-anchor="middle" fill="{MUT}" font-size="10">Δ 2-year yield, 21d (bps) →</text>')
+    qpts = " ".join(f"{QX(a):.1f},{QY(b):.1f}" for a, b in qtrail)
+    qg += f'<polyline points="{qpts}" fill="none" stroke="{GOLD}" stroke-width="1.1" stroke-dasharray="4 3" opacity="0.6"/>'
+    for j, (a, b) in enumerate(qtrail):
+        is_now = j == len(qtrail) - 1
+        qg += (f'<circle cx="{QX(a):.1f}" cy="{QY(b):.1f}" r="{5 if is_now else 2.3}" '
+               f'fill="{GOLD if is_now else MUT}" opacity="{1 if is_now else 0.5}"/>')
+    curve_quad_svg = (f'<svg viewBox="0 0 {QS} {QS}" xmlns="http://www.w3.org/2000/svg" '
+                      f'style="width:100%;max-width:440px;height:auto;display:block;margin:0 auto">{qg}</svg>')
     # curve chart: today vs 1m vs 1y
     labs = [l for _, l, _ in TENORS if l in df.columns]
     def snap(n):
@@ -2143,7 +2171,12 @@ def m_yield_curve():
             '~90 sessions (OLS on daily changes). A low R² means a loose relationship — treat it as a lean, '
             'not a rule. Flip the signs for a yields-down day.</div>')
     body += f"<h2>Curve regime · {regime}</h2>" + card(
-        f'<div class="muted">{desc}</div>'
+        curve_quad_svg +
+        '<div class="legend" style="text-align:center">Δ 2-year yield (horizontal) vs Δ 10-year yield '
+        '(vertical) over 21 days · gold trail = the last ~6 months, large dot = now. Right of centre = the '
+        'front end is rising (bearish for bonds); above centre = the long end is rising. The quadrant you are '
+        'in — not the level of rates — is what maps to sector leadership.</div>' +
+        f'<div class="muted" style="margin-top:12px">{desc}</div>'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px">'
         f'<div><div class="slabel">FAVOURS</div>' +
         "".join(f'<div style="font-size:13px;color:{GREEN}">▸ {x}</div>' for x in favours) + "</div>"
@@ -2345,6 +2378,51 @@ def m_credit():
 
 LIQ_ASSETS = [("BTC-USD", "Bitcoin"), ("^GSPC", "S&P 500"), ("^NDX", "NASDAQ 100"), ("GC=F", "Gold")]
 
+LIQ_OVERLAY_JS = r"""
+(function(){
+const D=__DATA__,GOLDC='#d4af37',BLU='#5aa2d4',MUT='#606060',GRN='#4caf7d',RED='#e05555';
+let asset=Object.keys(D)[0],mode='mom';
+const wrap=document.getElementById('liqov');
+function draw(){
+ const d=D[asset],series=(mode==='mom')?d.mom:d.lvl;
+ const W=820,H=250,P=42;
+ const A=series.map(p=>p[0]).filter(v=>v!=null),B=series.map(p=>p[1]).filter(v=>v!=null);
+ const aLo=Math.min(...A),aHi=Math.max(...A),bLo=Math.min(...B),bHi=Math.max(...B);
+ const aR=(aHi-aLo)||1,bR=(bHi-bLo)||1,n=series.length;
+ const X=i=>P+(W-2*P)*i/(n-1);
+ const Ya=v=>P+(H-2*P)*(1-(v-aLo)/aR), Yb=v=>P+(H-2*P)*(1-(v-bLo)/bR);
+ let g='<rect x="'+P+'" y="'+P+'" width="'+(W-2*P)+'" height="'+(H-2*P)+'" fill="none" stroke="#2a2a2a"/>';
+ if(mode==='mom'&&aLo<0&&aHi>0)g+='<line x1="'+P+'" x2="'+(W-P)+'" y1="'+Ya(0)+'" y2="'+Ya(0)+'" stroke="'+MUT+'" stroke-width="0.6" stroke-dasharray="3 4"/>';
+ const line=(arr,Y,c,w)=>{let pts=[];arr.forEach((v,i)=>{if(v!=null)pts.push(X(i).toFixed(1)+','+Y(v).toFixed(1));});
+   return '<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"/>';};
+ g+=line(series.map(p=>p[1]),Yb,GOLDC,1.5);
+ g+=line(series.map(p=>p[0]),Ya,BLU,1.8);
+ for(let i=0;i<n;i+=Math.floor(n/6)){const dt=d.dates[i];if(dt)g+='<text x="'+X(i)+'" y="'+(H-14)+'" fill="'+MUT+'" font-size="10" text-anchor="middle">'+dt+'</text>';}
+ wrap.querySelector('#liqsvg').innerHTML=g;
+}
+function render(){
+ const d=D[asset];
+ let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+Object.keys(D).map(k=>
+  '<button data-a="'+k+'" style="cursor:pointer;font-size:11px;padding:3px 11px;border-radius:14px;border:1px solid '+
+  (k===asset?GOLDC:'#2a2a2a')+';background:'+(k===asset?'rgba(212,175,55,.12)':'transparent')+';color:'+(k===asset?GOLDC:MUT)+'">'+k+'</button>').join('')+
+  '<span style="flex:1"></span>'+[['mom','13w momentum'],['lvl','Levels']].map(([m,l])=>
+  '<button data-m="'+m+'" style="cursor:pointer;font-size:11px;padding:3px 11px;border-radius:14px;border:1px solid '+
+  (m===mode?GOLDC:'#2a2a2a')+';background:'+(m===mode?'rgba(212,175,55,.12)':'transparent')+';color:'+(m===mode?GOLDC:MUT)+'">'+l+'</button>').join('')+'</div>';
+ h+='<div class="muted" style="font-size:12px;margin-bottom:4px">Best-fit lead measured live: G3 liquidity leads '+asset+' by <b style="color:'+
+   (Math.abs(d.r)>=0.35?GRN:'#e6e6e6')+'">'+d.lead+' weeks</b> (~'+(d.lead*7)+' days), correlation r = '+d.r.toFixed(2)+'.</div>';
+ h+='<svg id="liqsvg" viewBox="0 0 820 250" style="width:100%;height:auto;display:block"></svg>';
+ h+='<div class="legend"><span style="color:'+BLU+'">▬</span> '+asset+' '+(mode==='mom'?'13-week % change':'price, indexed')+' (left) · '+
+   '<span style="color:'+GOLDC+'">▬</span> G3 liquidity '+(mode==='mom'?'13-week % change':'level, indexed')+', shifted forward by its '+d.lead+
+   '-week lead (right). When the two lines move together the liquidity signal is live; when they split, '+asset+' is running on something else.</div>';
+ wrap.innerHTML=h;
+ wrap.querySelectorAll('button[data-a]').forEach(b=>b.onclick=()=>{asset=b.dataset.a;render();});
+ wrap.querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;render();});
+ draw();
+}
+render();
+})();
+"""
+
 def _stablecoins():
     req = urllib.request.Request("https://stablecoins.llama.fi/stablecoincharts/all",
                                  headers={"User-Agent": "Mozilla/5.0"})
@@ -2432,6 +2510,33 @@ def m_liquidity():
             if aname == "Bitcoin" and lname == "G3 central banks":
                 best_lead = best
         matrix.append((aname, row))
+    # G3-vs-asset lead-shifted overlay (momentum + levels), per asset
+    g3w = wk(g3).dropna()
+    g3_13 = g3w.pct_change(13) * 100
+    overlay = {}
+    for sym, aname in LIQ_ASSETS:
+        aw = wk(px_l[sym].dropna())
+        a13 = aw.pct_change(13) * 100
+        ld, rr = 0, 0.0
+        for an, row in matrix:
+            if an == aname:
+                for ln, lv, rv in row:
+                    if ln == "G3 central banks":
+                        ld, rr = lv, rv
+        g3_sh = g3_13.shift(ld)
+        idx = a13.dropna().index[-156:]
+        mom = [[round(float(a13.get(d)), 2) if pd.notna(a13.get(d)) else None,
+                round(float(g3_sh.get(d)), 2) if pd.notna(g3_sh.get(d)) else None] for d in idx]
+        aw_w = aw.reindex(idx).ffill()
+        g3_lv = g3w.shift(ld).reindex(idx).ffill()
+        a0 = float(aw_w.dropna().iloc[0]) if len(aw_w.dropna()) else 1.0
+        g0 = float(g3_lv.dropna().iloc[0]) if len(g3_lv.dropna()) else 1.0
+        lvl = [[round(float(aw_w.get(d)) / a0 * 100, 2) if pd.notna(aw_w.get(d)) else None,
+                round(float(g3_lv.get(d)) / g0 * 100, 2) if pd.notna(g3_lv.get(d)) else None] for d in idx]
+        overlay[aname] = dict(mom=mom, lvl=lvl,
+                              dates=[d.strftime("%b '%y") for d in idx],
+                              lead=int(ld), r=round(float(rr), 2))
+    liq_payload = json.dumps(overlay, separators=(",", ":"))
     def rcell(r):
         c = GREEN if r >= 0.35 else (RED if r <= -0.35 else "var(--tx)")
         return c
@@ -2456,6 +2561,9 @@ def m_liquidity():
         'last 3 years. This is the FLOW, not the level. Assets respond to TURNS in these lines: a line hooking '
         'up from below zero has historically been the earliest "tide is turning" signal, arriving before the '
         'level itself recovers. Zero-line crossings mark expansion ↔ contraction regime changes per leg.</div>')
+    body += "<h2>G3 liquidity vs risk assets · lead-shifted overlay</h2>" + card(
+        '<div id="liqov">loading…</div><script>' +
+        LIQ_OVERLAY_JS.replace("__DATA__", liq_payload) + "</script>")
     body += "<h2>Lead/lag matrix</h2>" + card(
         f'<div style="overflow-x:auto"><table><tr><th>Asset</th>{mhdr}</tr>{mrows}</table></div>'
         '<div class="legend">Each cell scans 0–18 week leads on 13-week rates of change and reports the '
