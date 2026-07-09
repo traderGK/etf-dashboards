@@ -1591,7 +1591,8 @@ function spark(vals,bull){
   const mn=Math.min(...v),mx=Math.max(...v),rng=mx-mn||1e-9;
   const pts=v.map((val,i)=>`${((i/(v.length-1))*W).toFixed(1)},${(H-((val-mn)/rng)*H*.82-H*.06).toFixed(1)}`).join(' ');
   const col=bull?'#4caf7d':'#e05555';const lastX=W.toFixed(1);const lastY=(H-((v[v.length-1]-mn)/rng)*H*.82-H*.06).toFixed(1);
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${pts} ${W},${H}" fill="${col}" opacity="0.09"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lastX}" cy="${lastY}" r="2.3" fill="${col}"/></svg>`;
+  const dv=JSON.stringify(v.map(x=>+(+x).toFixed(6)));
+  return `<svg class="dspark" data-sv='${dv}' width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${pts} ${W},${H}" fill="${col}" opacity="0.09"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lastX}" cy="${lastY}" r="2.3" fill="${col}"/><line class="dcross" y1="0" y2="${H}" stroke="#e6e6e6" stroke-width="0.7" opacity="0.7" visibility="hidden" pointer-events="none"/></svg>`;
 }
 
 function buildCard(r,isThemeBig,extraClass){
@@ -1701,9 +1702,11 @@ function bpSpark(closes,bullish){
   const W=70,H=20;const mn=Math.min(...v),mx=Math.max(...v),rng=mx-mn||1e-9;
   const pts=v.map((val,i)=>`${((i/(v.length-1))*W).toFixed(1)},${(H-((val-mn)/rng)*H*.85-H*.05).toFixed(1)}`).join(' ');
   const col=bullish?'#4caf7d':'#e05555';
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+  const dv=JSON.stringify(v.map(x=>+(+x).toFixed(4)));
+  return `<svg class="dspark" data-sv='${dv}' width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <polygon points="0,${H} ${pts} ${W},${H}" fill="${col}" opacity="0.1"/>
     <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line class="dcross" y1="0" y2="${H}" stroke="#e6e6e6" stroke-width="0.7" opacity="0.7" visibility="hidden" pointer-events="none"/>
   </svg>`;
 }
 
@@ -3991,6 +3994,36 @@ function toggleRatiosSection(){ toggleCollapse('ratiosToggleHdr','ratiosWrap'); 
       }
     });
   });
+})();
+</script>
+<script>
+// Sparkline hover: crosshair + value tooltip on every .dspark, including cards rendered later.
+(function(){
+  var tip=document.createElement('div');
+  tip.style.cssText='position:fixed;z-index:200;display:none;background:var(--bg-card,#1c1c1c);border:1px solid var(--line,#2a2a2a);border-radius:6px;padding:5px 9px;font:11px/1.4 var(--mono,monospace);color:var(--text,#e6e6e6);pointer-events:none;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.5)';
+  document.body.appendChild(tip);
+  function fmt(v){var a=Math.abs(v);return a>=100?v.toFixed(2):a>=1?v.toFixed(3):v.toFixed(4);}
+  function wire(svg){
+    var vals; try{vals=JSON.parse(svg.getAttribute('data-sv'));}catch(e){return;}
+    if(!vals||vals.length<2)return; var n=vals.length, cross=svg.querySelector('.dcross');
+    var vb=svg.getAttribute('viewBox').split(' ').map(Number), W=vb[2]||82;
+    svg.style.cursor='crosshair';
+    svg.addEventListener('mousemove',function(e){
+      var r=svg.getBoundingClientRect(); var i=Math.round((e.clientX-r.left)/r.width*(n-1));
+      i=Math.max(0,Math.min(n-1,i)); var xv=(i/(n-1))*W;
+      if(cross){cross.setAttribute('x1',xv);cross.setAttribute('x2',xv);cross.setAttribute('visibility','visible');}
+      var pct=((vals[i]-vals[0])/(Math.abs(vals[0])||1)*100);
+      tip.innerHTML='<b>'+fmt(vals[i])+'</b> <span style="color:'+(pct>=0?'#4caf7d':'#e05555')+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span>';
+      tip.style.display='block';
+      tip.style.left=Math.min(e.clientX+12,window.innerWidth-120)+'px';
+      tip.style.top=Math.max(6,e.clientY-34)+'px';
+    });
+    svg.addEventListener('mouseleave',function(){tip.style.display='none';if(cross)cross.setAttribute('visibility','hidden');});
+    svg.setAttribute('data-wired','1');
+  }
+  function scan(){document.querySelectorAll('svg.dspark:not([data-wired])').forEach(wire);}
+  scan();
+  new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
 <footer class="site-footer">
