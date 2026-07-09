@@ -108,8 +108,12 @@ def _scale(vals, lo=None, hi=None):
     rng = (hi - lo) or 1
     return lambda v: PAD + (H - 2 * PAD) * (1 - (v - lo) / rng), lo, hi
 
-def line_chart(series_list, colors, hlines=(), lo=None, hi=None):
-    """series_list: list of value-lists (same length not required)."""
+def line_chart(series_list, colors, hlines=(), lo=None, hi=None, labels=None, names=None):
+    """series_list: list of value-lists (same length not required).
+
+    Emits a hover-enabled chart: carries its data in data-tg so the shared
+    tooltip layer (CHART_HOVER_JS) can draw a crosshair + values on mousemove.
+    """
     allv = [v for s in series_list for v in s] + [h[0] for h in hlines]
     y, lo, hi = _scale(allv, lo, hi)
     out = [f'<rect x="{PAD}" y="{PAD}" width="{W-2*PAD}" height="{H-2*PAD}" fill="none" stroke="#2a3040"/>']
@@ -121,8 +125,47 @@ def line_chart(series_list, colors, hlines=(), lo=None, hi=None):
         n = len(s)
         pts = " ".join(f"{PAD+(W-2*PAD)*i/(n-1):.1f},{y(v):.1f}" for i, v in enumerate(s))
         out.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="1.6"/>')
-    return (f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
-            f'style="width:100%;height:auto;display:block">{"".join(out)}</svg>')
+    out.append(f'<line class="tg-cross" y1="{PAD}" y2="{H-PAD}" stroke="#e6e6e6" '
+               f'stroke-width="0.5" visibility="hidden" pointer-events="none"/>')
+    meta = json.dumps({"s": [[round(float(v), 4) for v in s] for s in series_list],
+                       "c": list(colors), "lo": round(float(lo), 6), "hi": round(float(hi), 6),
+                       "l": labels or [], "n": names or []}, separators=(",", ":"))
+    return (f"<svg class=\"tg-chart\" data-tg='{meta}' viewBox=\"0 0 {W} {H}\" "
+            f'xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'
+            f'{"".join(out)}</svg>')
+
+# Shared crosshair + tooltip layer — wires every <svg class="tg-chart"> including
+# ones injected later by interactive tools.
+CHART_HOVER_JS = r"""
+(function(){
+const W=820,H=210,P=34;
+const tip=document.createElement('div');
+tip.style.cssText='position:fixed;z-index:60;display:none;background:#141414;border:1px solid #2a2a2a;border-radius:6px;padding:6px 9px;font:11px/1.5 \'JetBrains Mono\',ui-monospace,monospace;color:#e6e6e6;pointer-events:none;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.5)';
+document.body.appendChild(tip);
+function wire(svg){
+ let m; try{m=JSON.parse(svg.getAttribute('data-tg'));}catch(e){return;}
+ const n=Math.max.apply(null,m.s.map(s=>s.length));if(n<2)return;
+ const cross=svg.querySelector('.tg-cross');
+ svg.addEventListener('mousemove',function(e){
+  const r=svg.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;
+  let i=Math.round((x-P)/(W-2*P)*(n-1));i=Math.max(0,Math.min(n-1,i));
+  const xv=P+(W-2*P)*i/(n-1);
+  if(cross){cross.setAttribute('x1',xv);cross.setAttribute('x2',xv);cross.setAttribute('visibility','visible');}
+  let html=(m.l&&m.l[i])?('<b>'+m.l[i]+'</b><br>'):'';
+  m.s.forEach(function(s,si){const v=s[i];if(v==null)return;const nm=(m.n&&m.n[si])?m.n[si]+' ':'';
+   html+='<span style="color:'+m.c[si]+'">●</span> '+nm+(Math.round(v*100)/100)+'<br>';});
+  tip.innerHTML=html;tip.style.display='block';
+  tip.style.left=Math.min(e.clientX+14,window.innerWidth-150)+'px';
+  tip.style.top=Math.min(e.clientY+14,window.innerHeight-70)+'px';
+ });
+ svg.addEventListener('mouseleave',function(){tip.style.display='none';if(cross)cross.setAttribute('visibility','hidden');});
+ svg.setAttribute('data-wired','1');
+}
+function scan(){document.querySelectorAll('svg.tg-chart:not([data-wired])').forEach(wire);}
+scan();
+new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});
+})();
+"""
 
 def bar_chart(labels, vals, highlight=-1):
     y, lo, hi = _scale(list(vals) + [0])
@@ -139,6 +182,42 @@ def bar_chart(labels, vals, highlight=-1):
         out.append(f'<text x="{x+bw/2:.1f}" y="{H-10}" fill="{MUT}" font-size="9" text-anchor="middle">{lab}</text>')
     return (f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
             f'style="width:100%;height:auto;display:block">{"".join(out)}</svg>')
+
+def spark(values, color=None, w=68, h=18):
+    """Tiny inline history sparkline for stat cards. Auto green/red by direction."""
+    vals = [float(v) for v in values if v is not None and isinstance(v, (int, float))]
+    if len(vals) < 3:
+        return ""
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1
+    pts = " ".join(f"{w*i/(len(vals)-1):.1f},{h-2-(v-lo)/rng*(h-4):.1f}" for i, v in enumerate(vals))
+    c = color or (GREEN if vals[-1] >= vals[0] else RED)
+    return (f'<svg width="{w}" height="{h}" style="vertical-align:middle;display:inline-block" '
+            f'aria-hidden="true"><polyline points="{pts}" fill="none" stroke="{c}" '
+            f'stroke-width="1.2" opacity="0.9"/></svg>')
+
+def _history_append(name, value, keep=500):
+    """Accumulate a time series across builds in terminal/_history/<name>.json.
+
+    Deduped by hour, so the hourly rebuild grows it ~24 points/day. Survives
+    rebuilds (write_page never touches _history) and is committed with terminal/.
+    """
+    d = os.path.join(ROOT, "_history")
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, name + ".json")
+    try:
+        hist = json.load(open(path))
+    except Exception:
+        hist = []
+    stamp = NOW.strftime("%Y-%m-%d %H:00")
+    hist = [h for h in hist if h.get("t") != stamp]
+    hist.append({"t": stamp, "v": round(float(value), 4)})
+    hist = hist[-keep:]
+    try:
+        json.dump(hist, open(path, "w"), separators=(",", ":"))
+    except Exception:
+        pass
+    return hist
 
 def card(body, label=""):
     lab = f'<div class="slabel">{label}</div>' if label else ""
@@ -488,6 +567,7 @@ def write_page(slug, title, subtitle, body, sources="Yahoo Finance · FRED · CF
 <div class="foot">TraderGK research · private page — reachable by direct link only · education only, not financial advice.
 Data may be delayed or approximate; nothing here is a recommendation.</div>
 </main></div>
+<script>__HOVER__</script>
 <script>
 // Interactive tables re-render on click, so sweep text nodes for hyphen-minus each time.
 (function(){{
@@ -509,6 +589,7 @@ Data may be delayed or approximate; nothing here is a recommendation.</div>
 }})();
 </script>
 </body></html>"""
+    html = html.replace("__HOVER__", CHART_HOVER_JS)
     with open(path, "w") as f:
         f.write(html)
 
@@ -1348,9 +1429,20 @@ function render(){
    ' <span style="color:'+(dv>=0?GRN:RED)+'">'+(dv>=0?'+':'')+dv.toFixed(1)+'% vs price</span> '+
    '<span class="pill" style="background:'+(dv<-15?RED:(dv>15?GRN:'#e0a94c'))+'22;color:'+(dv<-15?RED:(dv>15?GRN:'#e0a94c'))+'">'+
    (dv<-15?'OVERVALUED':(dv>15?'UNDERVALUED':'FAIRLY VALUED'))+'</span></div>'+
-  '<div class="muted" style="font-size:12px;margin:4px 0 12px">Composite = average of '+act.length+'/'+a.models.length+
+  '<div class="muted" style="font-size:12px;margin:4px 0 10px">Composite = average of '+act.length+'/'+a.models.length+
    ' active models · median '+(a.unit||'')+fmtp(med,a.price)+' · current price '+(a.unit||'')+fmtp(a.price,a.price)+
-   ' · active range '+(a.unit||'')+fmtp(Math.min(...fvs),a.price)+' – '+(a.unit||'')+fmtp(Math.max(...fvs),a.price)+'</div>';}
+   ' · active range '+(a.unit||'')+fmtp(Math.min(...fvs),a.price)+' – '+(a.unit||'')+fmtp(Math.max(...fvs),a.price)+'</div>';
+  // fair-value range bar
+  const allv=fvs.concat([a.price]);let mn=Math.min(...allv),mx=Math.max(...allv);const pd=(mx-mn)*0.1||1;mn-=pd;mx+=pd;
+  const BW=760,BP=26;const X=v=>BP+(BW-2*BP)*(v-mn)/(mx-mn);
+  const cx=Math.max(BP+16,Math.min(BW-BP-16,X(comp))),px=Math.max(BP+16,Math.min(BW-BP-16,X(a.price)));
+  let g='<line x1="'+BP+'" x2="'+(BW-BP)+'" y1="34" y2="34" stroke="#2a2a2a" stroke-width="2"/>';
+  g+='<line x1="'+X(Math.min(...fvs))+'" x2="'+X(Math.max(...fvs))+'" y1="34" y2="34" stroke="#8b7020" stroke-width="5" opacity="0.55"/>';
+  fvs.forEach(v=>{g+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="27" y2="41" stroke="'+MUT+'" stroke-width="1"/>';});
+  g+='<circle cx="'+X(comp)+'" cy="34" r="5" fill="'+GOLDC+'"/><text x="'+cx+'" y="20" fill="'+GOLDC+'" font-size="10" text-anchor="middle">composite '+(a.unit||'')+fmtp(comp,a.price)+'</text>';
+  g+='<line x1="'+X(a.price)+'" x2="'+X(a.price)+'" y1="21" y2="47" stroke="#5aa2d4" stroke-width="2"/><text x="'+px+'" y="60" fill="#5aa2d4" font-size="10" text-anchor="middle">price '+(a.unit||'')+fmtp(a.price,a.price)+'</text>';
+  h+='<div style="margin:0 0 14px"><svg viewBox="0 0 760 66" style="width:100%;height:auto;display:block">'+g+'</svg>'+
+   '<div class="legend">Gold band = the spread of active model fair values · gold dot = composite · blue line = current price. A wide band means the models disagree; price far left of the band = overvalued.</div></div>';}
  a.models.forEach(m=>{const on=!off[asset+m.name],dv=(m.fv/a.price-1)*100;
   h+='<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);opacity:'+(on?1:.4)+'">'+
    '<button data-m="'+m.name+'" style="cursor:pointer;min-width:34px;height:18px;border-radius:9px;border:0;background:'+(on?GRN:'#2a2a2a')+'"></button>'+
@@ -2847,17 +2939,19 @@ def m_finconditions():
             v = float(s.iloc[-1])
             p = pctile(s, v)
             chg = v - float(s.iloc[-13])
-            off_rows.append((name, v, p, chg, freq, note))
+            off_rows.append((name, v, p, chg, freq, note, s.dropna().iloc[-104:].tolist()))
         except Exception:
             continue
     off_html = "".join(
         f'<div style="padding:7px 0;border-bottom:1px solid var(--line)">'
-        f'<div style="display:flex;justify-content:space-between"><span><b>{n}</b> '
+        f'<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">'
+        f'<span><b>{n}</b> '
         f'<span class="pill" style="background:{(GREEN if v<0 else RED)}22;color:{GREEN if v<0 else RED};font-size:10px">'
-        f'{"Loose" if v < 0 else "Tight"}</span></span><b>{v:+.3f}</b></div>'
+        f'{"Loose" if v < 0 else "Tight"}</span></span>'
+        f'<span style="display:flex;align-items:center;gap:10px">{spark(sk, color=(GREEN if v<0 else RED))}<b>{v:+.3f}</b></span></div>'
         f'<div class="muted" style="font-size:11px">{p:.0f}th percentile of its history · '
         f'{"loosening" if c < 0 else "tightening"} ({c:+.3f} / 3m) · {f2} · {nt}</div></div>'
-        for n, v, p, c, f2, nt in off_rows)
+        for n, v, p, c, f2, nt, sk in off_rows)
     # component drivers
     zl = z.iloc[-1]
     z1m = z.iloc[-22]
@@ -2897,7 +2991,9 @@ def m_finconditions():
                       cnum(lean, 1),
                       f'<span style="color:{GREEN if sig=="tailwind" else (RED if sig=="headwind" else MUT)}">{sig}</span>'))
     body = card(
+        f'<div style="display:flex;justify-content:space-between;align-items:center;gap:14px">'
         f'<div style="font-size:30px;font-weight:700;color:{scol}">{lvl:+.2f}<span style="font-size:15px">σ</span></div>'
+        f'{spark(comp.iloc[-260:].tolist(), color=scol, w=160, h=34)}</div>'
         f'<div><b style="color:{scol}">{state}</b> → {direction}</div>'
         f'<div class="muted" style="margin-top:6px">Conditions are {state.lower()} ({lvl:+.2f}σ versus the '
         f'3-year average) and {direction} ({imp:+.2f}σ over the last month). {dtxt}</div>',
@@ -3073,6 +3169,55 @@ def m_business_cycle():
         '<div class="legend">Each quadrant is a growth × inflation regime, independent of cycle phase — a '
         'mid-phase economy can sit in a stagflation regime without being in recession. The gold dashed trail '
         'is the last four quarter-ends; the large dot is now. Vertical axis crosses at 2% inflation (the target).</div>')
+    # --- multi-economy quadrant: growth momentum (CLI) x inflation momentum (CPI) for 7 economies
+    ECONS = [("United States", "US", "USALOLITONOSTSAM", "CPIAUCSL"),
+             ("Eurozone", "EU", "EA19LOLITONOSTSAM", "CP0000EZ19M086NEST"),
+             ("China", "CN", "CHNLOLITONOSTSAM", "CHNCPIALLMINMEI"),
+             ("Japan", "JP", "JPNLOLITONOSTSAM", "JPNCPIALLMINMEI"),
+             ("United Kingdom", "UK", "GBRLOLITONOSTSAM", "GBRCPIALLMINMEI"),
+             ("Canada", "CA", "CANLOLITONOSTSAM", "CANCPIALLMINMEI"),
+             ("OECD (world)", "WLD", "OECDLOLITONOSTSAM", "OECDCPIALLMINMEI")]
+    epts = []
+    for ename, ecode, cli_id, cpi_id in ECONS:
+        try:
+            cli = fred(cli_id, 4).dropna()
+            cpi = fred(cpi_id, 6).dropna()
+            cpi_yoy = (cpi / cpi.shift(12) - 1).dropna() * 100
+            gx = float(cli.iloc[-1] - cli.iloc[-4])          # growth momentum (CLI 3-mo Δ)
+            iy = float(cpi_yoy.iloc[-1] - cpi_yoy.iloc[-4])   # inflation momentum (YoY 3-mo Δ)
+            epts.append((ename, ecode, gx, iy, float(cpi_yoy.iloc[-1])))
+        except Exception:
+            continue
+    if len(epts) >= 4:
+        MS = 420
+        gspan = max(0.6, max(abs(p[2]) for p in epts) * 1.25)
+        ispan = max(0.6, max(abs(p[3]) for p in epts) * 1.25)
+        EX = lambda v: 46 + (MS - 92) * (v + gspan) / (2 * gspan)
+        EY = lambda v: MS - 46 - (MS - 92) * (v + ispan) / (2 * ispan)
+        ecx, ecy = EX(0), EY(0)
+        eg = (f'<rect x="46" y="40" width="{MS-92}" height="{MS-86}" fill="none" stroke="#2a2a2a"/>'
+              f'<line x1="{ecx}" x2="{ecx}" y1="40" y2="{MS-46}" stroke="{MUT}" stroke-width="0.6"/>'
+              f'<line x1="46" x2="{MS-46}" y1="{ecy}" y2="{ecy}" stroke="{MUT}" stroke-width="0.6"/>'
+              f'<text x="52" y="54" fill="{RED}" font-size="10" font-weight="600">STAGFLATION</text>'
+              f'<text x="{MS-52}" y="54" text-anchor="end" fill="{AMBER}" font-size="10" font-weight="600">OVERHEAT</text>'
+              f'<text x="52" y="{MS-52}" fill="{BLUE}" font-size="10" font-weight="600">DISINFLATION</text>'
+              f'<text x="{MS-52}" y="{MS-52}" text-anchor="end" fill="{GREEN}" font-size="10" font-weight="600">GOLDILOCKS</text>'
+              f'<text x="{MS/2}" y="{MS-6}" text-anchor="middle" fill="{MUT}" font-size="10">growth momentum (leading indicator) →</text>')
+        for ename, ecode, gx, iy, cpinow in epts:
+            ecol = GREEN if (gx > 0 and iy <= 0) else (AMBER if (gx > 0 and iy > 0) else
+                   (RED if (gx <= 0 and iy > 0) else BLUE))
+            x, y = EX(gx), EY(iy)
+            eg += (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{ecol}"/>'
+                   f'<text x="{x+8:.1f}" y="{y+3:.1f}" fill="#e6e6e6" font-size="10" font-weight="600">{ecode}</text>')
+        multi_svg = (f'<svg viewBox="0 0 {MS} {MS}" xmlns="http://www.w3.org/2000/svg" '
+                     f'style="width:100%;max-width:460px;height:auto;display:block;margin:0 auto">{eg}</svg>')
+        leg = " · ".join(f"{c}={n}" for n, c, *_ in epts)
+        body += "<h2>Global regime map · 7 economies</h2>" + card(
+            multi_svg +
+            f'<div class="legend">{leg}. Each economy placed by growth momentum (OECD composite leading '
+            'indicator, 3-month change) versus inflation momentum (CPI year-over-year, 3-month change). '
+            'When most economies cluster in one quadrant, the global cycle is synchronised; when they '
+            'scatter, it is not — and the US rallying alone reads differently than a worldwide upturn.</div>')
     body += "<h2>The indicator board</h2>" + card(
         table(["Indicator", "Source & vintage", "Latest", "Trend"], ind_rows) +
         '<div class="legend">Every input with its release frequency and how stale it is. Macro data is '
@@ -3277,6 +3422,22 @@ def m_fed_path(px):
         f'then a 25bp move distribution is propagated forward across meetings. '
         f'<span style="color:{RED}">red</span> = below the current range · '
         f'<span style="color:{MUT}">grey</span> = hold · <span style="color:{GREEN}">green</span> = above.</div>')
+    # --- rate-path drift: accumulate the implied rate at the final covered meeting
+    implied_end = sum(k * p for k, p in last["buckets"]) + 0.125
+    drift = _history_append("fed_path_end", implied_end)
+    if len(drift) >= 3:
+        dvals = [h["v"] * 100 for h in drift]  # -> bps-of-percent scale (already %); keep as %
+        dvals = [h["v"] for h in drift]
+        body += f'<h2>Rate-path drift · implied {last["label"]} rate over time</h2>' + card(
+            line_chart([dvals], [GOLD]) +
+            f'<div class="legend">The market-implied Fed funds rate at the <b>{last["label"]}</b> meeting, '
+            'snapshotted every hourly rebuild. Watch the direction: a falling line means the market is '
+            'pricing more cuts over time, a rising line more hikes. Accumulating since this went live — '
+            f'{len(drift)} snapshots so far.</div>')
+    else:
+        body += f'<h2>Rate-path drift</h2>' + card(
+            f'<span class="muted">Accumulating hourly snapshots of the implied {last["label"]} rate '
+            f'({len(drift)} so far) — the drift chart appears once there are a few points.</span>')
     body += "<h2>Three independent reads on the path</h2>" + card(
         f'<div class="slabel">LEG 1 · FED FUNDS FUTURES</div>'
         f'<div style="margin:4px 0 12px">By the <b>{last["label"]}</b> meeting, futures imply: '
@@ -3355,11 +3516,13 @@ def _fg_card(title, score, hist, month_avg, month_n, extra="", tag=""):
         f'<div><div class="slabel">{lab}</div><div class="sval" style="color:{_mood_col(v)}">{v:.0f}</div></div>'
         for lab, v in (("now", score), ("1w", snap(5)), ("1m", snap(21)), ("3m", snap(63))) if v is not None)
     line, _ = _seasonal_line(score, month_avg, month_n, title)
+    spk = spark(hist.iloc[-180:].tolist(), color=_mood_col(score), w=120, h=30) if hist is not None else ""
     return card(
+        f'<div style="display:flex;gap:14px;align-items:center;justify-content:space-between">'
         f'<div style="display:flex;gap:14px;align-items:baseline"><div style="font-size:30px;font-weight:700;'
         f'color:{_mood_col(score)}">{score:.0f}</div><div><b>{_mood(score)}</b>'
         + (f' <span class="pill" style="background:#2a2a2a;color:{MUT};font-size:10px">{tag}</span>' if tag else "")
-        + f'</div></div><div class="stats" style="margin-top:8px">{strip}</div>'
+        + f'</div></div>{spk}</div><div class="stats" style="margin-top:8px">{strip}</div>'
         + extra +
         f'<div class="muted" style="margin-top:8px;font-size:12px"><b>Seasonal alignment</b> · {line} '
         f'<span style="font-size:10px">(n={month_n} {NOW.strftime("%B")}s)</span></div>', title.upper())
@@ -4483,7 +4646,35 @@ def build_overview(mods, confl):
         ("Bullish", str(counts["bullish"]), GREEN),
         ("Bearish", str(counts["bearish"]), RED),
         ("Neutral", str(counts["neutral"]), AMBER)]), "AT A GLANCE")
-    body = hero + strip + sections
+    # --- In Focus Now: surface the day's most notable reads
+    NOTABLE = ("extreme", "washout", "inverted", "thrust", "widening", "contracting", "headwind",
+               "overvalued", "stretched", "divergence", "backwardation", "stress", "elevated",
+               "setups:", "leading sectors", "narrowing", "recession", "distressed", "expanding",
+               "broad advance", "tailwind", "loose", "risk-on", "risk-off")
+    focus = []
+    for m in mods:
+        if m["stance"] == "info" and not any(k in m["headline"].lower() for k in NOTABLE):
+            continue
+        hl = m["headline"].lower()
+        hit = next((k for k in NOTABLE if k in hl), None)
+        if m["stance"] in ("bullish", "bearish") or hit:
+            focus.append(m)
+    # rank: decisive stances first, then keyword hits; cap at 6
+    focus.sort(key=lambda m: (0 if m["stance"] in ("bullish", "bearish") else 1))
+    focus = focus[:6]
+    if focus:
+        items_html = "".join(
+            f'<a href="/terminal/{m["slug"]}/" style="display:flex;gap:10px;align-items:baseline;'
+            f'padding:6px 0;border-bottom:1px solid var(--line)">'
+            f'<span style="color:{STANCE_COL[m["stance"]]};font-size:15px;line-height:1">●</span>'
+            f'<span><b>{m["title"]}</b> <span class="muted" style="font-size:12px">{m["headline"]}</span></span></a>'
+            for m in focus)
+        infocus = card(items_html +
+                       '<div class="legend">Auto-surfaced from the strongest and most extreme module reads '
+                       'this build. Click any line to open it.</div>', "IN FOCUS NOW")
+    else:
+        infocus = ""
+    body = hero + infocus + strip + sections
     return dict(slug="", title="Terminal Overview",
                 sub="Every module's current read at a glance — click any card for the full analysis.",
                 body=body)
