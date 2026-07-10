@@ -774,9 +774,10 @@ try:
             "entry": round(entry, 2), "stop": round(stop, 2),
             "t1": round(t1, 2), "t2": round(t2, 2), "risk": round(risk, 4),
             "t2b": t2b, "trig": trig,
-            # 5 trading sessions = one real market week; a Friday setup no
-            # longer loses 2 of its 7 calendar days to the weekend
-            "expires": add_trading_days(datetime.now(timezone.utc), 5).strftime("%Y-%m-%d"),
+            # 7 trading sessions ≈ 10 calendar days (GK 2026-07-10, raised
+            # from 5). Trading-day counting keeps the weekend fairness: a
+            # Friday setup doesn't lose 2 of its days to the weekend.
+            "expires": add_trading_days(datetime.now(timezone.utc), 7).strftime("%Y-%m-%d"),
         }
 
     def emit(m, typ, loose):
