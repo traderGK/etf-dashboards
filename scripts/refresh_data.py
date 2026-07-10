@@ -885,6 +885,15 @@ try:
     OPEN_STATES = ("pending", "triggered", "t1")
     for s in prev_hist:
         if s.get("status") in OPEN_STATES and all(k in s for k in ("side","entry","stop","t1","t2","risk","expires")):
+            # Expiring a PENDING setup needs no price — check it BEFORE the
+            # price guard below. Otherwise a ticker that drops out of the
+            # price universe (holdings rotation / feed miss) keeps its setup
+            # "waiting" forever past its expiry (seen: ROKU, IBN 2026-07-10),
+            # and downstream consumers (site, chart, Alpaca paper mirror)
+            # disagree about whether the trade is still live. (GK 2026-07-10)
+            if s.get("status") == "pending" and today_str > s["expires"]:
+                s["status"] = "expired"; s["closed"] = today_str
+                continue
             tp = ticker_prices.get(s.get("t"))
             if tp:
                 lo, hi = day_hilo.get(s["t"], (tp["p"], tp["p"]))
