@@ -62,6 +62,13 @@
   footer{padding:30px 28px;max-width:1340px;margin:0 auto;font-size:12px;color:var(--text-faint)}
   footer a{color:var(--text-faint)}
   .empty{padding:26px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;align-items:center}
+  .fl{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase;margin-right:2px}
+  .chip{font-family:var(--mono);font-size:11px;letter-spacing:.5px;padding:6px 12px;border:1px solid var(--line-bright);background:var(--bg-card);color:var(--text-dim);cursor:pointer;border-radius:3px;transition:all .15s;text-transform:uppercase}
+  .chip:hover{color:var(--text);border-color:var(--text-faint)}
+  .chip.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}
+  .chip.ndxchip.on{background:var(--cyan);border-color:var(--cyan)}
+  .fsep{width:1px;height:22px;background:var(--line-bright);margin:0 4px}
   @media(max-width:700px){.wrap{padding:0 14px}.head-inner{padding:14px}}
 </style>
 </head>
@@ -70,7 +77,7 @@
 <header>
   <div class="head-inner">
     <div class="brand"><a href="/" style="text-decoration:none" title="Home"><span class="mark">TRADER<span style="opacity:.6">GK</span></span></a></div>
-    <div class="ticker-clock">SEC FORM 4 · CEO/CFO · $500K+ · <span id="upd">—</span></div>
+    <div class="ticker-clock">SEC FORM 4 · ALL-MARKET $500K+ · NDX-100 $100K+ · <span id="upd">—</span></div>
   </div>
 </header>
 
@@ -88,7 +95,24 @@
     <div class="sec-head">
       <div class="num">// INSIDER 01</div>
       <h3>Cluster <span class="serif">activity.</span></h3>
-      <p>Repetition is the signal. <b style="color:var(--gold)">CLUSTER</b> = two or more <em>different</em> insiders (CEO/CFO) trading the same direction in the same company within 14 days — the classically strongest insider signal. <b style="color:var(--text)">STREAK</b> = the same insider filing repeatedly. Only transactions ≥ $500k make it in. Click a row for the individual filings.</p>
+      <p>Repetition is the signal. <b style="color:var(--gold)">CLUSTER</b> = two or more <em>different</em> insiders trading the same direction in the same company within 14 days — the classically strongest insider signal. <b style="color:var(--text)">STREAK</b> = the same insider filing repeatedly. All-market coverage is CEO/CFO ≥ $500k; <span style="color:var(--cyan)">Nasdaq-100</span> names get extra depth: ≥ $100k and wider titles (COB/CEO/Pres/COO/CFO/Directors). Click a row for the individual filings.</p>
+    </div>
+    <div class="filters" id="filters">
+      <span class="fl">Value</span>
+      <button class="chip vband on" data-band="all">All</button>
+      <button class="chip vband" data-band="100-250">100–250K</button>
+      <button class="chip vband" data-band="250-500">250–500K</button>
+      <button class="chip vband" data-band="500+">500K+</button>
+      <span class="fsep"></span>
+      <span class="fl">Title</span>
+      <button class="chip tchip on" data-t="CEO">CEO</button>
+      <button class="chip tchip on" data-t="CFO">CFO</button>
+      <button class="chip tchip on" data-t="COB">COB</button>
+      <button class="chip tchip on" data-t="PRES">Pres</button>
+      <button class="chip tchip on" data-t="COO">COO</button>
+      <button class="chip tchip on" data-t="DIR">Dir</button>
+      <span class="fsep"></span>
+      <button class="chip ndxchip" id="ndxChip">◈ Nasdaq-100 only</button>
     </div>
     <div class="tblwrap">
       <table id="clustersTbl">
@@ -136,12 +160,27 @@
   const NDX=new Set(('AAPL MSFT NVDA AMZN META GOOGL GOOG AVGO TSLA COST NFLX AMD PEP ADBE CSCO QCOM TMUS INTU AMAT TXN CMCSA HON ISRG BKNG AMGN VRTX ADP PANW GILD SBUX MU ADI INTC LRCX MDLZ REGN KLAC SNPS CDNS PDD MELI CTAS CSX MAR ORLY CRWD ABNB FTNT NXPI PCAR ROP WDAY DASH CPRT MNST ROST AEP ODFL PAYX KDP FAST CHTR EA GEHC VRSK CTSH XEL KHC EXC LULU CCEP IDXX TTWO ZS DDOG TEAM FANG ON CDW GFS WBD MRVL ARM PLTR AXON APP MSTR SHOP LIN DXCM BKR CEG TTD AZN BIIB').split(' '));
   const tkCls=t=>'tk'+(NDX.has(t)?' ndx':'');
 
-  function render(d){
+  let D=null, band='all', ndxOnly=false;
+  const titles=new Set(['CEO','CFO','COB','PRES','COO','DIR']);
+
+  const inBand=v=>{const a=Math.abs(v);
+    return band==='all'?true:band==='100-250'?(a>=100e3&&a<250e3):band==='250-500'?(a>=250e3&&a<500e3):a>=500e3};
+  const titleOK=t=>{const u=String(t).toUpperCase();
+    return (titles.has('CEO')&&/\bCEO\b/.test(u))||(titles.has('CFO')&&/\bCFO\b/.test(u))
+      ||(titles.has('COB')&&(u.includes('COB')||u.includes('CHAIR')))
+      ||(titles.has('PRES')&&u.includes('PRES'))||(titles.has('COO')&&/\bCOO\b/.test(u))
+      ||(titles.has('DIR')&&u.includes('DIR'))};
+
+  function render(){
+    if(!D) return;
+    const d=D;
     $('#upd').textContent='UPDATED '+(d.generated||'').replace('T',' ').replace('Z',' UTC');
-    // ── clusters ──
+    const fOK=f=>inBand(f.value)&&titleOK(f.title)&&(!ndxOnly||f.ndx);
+    // ── clusters (NDX toggle + title filter apply; band applies to member filings) ──
     const cb=$('#clustersTbl tbody'); cb.innerHTML='';
-    if(!(d.clusters||[]).length) cb.innerHTML='<tr><td colspan="9" class="empty">no cluster activity right now</td></tr>';
-    (d.clusters||[]).forEach((c,i)=>{
+    const cls=(d.clusters||[]).filter(c=>(!ndxOnly||c.ndx)&&(c.filings||[]).some(fOK));
+    if(!cls.length) cb.innerHTML='<tr><td colspan="9" class="empty">nothing matches these filters</td></tr>';
+    cls.forEach(c=>{
       const tr=document.createElement('tr');
       tr.className='cl '+(c.dir==='buy'?'buyrow':'sellrow');
       tr.innerHTML=`<td><span class="badge ${c.badge}">${c.badge}</span></td>
@@ -160,8 +199,9 @@
     });
     // ── feed ──
     const fb=$('#feedTbl tbody'); fb.innerHTML='';
-    if(!(d.filings||[]).length) fb.innerHTML='<tr><td colspan="11" class="empty">no filings</td></tr>';
-    (d.filings||[]).slice(0,100).forEach(f=>{
+    const rows=(d.filings||[]).filter(fOK).slice(0,150);
+    if(!rows.length) fb.innerHTML='<tr><td colspan="11" class="empty">nothing matches these filters</td></tr>';
+    rows.forEach(f=>{
       const tr=document.createElement('tr');
       tr.className=f.dir==='buy'?'buyrow':'sellrow';
       tr.innerHTML=`<td class="num">${esc(f.filed.slice(0,16))}</td><td class="num">${esc(f.traded)}</td>
@@ -173,15 +213,30 @@
         <td class="num ${f.value<0?'vneg':'vpos'}">${fmt$(f.value)}</td>`;
       fb.appendChild(tr);
     });
-    $('#updated1').textContent='Signals computed over a rolling 14-day window per ticker · source: public SEC Form 4 filings';
+    let note='Signals computed over a rolling 14-day window per ticker · source: public SEC Form 4 filings';
+    if(band!=='all'&&band!=='500+'&&!ndxOnly)
+      note='Note: sub-$500k coverage exists for Nasdaq-100 names only — turn on "Nasdaq-100 only" for the full picture. · '+note;
+    $('#updated1').textContent=note;
   }
+
+  // ── filter chips ──
+  document.querySelectorAll('.vband').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.vband').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); band=b.dataset.band; render();
+  });
+  document.querySelectorAll('.tchip').forEach(b=>b.onclick=()=>{
+    b.classList.toggle('on');
+    b.classList.contains('on')?titles.add(b.dataset.t):titles.delete(b.dataset.t);
+    render();
+  });
+  $('#ndxChip').onclick=()=>{ndxOnly=!ndxOnly;$('#ndxChip').classList.toggle('on',ndxOnly);render()};
 
   // never-blank load: fetch → localStorage fallback
   fetch('/insider.json?t='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
     try{localStorage.setItem('gk_insider',JSON.stringify(d))}catch(e){}
-    render(d);
+    D=d; render();
   }).catch(()=>{
-    try{const c=localStorage.getItem('gk_insider'); if(c) return render(JSON.parse(c));}catch(e){}
+    try{const c=localStorage.getItem('gk_insider'); if(c){D=JSON.parse(c);return render();}}catch(e){}
     document.querySelectorAll('.empty').forEach(e=>e.textContent='data unavailable — retry shortly');
   });
 })();

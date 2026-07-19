@@ -34,6 +34,17 @@ OUT_FILE = "insider.json"
 MAX_AGE_MIN = 60           # refetch when older than this
 PAGES = 3                  # 100 rows/page -> ~300 rows of >=$500k history
 CLUSTER_WINDOW_DAYS = 14
+
+# Nasdaq-100 members (static snapshot — update on index rebalances; keep in
+# sync with the NDX list inside insider/index.html)
+NDX = set(("AAPL MSFT NVDA AMZN META GOOGL GOOG AVGO TSLA COST NFLX AMD PEP ADBE CSCO QCOM "
+           "TMUS INTU AMAT TXN CMCSA HON ISRG BKNG AMGN VRTX ADP PANW GILD SBUX MU ADI INTC "
+           "LRCX MDLZ REGN KLAC SNPS CDNS PDD MELI CTAS CSX MAR ORLY CRWD ABNB FTNT NXPI PCAR "
+           "ROP WDAY DASH CPRT MNST ROST AEP ODFL PAYX KDP FAST CHTR EA GEHC VRSK CTSH XEL KHC "
+           "EXC LULU CCEP IDXX TTWO ZS DDOG TEAM FANG ON CDW GFS WBD MRVL ARM PLTR AXON APP "
+           "MSTR SHOP LIN DXCM BKR CEG TTD AZN BIIB").split())
+NDX_MIN_K = 100            # NDX pass: $100k floor (bands rendered client-side)
+NDX_CHUNK = 20             # tickers per screener query
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -45,6 +56,18 @@ SCREENER = ("http://openinsider.com/screener?s=&o=&pl=&ph=&ll=&lh="
             "&isceo=1&iscfo=1"      # CEO + CFO
             "&grp=0&nfl=&nfh=&nil=&nih=&nol=&noh=&v2l=&v2h=&oc2l=&oc2h="
             "&sortcol=0&cnt=100&page={page}")
+
+# NDX-only pass: lower floor ($100k) and wider titles (COB/CEO/Pres/COO/CFO/Dir)
+# — at mega-caps even a small officer/director trade is meaningful, and buys
+# are rare enough to be signal on their own.
+SCREENER_NDX = ("http://openinsider.com/screener?s={tickers}&o=&pl=&ph=&ll=&lh="
+                "&fd=365&fdr=&td=0&tdr=&fdlyl=&fdlyh=&daysago="
+                "&xp=1&xs=1"
+                "&vl=" + str(NDX_MIN_K) + "&vh="
+                "&ocl=&och=&sic1=-1&sicl=100&sich=9999"
+                "&iscob=1&isceo=1&ispres=1&iscoo=1&iscfo=1&isdirector=1"
+                "&grp=0&nfl=&nfh=&nil=&nih=&nol=&noh=&v2l=&v2h=&oc2l=&oc2h="
+                "&sortcol=0&cnt=100&page={page}")
 
 
 def _age_min(path):
@@ -69,10 +92,14 @@ def _num(s):
         return 0.0
 
 
-def _fetch_page(page):
-    req = urllib.request.Request(SCREENER.format(page=page), headers={"User-Agent": UA})
+def _get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode("utf-8", "replace")
+
+
+def _fetch_page(page):
+    return _get(SCREENER.format(page=page))
 
 
 def _parse(page_html):
@@ -134,6 +161,7 @@ def _clusters(filings):
         qty = sum(abs(f["qty"]) for f in recent) or 1
         out.append({
             "ticker": ticker,
+            "ndx": recent[0].get("ndx", False),
             "company": recent[0]["company"],
             "dir": d,
             "badge": badge,
@@ -155,27 +183,51 @@ def refresh_insider(force=False):
         print(f"   Insider: fresh ({age:.0f} min old, limit {MAX_AGE_MIN}) — skipping")
         return False
     filings, seen = [], set()
-    for p in range(1, PAGES + 1):
-        rows = _parse(_fetch_page(p))
-        if not rows:
-            break
+
+    def _absorb(rows):
+        n = 0
         for r in rows:
             k = (r["filed"], r["ticker"], r["insider"], r["value"])
             if k not in seen:
                 seen.add(k)
+                r["ndx"] = r["ticker"] in NDX
                 filings.append(r)
+                n += 1
+        return n
+
+    # Pass 1 — all-market: CEO/CFO, >=$500k (the clean headline feed)
+    for p in range(1, PAGES + 1):
+        rows = _parse(_fetch_page(p))
+        if not rows:
+            break
+        _absorb(rows)
         time.sleep(1.5)  # be polite between pages
     if len(filings) < 20:
         # implausibly small — markup change or block; keep last-good file
         raise RuntimeError(f"only {len(filings)} filings parsed — keeping last-good {OUT_FILE}")
+
+    # Pass 2 — Nasdaq-100 only: wider titles, >=$100k, queried in ticker chunks.
+    # Non-fatal per chunk: a failed chunk just means fewer NDX rows this hour.
+    ndx_rows = 0
+    tickers = sorted(NDX)
+    for i in range(0, len(tickers), NDX_CHUNK):
+        chunk = "+".join(tickers[i:i + NDX_CHUNK])
+        try:
+            ndx_rows += _absorb(_parse(_get(SCREENER_NDX.format(tickers=chunk, page=1))))
+        except Exception as e:
+            print(f"   Insider: NDX chunk {i//NDX_CHUNK+1} failed (non-fatal): {e}")
+        time.sleep(1.5)
+    print(f"   Insider: +{ndx_rows} extra NDX rows (>= ${NDX_MIN_K}k, wide titles)")
     filings.sort(key=lambda f: f["filed"], reverse=True)
     out = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": "openinsider",
         "settings": {"min_value_usd": 500000, "titles": ["CEO", "CFO"],
-                     "types": ["P", "S"], "window_days": CLUSTER_WINDOW_DAYS},
+                     "types": ["P", "S"], "window_days": CLUSTER_WINDOW_DAYS,
+                     "ndx_min_usd": NDX_MIN_K * 1000,
+                     "ndx_titles": ["COB", "CEO", "Pres", "COO", "CFO", "Dir"]},
         "clusters": _clusters(filings),
-        "filings": filings[:300],
+        "filings": filings[:600],
     }
     with open(OUT_FILE, "w") as f:
         json.dump(out, f, separators=(",", ":"))
