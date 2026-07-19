@@ -15,7 +15,7 @@ tPRES = input.bool(false, "President",   group = "Insider title")
 tCOO  = input.bool(false, "COO",  group = "Insider title")
 tDIR  = input.bool(false, "Director",    group = "Insider title")
 ndxOnly = input.bool(false, "Nasdaq-100 only", group = "Filter")
-lookback = input.int(30, "Lookback (days)", minval = 7, maxval = 365, group = "Filter")
+lookback = input.int(90, "Lookback (days)", minval = 7, maxval = 365, group = "Filter")
 
 fmtv(float k) =>
     k >= 1000 ? str.tostring(k / 1000, "#.#") + "M" : str.tostring(k, "#") + "K"
