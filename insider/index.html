@@ -69,6 +69,10 @@
   .chip.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}
   .chip.ndxchip.on{background:var(--cyan);border-color:var(--cyan)}
   .fsep{width:1px;height:22px;background:var(--line-bright);margin:0 4px}
+  th[data-k]{cursor:pointer;user-select:none}
+  th[data-k]:hover{color:var(--text)}
+  th[data-k].sorted{color:var(--gold)}
+  th[data-k] .arw{font-size:8px;margin-left:3px}
   @media(max-width:700px){.wrap{padding:0 14px}.head-inner{padding:14px}}
 </style>
 </head>
@@ -117,9 +121,9 @@
     <div class="tblwrap">
       <table id="clustersTbl">
         <thead><tr>
-          <th>Signal</th><th>Ticker</th><th>Company</th><th>Direction</th>
-          <th class="num">Trades</th><th class="num">Insiders</th>
-          <th class="num">Total Value</th><th class="num">Avg Price</th><th>Last Filing</th>
+          <th data-k="badge">Signal<span class="arw"></span></th><th data-k="ticker">Ticker<span class="arw"></span></th><th data-k="company">Company<span class="arw"></span></th><th data-k="dir">Direction<span class="arw"></span></th>
+          <th class="num" data-k="n_trades">Trades<span class="arw"></span></th><th class="num" data-k="n_insiders">Insiders<span class="arw"></span></th>
+          <th class="num" data-k="total_value">Total Value<span class="arw"></span></th><th class="num" data-k="avg_price">Avg Price<span class="arw"></span></th><th data-k="last_filed">Last Filing<span class="arw"></span></th>
         </tr></thead>
         <tbody><tr><td colspan="9" class="empty">loading…</td></tr></tbody>
       </table>
@@ -136,8 +140,8 @@
     <div class="tblwrap">
       <table id="feedTbl">
         <thead><tr>
-          <th>Filed</th><th>Trade</th><th>Ticker</th><th>Company</th><th>Insider</th><th>Title</th>
-          <th>Type</th><th class="num">Price</th><th class="num">Qty</th><th class="num">ΔOwn</th><th class="num">Value</th>
+          <th data-k="filed">Filed<span class="arw"></span></th><th data-k="traded">Trade<span class="arw"></span></th><th data-k="ticker">Ticker<span class="arw"></span></th><th data-k="company">Company<span class="arw"></span></th><th data-k="insider">Insider<span class="arw"></span></th><th data-k="title">Title<span class="arw"></span></th>
+          <th data-k="dir">Type<span class="arw"></span></th><th class="num" data-k="price">Price<span class="arw"></span></th><th class="num" data-k="qty">Qty<span class="arw"></span></th><th class="num" data-k="dOwn">ΔOwn<span class="arw"></span></th><th class="num" data-k="value">Value<span class="arw"></span></th>
         </tr></thead>
         <tbody><tr><td colspan="11" class="empty">loading…</td></tr></tbody>
       </table>
@@ -175,6 +179,24 @@
       ||(titles.has('PRES')&&u.includes('PRES'))||(titles.has('COO')&&/\bCOO\b/.test(u))
       ||(titles.has('DIR')&&u.includes('DIR'))};
 
+  // per-table sort state; numeric columns sort by magnitude, text by locale
+  const sort={c:{k:null,d:-1},f:{k:null,d:-1}};
+  const NUMK=new Set(['n_trades','n_insiders','total_value','avg_price','price','qty','dOwn','value']);
+  const sortRows=(rows,st)=>{
+    if(!st.k) return rows;
+    const k=st.k,d=st.d;
+    return [...rows].sort((a,b)=>{
+      let x=a[k],y=b[k];
+      if(NUMK.has(k)){x=Math.abs(+x||0);y=Math.abs(+y||0);return (x-y)*d;}
+      return String(x).localeCompare(String(y))*d;
+    });
+  };
+  const markHeads=(tblSel,st)=>document.querySelectorAll(tblSel+' th[data-k]').forEach(th=>{
+    const on=th.dataset.k===st.k;
+    th.classList.toggle('sorted',on);
+    th.querySelector('.arw').textContent=on?(st.d>0?'▲':'▼'):'';
+  });
+
   function render(){
     if(!D) return;
     const d=D;
@@ -182,7 +204,8 @@
     const fOK=f=>inBand(f.value)&&titleOK(f.title)&&(!ndxOnly||f.ndx);
     // ── clusters (NDX toggle + title filter apply; band applies to member filings) ──
     const cb=$('#clustersTbl tbody'); cb.innerHTML='';
-    const cls=(d.clusters||[]).filter(c=>(!ndxOnly||c.ndx)&&(c.filings||[]).some(fOK));
+    let cls=(d.clusters||[]).filter(c=>(!ndxOnly||c.ndx)&&(c.filings||[]).some(fOK));
+    cls=sortRows(cls,sort.c); markHeads('#clustersTbl',sort.c);
     if(!cls.length) cb.innerHTML='<tr><td colspan="9" class="empty">nothing matches these filters</td></tr>';
     cls.forEach(c=>{
       const tr=document.createElement('tr');
@@ -203,7 +226,8 @@
     });
     // ── feed ──
     const fb=$('#feedTbl tbody'); fb.innerHTML='';
-    const rows=(d.filings||[]).filter(fOK).slice(0,150);
+    const rows=sortRows((d.filings||[]).filter(fOK),sort.f).slice(0,150);
+    markHeads('#feedTbl',sort.f);
     if(!rows.length) fb.innerHTML='<tr><td colspan="11" class="empty">nothing matches these filters</td></tr>';
     rows.forEach(f=>{
       const tr=document.createElement('tr');
@@ -241,6 +265,14 @@
     render();
   });
   $('#ndxChip').onclick=()=>{ndxOnly=!ndxOnly;$('#ndxChip').classList.toggle('on',ndxOnly);render()};
+
+  // sortable headers: 1st click desc (biggest/latest first), 2nd asc, on both tables
+  const bindSort=(tblSel,st)=>document.querySelectorAll(tblSel+' th[data-k]').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    st.d=(st.k===k)?-st.d:-1;
+    st.k=k; render();
+  });
+  bindSort('#clustersTbl',sort.c); bindSort('#feedTbl',sort.f);
 
   // never-blank load: fetch → localStorage fallback
   fetch('/insider.json?t='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
