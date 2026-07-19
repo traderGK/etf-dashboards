@@ -13,7 +13,7 @@
     --line:#2a2a2a;--line-bright:#3a3a3a;
     --text:#e6e6e6;--text-dim:#a0a0a0;--text-faint:#606060;
     --amber:#d4af37;--green:#4caf7d;--red:#e05555;
-    --gold:#d4af37;
+    --gold:#d4af37;--cyan:#5aa2d4;
     --mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,-apple-system,sans-serif;--serif:'Newsreader',serif;
   }
   *{margin:0;padding:0;box-sizing:border-box}
@@ -42,6 +42,7 @@
   td.num{font-family:var(--mono);text-align:right}
   th.num{text-align:right}
   .tk{font-family:var(--mono);font-weight:700;color:var(--text)}
+  .tk.ndx{color:var(--cyan)}
   .co{max-width:230px;overflow:hidden;text-overflow:ellipsis}
   .pill{font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:2px;font-weight:700}
   .pill.buy{background:rgba(76,175,125,.15);color:var(--green)}
@@ -131,6 +132,9 @@
   const $=s=>document.querySelector(s);
   const fmt$=v=>{const a=Math.abs(v);const s=a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(0)+'K':a.toFixed(0);return (v<0?'-$':'+$')+s};
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // Nasdaq-100 members (static snapshot — update on index rebalances)
+  const NDX=new Set(('AAPL MSFT NVDA AMZN META GOOGL GOOG AVGO TSLA COST NFLX AMD PEP ADBE CSCO QCOM TMUS INTU AMAT TXN CMCSA HON ISRG BKNG AMGN VRTX ADP PANW GILD SBUX MU ADI INTC LRCX MDLZ REGN KLAC SNPS CDNS PDD MELI CTAS CSX MAR ORLY CRWD ABNB FTNT NXPI PCAR ROP WDAY DASH CPRT MNST ROST AEP ODFL PAYX KDP FAST CHTR EA GEHC VRSK CTSH XEL KHC EXC LULU CCEP IDXX TTWO ZS DDOG TEAM FANG ON CDW GFS WBD MRVL ARM PLTR AXON APP MSTR SHOP LIN DXCM BKR CEG TTD AZN BIIB').split(' '));
+  const tkCls=t=>'tk'+(NDX.has(t)?' ndx':'');
 
   function render(d){
     $('#upd').textContent='UPDATED '+(d.generated||'').replace('T',' ').replace('Z',' UTC');
@@ -141,7 +145,7 @@
       const tr=document.createElement('tr');
       tr.className='cl '+(c.dir==='buy'?'buyrow':'sellrow');
       tr.innerHTML=`<td><span class="badge ${c.badge}">${c.badge}</span></td>
-        <td class="tk">${esc(c.ticker)}</td><td class="co">${esc(c.company)}</td>
+        <td class="${tkCls(c.ticker)}">${esc(c.ticker)}</td><td class="co">${esc(c.company)}</td>
         <td><span class="pill ${c.dir}">${c.dir==='buy'?'BUY':'SELL'} ×${c.n_trades}</span></td>
         <td class="num">${c.n_trades}</td><td class="num">${c.n_insiders}</td>
         <td class="num ${c.total_value<0?'vneg':'vpos'}">${fmt$(c.total_value)}</td>
@@ -161,7 +165,7 @@
       const tr=document.createElement('tr');
       tr.className=f.dir==='buy'?'buyrow':'sellrow';
       tr.innerHTML=`<td class="num">${esc(f.filed.slice(0,16))}</td><td class="num">${esc(f.traded)}</td>
-        <td class="tk">${esc(f.ticker)}</td><td class="co">${esc(f.company)}</td>
+        <td class="${tkCls(f.ticker)}">${esc(f.ticker)}</td><td class="co">${esc(f.company)}</td>
         <td class="co">${esc(f.insider)}</td><td>${esc(f.title)}</td>
         <td><span class="pill ${f.dir}">${f.dir==='buy'?'BUY':'SELL'}</span></td>
         <td class="num">$${f.price.toFixed(2)}</td><td class="num">${f.qty.toLocaleString()}</td>
