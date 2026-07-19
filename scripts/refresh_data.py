@@ -774,10 +774,11 @@ try:
             "entry": round(entry, 2), "stop": round(stop, 2),
             "t1": round(t1, 2), "t2": round(t2, 2), "risk": round(risk, 4),
             "t2b": t2b, "trig": trig,
-            # 7 trading sessions ≈ 10 calendar days (GK 2026-07-10, raised
-            # from 5). Trading-day counting keeps the weekend fairness: a
-            # Friday setup doesn't lose 2 of its days to the weekend.
-            "expires": add_trading_days(datetime.now(timezone.utc), 7).strftime("%Y-%m-%d"),
+            # Cancel if not TRIGGERED within 15 calendar days (GK 2026-07-19,
+            # raised from 7 trading days / ~10 cal). Calendar days match GK's
+            # "within 15 days" literally; a weekend expiry is harmless (the
+            # date-string compare just fires on the following Monday refresh).
+            "expires": (datetime.now(timezone.utc) + timedelta(days=15)).strftime("%Y-%m-%d"),
         }
 
     def emit(m, typ, loose):
