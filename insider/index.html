@@ -160,11 +160,15 @@
   const NDX=new Set(('AAPL MSFT NVDA AMZN META GOOGL GOOG AVGO TSLA COST NFLX AMD PEP ADBE CSCO QCOM TMUS INTU AMAT TXN CMCSA HON ISRG BKNG AMGN VRTX ADP PANW GILD SBUX MU ADI INTC LRCX MDLZ REGN KLAC SNPS CDNS PDD MELI CTAS CSX MAR ORLY CRWD ABNB FTNT NXPI PCAR ROP WDAY DASH CPRT MNST ROST AEP ODFL PAYX KDP FAST CHTR EA GEHC VRSK CTSH XEL KHC EXC LULU CCEP IDXX TTWO ZS DDOG TEAM FANG ON CDW GFS WBD MRVL ARM PLTR AXON APP MSTR SHOP LIN DXCM BKR CEG TTD AZN BIIB').split(' '));
   const tkCls=t=>'tk'+(NDX.has(t)?' ndx':'');
 
-  let D=null, band='all', ndxOnly=false;
+  let D=null, ndxOnly=false;
+  const bands=new Set();   // empty = all values
   const titles=new Set(['CEO','CFO','COB','PRES','COO','DIR']);
 
   const inBand=v=>{const a=Math.abs(v);
-    return band==='all'?true:band==='100-250'?(a>=100e3&&a<250e3):band==='250-500'?(a>=250e3&&a<500e3):a>=500e3};
+    if(!bands.size) return true;                       // "All"
+    return (bands.has('100-250')&&a>=100e3&&a<250e3)
+        || (bands.has('250-500')&&a>=250e3&&a<500e3)
+        || (bands.has('500+')&&a>=500e3)};
   const titleOK=t=>{const u=String(t).toUpperCase();
     return (titles.has('CEO')&&/\bCEO\b/.test(u))||(titles.has('CFO')&&/\bCFO\b/.test(u))
       ||(titles.has('COB')&&(u.includes('COB')||u.includes('CHAIR')))
@@ -214,15 +218,22 @@
       fb.appendChild(tr);
     });
     let note='Signals computed over a rolling 14-day window per ticker · source: public SEC Form 4 filings';
-    if(band!=='all'&&band!=='500+'&&!ndxOnly)
+    if((bands.has('100-250')||bands.has('250-500'))&&!ndxOnly)
       note='Note: sub-$500k coverage exists for Nasdaq-100 names only — turn on "Nasdaq-100 only" for the full picture. · '+note;
     $('#updated1').textContent=note;
   }
 
   // ── filter chips ──
+  // value bands are MULTI-SELECT: "All" clears the set; picking any band
+  // toggles it, and the chips reflect the set
+  const syncBandChips=()=>document.querySelectorAll('.vband').forEach(x=>
+    x.classList.toggle('on', x.dataset.band==='all'?!bands.size:bands.has(x.dataset.band)));
   document.querySelectorAll('.vband').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('.vband').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); band=b.dataset.band; render();
+    const v=b.dataset.band;
+    if(v==='all') bands.clear();
+    else{ bands.has(v)?bands.delete(v):bands.add(v);
+          if(bands.size===3) bands.clear(); }         // all three = All
+    syncBandChips(); render();
   });
   document.querySelectorAll('.tchip').forEach(b=>b.onclick=()=>{
     b.classList.toggle('on');
