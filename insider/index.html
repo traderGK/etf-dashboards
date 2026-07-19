@@ -102,6 +102,10 @@
       <p>Repetition is the signal. <b style="color:var(--gold)">CLUSTER</b> = two or more <em>different</em> insiders trading the same direction in the same company within 14 days — the classically strongest insider signal. <b style="color:var(--text)">STREAK</b> = the same insider filing repeatedly. All-market coverage is CEO/CFO ≥ $500k; <span style="color:var(--cyan)">Nasdaq-100</span> names get extra depth: ≥ $100k and wider titles (COB/CEO/Pres/COO/CFO/Directors). Click a row for the individual filings.</p>
     </div>
     <div class="filters" id="filters">
+      <span class="fl">Side</span>
+      <button class="chip dchip on" data-d="buy">Buys</button>
+      <button class="chip dchip on" data-d="sell">Sells</button>
+      <span class="fsep"></span>
       <span class="fl">Value</span>
       <button class="chip vband on" data-band="all">All</button>
       <button class="chip vband" data-band="100-250">100–250K</button>
@@ -165,6 +169,7 @@
   const tkCls=t=>'tk'+(NDX.has(t)?' ndx':'');
 
   let D=null, ndxOnly=false;
+  const sides=new Set(['buy','sell']);
   const bands=new Set();   // empty = all values
   const titles=new Set(['CEO','CFO','COB','PRES','COO','DIR']);
 
@@ -201,10 +206,10 @@
     if(!D) return;
     const d=D;
     $('#upd').textContent='UPDATED '+(d.generated||'').replace('T',' ').replace('Z',' UTC');
-    const fOK=f=>inBand(f.value)&&titleOK(f.title)&&(!ndxOnly||f.ndx);
+    const fOK=f=>sides.has(f.dir)&&inBand(f.value)&&titleOK(f.title)&&(!ndxOnly||f.ndx);
     // ── clusters (NDX toggle + title filter apply; band applies to member filings) ──
     const cb=$('#clustersTbl tbody'); cb.innerHTML='';
-    let cls=(d.clusters||[]).filter(c=>(!ndxOnly||c.ndx)&&(c.filings||[]).some(fOK));
+    let cls=(d.clusters||[]).filter(c=>sides.has(c.dir)&&(!ndxOnly||c.ndx)&&(c.filings||[]).some(fOK));
     cls=sortRows(cls,sort.c); markHeads('#clustersTbl',sort.c);
     if(!cls.length) cb.innerHTML='<tr><td colspan="9" class="empty">nothing matches these filters</td></tr>';
     cls.forEach(c=>{
@@ -258,6 +263,11 @@
     else{ bands.has(v)?bands.delete(v):bands.add(v);
           if(bands.size===3) bands.clear(); }         // all three = All
     syncBandChips(); render();
+  });
+  document.querySelectorAll('.dchip').forEach(b=>b.onclick=()=>{
+    b.classList.toggle('on');
+    b.classList.contains('on')?sides.add(b.dataset.d):sides.delete(b.dataset.d);
+    render();
   });
   document.querySelectorAll('.tchip').forEach(b=>b.onclick=()=>{
     b.classList.toggle('on');

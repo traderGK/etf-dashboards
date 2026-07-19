@@ -14,7 +14,7 @@ tCOB  = input.bool(false, "COB / Chair", group = "Insider title")
 tPRES = input.bool(false, "President",   group = "Insider title")
 tCOO  = input.bool(false, "COO",  group = "Insider title")
 tDIR  = input.bool(false, "Director",    group = "Insider title")
-ndxOnly = input.bool(true, "Nasdaq-100 only", group = "Filter")
+ndxOnly = input.bool(false, "Nasdaq-100 only", group = "Filter")
 lookback = input.int(30, "Lookback (days)", minval = 7, maxval = 365, group = "Filter")
 
 fmtv(float k) =>

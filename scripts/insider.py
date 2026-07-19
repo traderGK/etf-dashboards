@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 
 OUT_FILE = "insider.json"
 MAX_AGE_MIN = 60           # refetch when older than this
-PAGES = 3                  # 100 rows/page -> ~300 rows of >=$500k history
+PAGES = 6                  # 100 rows/page -> ~600 rows of >=$500k history
 CLUSTER_WINDOW_DAYS = 14
 
 # Nasdaq-100 members (static snapshot — update on index rebalances; keep in
@@ -227,7 +227,7 @@ def refresh_insider(force=False):
                      "ndx_min_usd": NDX_MIN_K * 1000,
                      "ndx_titles": ["COB", "CEO", "Pres", "COO", "CFO", "Dir"]},
         "clusters": _clusters(filings),
-        "filings": filings[:600],
+        "filings": filings[:1000],
     }
     with open(OUT_FILE, "w") as f:
         json.dump(out, f, separators=(",", ":"))
