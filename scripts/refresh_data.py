@@ -1286,6 +1286,22 @@ else:
     except Exception as e:
         print(f"KV push failed (non-fatal): {e}", file=sys.stderr)
 
+# ──────────────────────────────────────────────────────────────────────────────
+# STEP 5c — Public insider activity (tradergk.com/insider)
+# Scrapes OpenInsider (CEO/CFO, P+S, >=$500k) + cluster/streak detection →
+# insider.json. Hourly-throttled inside scripts/insider.py; last-good file
+# survives any fetch failure. Non-fatal — never breaks the data refresh.
+# ──────────────────────────────────────────────────────────────────────────────
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from insider import refresh_insider
+    if refresh_insider() and os.environ.get("GITHUB_ACTIONS") == "true":
+        # the workflow's commit step only re-adds data.json — stage insider.json
+        # here so it rides along in the same data commit (same as archive.json)
+        subprocess.run(["git", "add", "insider.json"], check=False)
+except Exception as _ie:
+    print(f"Insider refresh warning (non-fatal): {_ie}", file=sys.stderr)
+
 ok = sum(1 for r in results if not r.get("error"))
 live_h = sum(1 for v in etf_holdings_map.values() if v and v[0].get('w',0) > 0)
 print(f"\n✅ data.json written")
