@@ -599,6 +599,7 @@ print(f"\nSetups scan: {len(stock_tks)} stocks across {len(set(stock_parent.valu
 
 setups_out = {"internals": {}, "list": [], "scanned": 0}
 kv_prev_ok = False   # True only once the previous book is read from KV without error
+_kv_prev_obj = {}    # full previous KV object — carries the separate NW journal (STEP 4.9)
 try:
     raw3 = yf.download(stock_tks + ETF_TICKERS, period="3mo", interval="1d",
                        auto_adjust=True, progress=False, threads=True)
@@ -871,7 +872,8 @@ try:
             import urllib.request as _ureq
             _u = f"https://api.cloudflare.com/client/v4/accounts/{_ka}/storage/kv/namespaces/{_kn}/values/latest"
             _r = _ureq.Request(_u, headers={"Authorization": f"Bearer {_kt}", "User-Agent": "Mozilla/5.0"})
-            prev_hist = (json.load(_ureq.urlopen(_r, timeout=20)).get("hist")) or []
+            _kv_prev_obj = json.load(_ureq.urlopen(_r, timeout=20)) or {}
+            prev_hist = _kv_prev_obj.get("hist") or []
             kv_prev_ok = True   # read succeeded — safe to write the carried-forward book back
             print(f"   Prev setups from KV: {len(prev_hist)} hist rows")
         except Exception as e:
@@ -1237,6 +1239,31 @@ try:
           f"({', '.join(f'{k}:{v}' for k,v in per_type.items())})")
 except Exception as e:
     print(f"Setups scan failed (non-fatal): {e}", file=sys.stderr)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# STEP 4.9 — NW crypto strategy journal (ETH/USD 4h, Nadaraya-Watson BW66).
+# SEPARATE journal from the stock setups book (GK 2026-07-23): it lives only
+# under the `nw` key of the KV object — never mixed into list/hist/stats/open,
+# so the site track record, Telegram diff, TV chart and Alpaca mirror are all
+# untouched. Armed on first CI run; the journal starts at the first FRESH buy
+# signal after arming (no backfill). Engine: scripts/nw_signal.py (validated
+# 10/10 vs the TradingView backtest trade list, Kraken + Yahoo feeds).
+# Non-fatal: on any error the previous journal state is carried forward as-is.
+# ──────────────────────────────────────────────────────────────────────────────
+_prev_nw = _kv_prev_obj.get("nw") if isinstance(_kv_prev_obj, dict) else None
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from nw_signal import update_nw
+    _nw = update_nw(_prev_nw)
+    setups_out["nw"] = _nw
+    _pos = _nw.get("pos") or {}
+    print(f"   NW journal: {_nw['status']}"
+          + (f" @{_pos.get('entry')} ({_pos.get('upnl_pct')}%)" if _nw["status"] == "long" else "")
+          + f" · {_nw['stats']['n']} closed · line {_nw['line']['dir']} · src {_nw['src']}")
+except Exception as e:
+    print(f"NW journal update failed (non-fatal): {e}", file=sys.stderr)
+    if _prev_nw:
+        setups_out["nw"] = _prev_nw   # never drop the journal on a feed hiccup
 
 # ──────────────────────────────────────────────────────────────────────────────
 # STEP 5 — Write data.json

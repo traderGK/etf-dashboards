@@ -694,6 +694,19 @@
   .su-card.su-pass:hover{opacity:.85}
   .su-empty{font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:14px}
   .su-foot{font-family:var(--mono);font-size:9px;color:var(--text-faint);margin-top:18px}
+  /* NW crypto journal — separate strategy book */
+  .nw-banner{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:16px 0 12px;background:var(--card);display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .nw-banner.long{border-color:rgba(76,175,125,.45);background:rgba(76,175,125,.06)}
+  .nw-banner.waiting{border-color:rgba(212,175,55,.35);background:rgba(212,175,55,.04)}
+  .nw-state{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px}
+  .nw-banner.long .nw-state{color:var(--green)} .nw-banner.waiting .nw-state{color:var(--gold)}
+  .nw-sub{font-size:12px;color:var(--text-dim);line-height:1.55;flex:1 1 260px}
+  .nw-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+  .nw-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .nw-table th{text-align:left;font-size:9px;letter-spacing:1.5px;color:var(--text-faint);text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .nw-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text-dim)}
+  .nw-table td.pos{color:var(--green);font-weight:700} .nw-table td.neg{color:var(--red);font-weight:700}
+  .nw-empty{font-family:var(--mono);font-size:11px;color:var(--text-faint);padding:14px 4px}
   .se-etf-link{cursor:pointer;color:var(--gold);border-bottom:1px dashed rgba(212,175,55,.45);transition:color .15s,border-color .15s;padding:0 1px}
   .se-etf-link:hover{color:#fff;border-bottom-color:#fff}
   .se-verdict{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px}
@@ -1086,6 +1099,19 @@
     <div id="suList" class="su-list"></div>
     <div class="su-foot">Candidates pre-screened server-side every 10 min · levels are closing-price based · not investment advice</div>
     </div><!-- /setupsWrap -->
+  </section>
+
+  <!-- NW CRYPTO JOURNAL — SEPARATE strategy book (ETH/USD 4h · Nadaraya-Watson BW66).
+       Never mixed into the stock Trade Sheet, its track record, or alerts. -->
+  <section id="nwjournal" style="display:none">
+    <div class="sec-head">
+      <div>
+        <div class="num">CRYPTO STRATEGY JOURNAL — SEPARATE BOOK</div>
+        <h3>Nadaraya-Watson trend strategy — ETH/USD 4h <span class="info"><button class="info-btn" aria-label="How this works" onclick="toggleInfo(event,this)">i</button><span class="info-pop">A kernel-regression trend line (Nadaraya-Watson, bandwidth 66) is computed on 4h ETH/USD closes. <b>Buy</b> when the line turns up, <b>close</b> when it turns down — long only, signals confirmed on bar close, filled at the next 4h bar open. This journal tracks every signal live from its arming date — no backfill, and fully separate from the stock Trade Sheet.</span></span></h3>
+      </div>
+    </div>
+    <div id="nwBody"></div>
+    <div class="su-foot">Separate journal — not part of the stock Trade Sheet or its track record · signals on 4h bar close, filled next bar open · net P&amp;L includes 0.1% fee per side · backtest reference 2020→2026: +8,196% vs +1,230% buy&amp;hold (173 trades) — past results, no guarantee · not investment advice</div>
   </section>
   </div><!-- /tradesBody -->
   </div><!-- /trades -->
@@ -2414,6 +2440,61 @@ function suConcl(pct, itn){
     avoid:'AVOID: all new longs, averaging down, "it can\'t go lower".'};
 }
 
+/* NW crypto journal — SEPARATE strategy book (ETH/USD 4h, Nadaraya-Watson BW66).
+   Renders only from the `nw` key of the gated payload; never touches the stock
+   setups, their track record, or the open-positions tracker. */
+function renderNW(nw){
+  const sec=document.getElementById('nwjournal'), el=document.getElementById('nwBody');
+  if(!sec||!el) return;
+  if(!nw){ sec.style.display='none'; return; }
+  sec.style.display='';
+  const j=nw.journal||[], st=nw.stats||{}, pos=nw.pos||null, line=nw.line||{};
+  const fdt=iso=>iso?iso.replace('T',' ').replace('Z',''):'–';
+  const pnlCls=v=>v>0?'pos':v<0?'neg':'';
+  const dirUp=line.dir==='up';
+
+  let banner;
+  if(nw.status==='long'&&pos){
+    const u=pos.upnl_pct;
+    banner=`<div class="nw-banner long">
+      <span class="nw-state">🟢 LONG ETH/USD</span>
+      <span class="nw-sub">Entered <b>${fdt(pos.entry_iso)}</b> UTC @ <b>$${pos.entry}</b> — now $${nw.px}
+      <b style="color:${u>=0?'var(--green)':'var(--red)'}">${u>=0?'+':''}${u??'–'}%</b>.
+      Position closes when the NW line turns down (checked every 4h bar close).</span></div>`;
+  } else if(j.length===0){
+    banner=`<div class="nw-banner waiting">
+      <span class="nw-state">🟡 ARMED — WAITING FOR THE FIRST BUY SIGNAL</span>
+      <span class="nw-sub">Journal armed <b>${fdt(nw.armed_iso)}</b> UTC. No backfill — the first trade appears
+      when the NW line prints a <b>fresh flip up</b>. Line is currently pointing
+      <b style="color:${dirUp?'var(--green)':'var(--red)'}">${dirUp?'UP':'DOWN'}</b>${dirUp?' (uptrend already in progress when armed — it is skipped by design)':''}.</span></div>`;
+  } else {
+    banner=`<div class="nw-banner waiting">
+      <span class="nw-state">⚪ FLAT — WAITING FOR THE NEXT BUY SIGNAL</span>
+      <span class="nw-sub">Last position closed ${fdt(j[0].exit_iso)} UTC. Re-enters on the next fresh NW flip up.
+      Line is currently pointing <b style="color:${dirUp?'var(--green)':'var(--red)'}">${dirUp?'UP':'DOWN'}</b>.</span></div>`;
+  }
+
+  const chips=[
+    `<span class="su-int-chip mid">ETH/USD <b>$${nw.px??'–'}</b></span>`,
+    `<span class="su-int-chip ${dirUp?'good':'bad'}">NW LINE <b>${dirUp?'▲ UP':'▼ DOWN'}</b></span>`,
+    `<span class="su-int-chip mid">TRADES <b>${st.n||0}</b></span>`,
+    `<span class="su-int-chip ${st.winRate==null?'mid':st.winRate>=50?'good':'bad'}">WIN RATE <b>${st.winRate==null?'–':st.winRate+'%'}</b></span>`,
+    `<span class="su-int-chip ${(st.cumPct||0)>0?'good':(st.cumPct||0)<0?'bad':'mid'}">JOURNAL P&amp;L <b>${(st.cumPct||0)>=0?'+':''}${st.cumPct??0}%</b></span>`,
+  ].join('');
+
+  let table;
+  if(j.length){
+    table=`<table class="nw-table"><tr><th>#</th><th>Entry (UTC)</th><th>Entry $</th><th>Exit (UTC)</th><th>Exit $</th><th>Held</th><th>Net P&amp;L</th></tr>`+
+      j.map((r,i)=>{
+        const held=r.bars>=6?(r.bars/6).toFixed(1)+'d':r.bars*4+'h';
+        return `<tr><td>${j.length-i}</td><td>${fdt(r.entry_iso)}</td><td>$${r.entry}</td><td>${fdt(r.exit_iso)}</td><td>$${r.exit}</td><td>${held}</td><td class="${pnlCls(r.pnl_pct)}">${r.pnl_pct>0?'+':''}${r.pnl_pct}%</td></tr>`;
+      }).join('')+`</table>`;
+  } else {
+    table=`<div class="nw-empty">No trades yet — the journal starts at the first fresh buy signal after arming.</div>`;
+  }
+  el.innerHTML=banner+`<div class="nw-chips">${chips}</div>`+table;
+}
+
 function renderSetups(){
   const su=window._setups, pct=window._regimePct;
   const sec=document.getElementById('suConclusion');
@@ -2446,6 +2527,7 @@ function renderSetups(){
   renderSetupStats(su.stats);
   renderSetupAdvisor(su.advisor);
   renderSetupTracking(su.open);
+  try{renderNW(su.nw);}catch(e){}   // separate crypto journal — never mixed into the book above
 
   // 3. Events — auto macro calendar (FOMC / triple witching / ≈CPI) + manual extras
   const evEl=document.getElementById('suEvents');
