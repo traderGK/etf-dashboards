@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><title>TraderGK</title><script>
+// case-insensitive route fix: /GEX, /Gex etc. -> /gex/ (GitHub Pages is case-sensitive)
+var p=location.pathname.replace(/\/+$/,'').toLowerCase();
+if(p==='/gex')location.replace('/gex/');
+else document.addEventListener('DOMContentLoaded',function(){document.body.innerHTML='<div style="font-family:sans-serif;background:#0b0b0b;color:#e8e8e8;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column"><h2>Page not found</h2><a href="/" style="color:#d4af37">← tradergk.com</a></div>';});
+</script></head><body style="background:#0b0b0b"></body></html>
