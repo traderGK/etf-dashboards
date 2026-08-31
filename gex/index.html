@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GEX — QQQ Gamma Levels & Game Plan | TraderGK</title>
-<meta name="description" content="Daily EOD QQQ gamma levels, live GEX walls, and a rule-based pre-open game plan. Education only.">
+<title>GEX — NQ Gamma Levels & Game Plan | TraderGK</title>
+<meta name="description" content="Daily NQ gamma levels (QQQ-chain derived), live GEX walls, and a rule-based pre-open game plan. Education only.">
 <style>
 :root{--bg:#0b0b0b;--elev:#141414;--card:#1c1c1c;--gold:#d4af37;--text:#e8e8e8;--dim:#9a9a9a;
 --green:#22ab94;--red:#f7525f;--border:rgba(255,255,255,.12);--mono:ui-monospace,'SF Mono',Menlo,monospace}
@@ -45,7 +45,7 @@ footer a{color:var(--gold)}
     <h1><a href="/">TraderGK</a> · GEX</h1>
     <span id="regime" class="badge">loading…</span>
   </header>
-  <div class="sub">QQQ gamma levels · EOD engine + live walls · rule-based game plan. Auto-refreshes.</div>
+  <div class="sub">NQ1! gamma levels (from the QQQ chain) · EOD engine + live walls · rule-based game plan. Auto-refreshes.</div>
   <div id="content"><div class="err" style="color:var(--dim)">Loading levels…</div></div>
   <footer>
     Education only — not financial advice. Levels derived from CBOE options data (EOD engine)
@@ -68,7 +68,7 @@ function ladderRows(e,r){
     ['1D Min',e.d1min,'lvl-rng'],
     ['Put Support',e.put_support,'lvl-sup'],
   ].sort((a,b)=>b[1]-a[1]);
-  return rows.map(([n,v,c])=>`<tr><td class="${c}">${n}</td><td class="val">${fmt(v)}</td><td class="nq">${r?('NQ '+fmt(v*r,0)):''}</td></tr>`).join('');
+  return rows.map(([n,v,c])=>`<tr><td class="${c}">${n}</td><td class="val">${r?fmt(v*r,0):fmt(v)}</td><td class="nq">QQQ ${fmt(v)}</td></tr>`).join('');
 }
 function render(d){
   const reg=document.getElementById('regime');
@@ -76,18 +76,18 @@ function render(d){
   reg.className='badge '+(d.regime==='POSITIVE'?'pos':'neg');
   const r=d.nq&&d.nq.ratio,l=d.live,e=d.eod;
   const liveRows = l?`
-    <tr><td class="lvl-res">Call Wall</td><td class="val">${fmt(l.call_wall)}</td><td class="nq">${r?('NQ '+fmt(l.call_wall*r,0)):''}</td></tr>
-    ${l.gamma_flip?`<tr><td class="lvl-mid">Gamma Flip</td><td class="val">${fmt(l.gamma_flip)}</td><td class="nq">${r?('NQ '+fmt(l.gamma_flip*r,0)):''}</td></tr>`:''}
-    ${l.max_pain?`<tr><td>Max Pain</td><td class="val">${fmt(l.max_pain)}</td><td class="nq"></td></tr>`:''}
-    <tr><td class="lvl-sup">Put Wall</td><td class="val">${fmt(l.put_wall)}</td><td class="nq">${r?('NQ '+fmt(l.put_wall*r,0)):''}</td></tr>`
+    <tr><td class="lvl-res">Call Wall</td><td class="val">${r?fmt(l.call_wall*r,0):fmt(l.call_wall)}</td><td class="nq">QQQ ${fmt(l.call_wall)}</td></tr>
+    ${l.gamma_flip?`<tr><td class="lvl-mid">Gamma Flip</td><td class="val">${r?fmt(l.gamma_flip*r,0):fmt(l.gamma_flip)}</td><td class="nq">QQQ ${fmt(l.gamma_flip)}</td></tr>`:''}
+    ${l.max_pain?`<tr><td>Max Pain</td><td class="val">${r?fmt(l.max_pain*r,0):fmt(l.max_pain)}</td><td class="nq">QQQ ${fmt(l.max_pain)}</td></tr>`:''}
+    <tr><td class="lvl-sup">Put Wall</td><td class="val">${r?fmt(l.put_wall*r,0):fmt(l.put_wall)}</td><td class="nq">QQQ ${fmt(l.put_wall)}</td></tr>`
     :'<tr><td colspan="3" style="color:var(--dim)">live source unavailable — EOD levels remain valid</td></tr>';
   document.getElementById('content').innerHTML=`
-    <div class="spotline">QQQ spot ${l?'<b>'+fmt(l.spot)+'</b> (live '+(l.fetched||'')+')':'<b>'+fmt(e.spot)+'</b> (at EOD fetch)'}
-      ${r?' · NQ ratio ×'+fmt(r,3):''}</div>
+    <div class="spotline">${r&&l?('NQ ≈ <b>'+fmt(l.spot*r,0)+'</b> · QQQ spot '+fmt(l.spot)+' (live '+(l.fetched||'')+')'):('QQQ spot <b>'+fmt((l||e).spot)+'</b>')}
+      ${r?' · ratio ×'+fmt(r,3):''}</div>
     <div class="grid">
-      <div class="card"><h2>EOD Gamma Ladder <small>engine · ${d.eod.vintage||''}</small></h2>
+      <div class="card"><h2>NQ1! Gamma Ladder — EOD <small>engine · ${d.eod.vintage||''}</small></h2>
         <table>${ladderRows(e,r)}</table></div>
-      <div class="card"><h2>Live Walls <small>${l?(l.source+' · as of '+l.as_of):''}</small></h2>
+      <div class="card"><h2>NQ1! Live Walls <small>${l?(l.source+' · as of '+l.as_of):''}</small></h2>
         <table>${liveRows}</table>
         <div class="meta">Walls move little intraday (OI updates overnight); what changes is spot vs the flip.</div></div>
     </div>
