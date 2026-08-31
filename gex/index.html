@@ -1,1 +1,104 @@
-<!doctype html><meta http-equiv="refresh" content="0;url=/gex/"><link rel="canonical" href="https://tradergk.com/gex/">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GEX — QQQ Gamma Levels & Game Plan | TraderGK</title>
+<meta name="description" content="Daily EOD QQQ gamma levels, live GEX walls, and a rule-based pre-open game plan. Education only.">
+<style>
+:root{--bg:#0b0b0b;--elev:#141414;--card:#1c1c1c;--gold:#d4af37;--text:#e8e8e8;--dim:#9a9a9a;
+--green:#22ab94;--red:#f7525f;--border:rgba(255,255,255,.12);--mono:ui-monospace,'SF Mono',Menlo,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',Roboto,sans-serif;line-height:1.55}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+h1{font-size:1.35rem}h1 a{color:var(--gold);text-decoration:none}
+.sub{color:var(--dim);font-size:.85rem;margin-bottom:20px}
+.badge{display:inline-block;padding:3px 12px;border-radius:14px;font-weight:700;font-size:.85rem}
+.pos{background:rgba(34,171,148,.15);color:var(--green);border:1px solid var(--green)}
+.neg{background:rgba(247,82,95,.15);color:var(--red);border:1px solid var(--red)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.card h2{font-size:.95rem;color:var(--gold);margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline}
+.card h2 small{color:var(--dim);font-weight:400;font-size:.72rem}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+td{padding:5px 4px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:last-child td{border-bottom:none}
+td.val{font-family:var(--mono);text-align:right;white-space:nowrap}
+td.nq{font-family:var(--mono);text-align:right;color:var(--dim);white-space:nowrap}
+.lvl-res{color:var(--red)}.lvl-sup{color:var(--green)}.lvl-mid{color:#6ea8ff}.lvl-rng{color:#e69138}
+.plan{background:var(--elev);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px}
+.plan h2{font-size:.95rem;color:var(--gold);margin-bottom:12px}
+.plan pre{font-family:var(--mono);font-size:.84rem;white-space:pre-wrap;color:var(--text);line-height:1.6}
+.meta{color:var(--dim);font-size:.75rem;margin-top:14px}
+.err{color:var(--red);padding:30px;text-align:center}
+footer{margin-top:34px;color:var(--dim);font-size:.75rem;border-top:1px solid var(--border);padding-top:14px}
+footer a{color:var(--gold)}
+.spotline{font-size:.92rem;margin-bottom:16px;color:var(--dim)}
+.spotline b{color:var(--text);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><a href="/">TraderGK</a> · GEX</h1>
+    <span id="regime" class="badge">loading…</span>
+  </header>
+  <div class="sub">QQQ gamma levels · EOD engine + live walls · rule-based game plan. Auto-refreshes.</div>
+  <div id="content"><div class="err" style="color:var(--dim)">Loading levels…</div></div>
+  <footer>
+    Education only — not financial advice. Levels derived from CBOE options data (EOD engine)
+    and <a href="https://algoindex.com/tools/qqq-gamma-exposure" rel="nofollow">AlgoIndex</a> (live walls).
+    NQ conversion is approximate (prev-close ratio). <a href="/">← dashboard</a>
+  </footer>
+</div>
+<script>
+const API='https://api.tradergk.com/gex';
+const fmt=(v,d=2)=>v==null?'–':Number(v).toLocaleString('en-US',{maximumFractionDigits:d});
+function ladderRows(e,r){
+  const rows=[
+    ['Call Resistance',e.call_resistance,'lvl-res'],
+    ['Call Res 0DTE',e.cr0,'lvl-res'],
+    ['Gamma Wall 0DTE',e.gw0,'lvl-res'],
+    ['1D Max',e.d1max,'lvl-rng'],
+    ['HVL (flip)',e.hvl,'lvl-mid'],
+    ['HVL 0DTE',e.hvl0,'lvl-mid'],
+    ['Put Sup 0DTE',e.ps0,'lvl-sup'],
+    ['1D Min',e.d1min,'lvl-rng'],
+    ['Put Support',e.put_support,'lvl-sup'],
+  ].sort((a,b)=>b[1]-a[1]);
+  return rows.map(([n,v,c])=>`<tr><td class="${c}">${n}</td><td class="val">${fmt(v)}</td><td class="nq">${r?('NQ '+fmt(v*r,0)):''}</td></tr>`).join('');
+}
+function render(d){
+  const reg=document.getElementById('regime');
+  reg.textContent=(d.regime==='POSITIVE'?'POSITIVE γ · mean-reversion':'NEGATIVE γ · breakout mode');
+  reg.className='badge '+(d.regime==='POSITIVE'?'pos':'neg');
+  const r=d.nq&&d.nq.ratio,l=d.live,e=d.eod;
+  const liveRows = l?`
+    <tr><td class="lvl-res">Call Wall</td><td class="val">${fmt(l.call_wall)}</td><td class="nq">${r?('NQ '+fmt(l.call_wall*r,0)):''}</td></tr>
+    ${l.gamma_flip?`<tr><td class="lvl-mid">Gamma Flip</td><td class="val">${fmt(l.gamma_flip)}</td><td class="nq">${r?('NQ '+fmt(l.gamma_flip*r,0)):''}</td></tr>`:''}
+    ${l.max_pain?`<tr><td>Max Pain</td><td class="val">${fmt(l.max_pain)}</td><td class="nq"></td></tr>`:''}
+    <tr><td class="lvl-sup">Put Wall</td><td class="val">${fmt(l.put_wall)}</td><td class="nq">${r?('NQ '+fmt(l.put_wall*r,0)):''}</td></tr>`
+    :'<tr><td colspan="3" style="color:var(--dim)">live source unavailable — EOD levels remain valid</td></tr>';
+  document.getElementById('content').innerHTML=`
+    <div class="spotline">QQQ spot ${l?'<b>'+fmt(l.spot)+'</b> (live '+(l.fetched||'')+')':'<b>'+fmt(e.spot)+'</b> (at EOD fetch)'}
+      ${r?' · NQ ratio ×'+fmt(r,3):''}</div>
+    <div class="grid">
+      <div class="card"><h2>EOD Gamma Ladder <small>engine · ${d.eod.vintage||''}</small></h2>
+        <table>${ladderRows(e,r)}</table></div>
+      <div class="card"><h2>Live Walls <small>${l?(l.source+' · as of '+l.as_of):''}</small></h2>
+        <table>${liveRows}</table>
+        <div class="meta">Walls move little intraday (OI updates overnight); what changes is spot vs the flip.</div></div>
+    </div>
+    <div class="plan"><h2>Pre-Open Game Plan</h2><pre>${(d.plan||'').replace(/</g,'&lt;')}</pre>
+      <div class="meta">Generated ${d.generated} · rule engine (regime → scenarios → levels → targets) · entries need orderflow confirmation</div></div>`;
+}
+async function load(){
+  try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;render(await r.json());}
+  catch(e){document.getElementById('content').innerHTML='<div class="err">Levels are being prepared — check back shortly.</div>';}
+}
+load();setInterval(load,60000);
+</script>
+</body>
+</html>
